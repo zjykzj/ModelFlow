@@ -1,3 +1,9 @@
+TRANSFORM:
+  TEST_METHODS: ('Resize', 'CenterCrop', 'ToTensor', 'Normalize')
+  TEST_RESIZE: (224, )
+  TEST_CROP: (224, 224)
+  MEAN: (0.45, 0.45, 0.45)
+  STD: (0.225, 0.225, 0.225)
 MODEL:
   CONV:
     TYPE: 'Conv2d'
