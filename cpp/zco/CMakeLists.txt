@@ -3,7 +3,6 @@ project(zco)
 
 set(CMAKE_CXX_STANDARD 14)
 
-
 # set opencv
 # see [get_filename_component](https://cmake.org/cmake/help/latest/command/get_filename_component.html)
 get_filename_component(ABSOLUTE_OpenCV_DIR ../../3rdparty/opencv ABSOLUTE)
