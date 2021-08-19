@@ -35,6 +35,10 @@ int main(int argc, char *argv[]) {
     std::vector<float> output_values;
     model.infer(dst, output_values);
 
+    // get max index
+    size_t max_idx = get_max_idx(output_values);
+    std::cout << "max_idx: " << max_idx << std::endl;
+
     // sort
     std::vector<size_t> output_sorted_idxes(output_values.size());
     get_top_n(output_values, output_sorted_idxes);
