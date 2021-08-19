@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 14)
 
 
 # set opencv
+# see [get_filename_component](https://cmake.org/cmake/help/latest/command/get_filename_component.html)
 get_filename_component(ABSOLUTE_OpenCV_DIR ../../3rdparty/opencv ABSOLUTE)
 # Add the installation prefix of "OpenCV" to CMAKE_PREFIX_PATH or set
 # "OpenCV_DIR" to a directory containing OpenCVConfig.cmake/opencv-config.cmake.
