@@ -53,6 +53,11 @@ bool normalize(cv::Mat &img, bool keep_32f = true, cv::Scalar mean = cv::Scalar(
  */
 bool hwc_2_chw(cv::Mat &src, cv::Mat &dst);
 
+/**
+ * show cv::Mat info
+ * @param img
+ * @return
+ */
 bool print_image_info(const cv::Mat &img);
 
 #endif //ZCM_IMAGE_PROCESS_H

@@ -26,3 +26,8 @@ void get_top_n(const std::vector<float> &input, std::vector<size_t> &output_sort
               }
     );
 }
+
+size_t get_max_idx(const std::vector<float> &input) {
+    size_t result_ = std::distance(input.begin(), std::max_element(input.begin(), input.end()));
+    return result_;
+}

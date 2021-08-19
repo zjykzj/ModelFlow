@@ -51,11 +51,19 @@ void softmax(T &input) {
 void get_top_n(const std::vector<float> &input, std::vector<size_t> &output_sorted_idxes);
 
 /**
+ * 获取数组最大值下标
+ * @param input
+ * @return
+ */
+size_t get_max_idx(const std::vector<float> &input);
+
+/**
  * 读取文本文件每行内容，保存到结果向量
  * @param file_name
  * @param result
  * @return
  */
 bool read_txt_file(const std::string &file_name, std::vector<std::string> *result);
+
 
 #endif //ZCM_COMMON_OPERATION_H
