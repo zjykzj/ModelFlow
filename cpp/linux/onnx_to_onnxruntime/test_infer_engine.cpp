@@ -31,9 +31,19 @@ int main(int argc, char *argv[]) {
     cv::Mat dst;
     hwc_2_chw(resize_img, dst);
 
-    // model infer
+    // Measure latency
+    int numTests{100};
+    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
     std::vector<float> output_values;
-    model.infer(dst, output_values);
+    for (int i = 0; i < numTests; i++) {
+        // model infer
+        model.infer(dst, output_values);
+    }
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    std::cout << "Minimum Inference Latency: "
+              << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() /
+                 static_cast<float>(numTests)
+              << " ms" << std::endl;
 
     // get max index
     size_t max_idx = get_max_idx(output_values);
@@ -46,7 +56,8 @@ int main(int argc, char *argv[]) {
     // softmax
     std::vector<float> output_probs(output_values);
     softmax(output_probs);
-    for (int i = 0; i < output_probs.size(); i++) {
+//    for (int i = 0; i < output_probs.size(); i++) {
+    for (int i = 0; i < 5; i++) {
         auto idx = int(output_sorted_idxes[i]);
         printf("Score for index [%d] =  %f %f\n", idx, output_values.at(idx), output_probs[idx]);
     }
