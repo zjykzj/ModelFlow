@@ -2,6 +2,7 @@
 // Created by zj on 2021/8/17.
 //
 
+#include <cassert>
 #include "common_operation.h"
 
 bool read_txt_file(const std::string &file_name, std::vector<std::string> *result) {
@@ -19,6 +20,7 @@ bool read_txt_file(const std::string &file_name, std::vector<std::string> *resul
 }
 
 void get_top_n(const std::vector<float> &input, std::vector<size_t> &output_sorted_idxes) {
+    assert(input.size() == output_sorted_idxes.size());
     std::iota(output_sorted_idxes.begin(), output_sorted_idxes.end(), 0);
     std::sort(output_sorted_idxes.begin(), output_sorted_idxes.end(),
               [&input](size_t index_1, size_t index_2) {
