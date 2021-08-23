@@ -15,7 +15,7 @@ bool InferEngine::release() {
     return model->release();
 }
 
-bool InferEngine::preprocess(const cv::Mat &src, cv::Mat dst) {
+bool InferEngine::preprocess(const cv::Mat &src, cv::Mat &dst) {
     cv::Mat img = src.clone();
 
     square_padding(img);
@@ -34,8 +34,17 @@ bool InferEngine::preprocess(const cv::Mat &src, cv::Mat dst) {
 }
 
 
-bool InferEngine::infer(const cv::Mat &img, std::vector<float> &output_values, std::vector<int> &output_idxes) {
-    return model->infer(img, output_values);
+bool InferEngine::infer(const cv::Mat &img, std::vector<float> &output_values, std::vector<size_t> &output_idxes) {
+    bool flag = model->infer(img, output_values);
+    if (!flag) {
+        return false;
+    }
+    assert(!output_values.empty());
+
+    output_idxes = std::vector<size_t>(output_values.size());
+    get_top_n(output_values, output_idxes);
+
+    return true;
 }
 
 

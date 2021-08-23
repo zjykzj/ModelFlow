@@ -17,9 +17,9 @@ public:
 
     virtual bool release();
 
-    static bool preprocess(const cv::Mat &src, cv::Mat dst);
+    static bool preprocess(const cv::Mat &src, cv::Mat &dst);
 
-    virtual bool infer(const cv::Mat &img, std::vector<float> &output_values, std::vector<int> &output_idxes);
+    virtual bool infer(const cv::Mat &img, std::vector<float> &output_values, std::vector<size_t> &output_idxes);
 
     static bool probes(std::vector<float> &values);
 

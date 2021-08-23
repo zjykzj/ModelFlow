@@ -16,7 +16,7 @@ int main() {
     InferEngine::preprocess(src, dst);
 
     std::vector<float> output_values;
-    std::vector<int> output_idxes;
+    std::vector<size_t> output_idxes;
     engine.infer(dst, output_values, output_idxes);
 
     std::vector<float> probes;
