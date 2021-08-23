@@ -4,6 +4,8 @@ outputs/
 assets/*.onnx
 assets/*.jpg
 assets/*.txt
+3rdparty/onnx*
+3rdparty/opencv*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
