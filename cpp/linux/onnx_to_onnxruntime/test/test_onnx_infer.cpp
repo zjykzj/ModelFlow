@@ -2,7 +2,7 @@
 // Created by zj on 2021/8/19.
 //
 
-#include "onnx_infer.h"
+#include "../source/onnx_infer.h"
 #include "image_process.h"
 
 int main(int argc, char *argv[]) {

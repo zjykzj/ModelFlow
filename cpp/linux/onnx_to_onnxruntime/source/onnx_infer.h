@@ -31,7 +31,7 @@ public:
 
     void print_output_info();
 
-    void infer(const cv::Mat &img, std::vector<float> &output_values);
+    bool infer(const cv::Mat &img, std::vector<float> &output_values);
 
     static const size_t IMAGE_WIDTH = 224;
     static const size_t IMAGE_HEIGHT = 224;

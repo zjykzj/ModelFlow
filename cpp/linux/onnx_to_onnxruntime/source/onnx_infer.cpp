@@ -9,7 +9,14 @@
 // Function
 // --------------------------------------------------------------------
 
-void get_input_info(Ort::Session &session, std::vector<int64_t> &input_node_dims) {
+void get_input_info(Ort::Session &session, std::vector<int64_t> &input_node_dims,
+                    std::vector<const char *> &input_node_names) {
+    Ort::AllocatorWithDefaultOptions allocator;
+
+    // print input node names
+    char *input_name = session.GetInputName(0, allocator);
+    input_node_names[0] = input_name;
+
     // input node types
     Ort::TypeInfo type_info = session.GetInputTypeInfo(0);
     auto tensor_info = type_info.GetTensorTypeAndShapeInfo();
@@ -31,8 +38,6 @@ void get_output_info(Ort::Session &session, std::vector<int64_t> &output_node_di
     // print output node types
     Ort::TypeInfo type_info = session.GetOutputTypeInfo(0);
     auto tensor_info = type_info.GetTensorTypeAndShapeInfo();
-
-    ONNXTensorElementDataType type = tensor_info.GetElementType();
 
     // print output shapes/dims
     output_node_dims = tensor_info.GetShape();
@@ -66,7 +71,7 @@ bool ONNXInfer::create(const char *model_path) {
 
     size_t num_input_nodes = session.GetInputCount();
     input_node_names = std::vector<const char *>(num_input_nodes);
-    get_input_info(session, input_node_dims);
+    get_input_info(session, input_node_dims, input_node_names);
 
     input_tensor = Ort::Value::CreateTensor<float>(memory_info,
                                                    input_tensor_values.data(),
@@ -164,7 +169,7 @@ void ONNXInfer::print_output_info() {
 }
 
 
-void ONNXInfer::infer(const cv::Mat &img, std::vector<float> &output_values) {
+bool ONNXInfer::infer(const cv::Mat &img, std::vector<float> &output_values) {
     // Score the model using sample data, and inspect values
     input_tensor_values.assign(img.begin<float>(), img.end<float>());
 
@@ -183,4 +188,6 @@ void ONNXInfer::infer(const cv::Mat &img, std::vector<float> &output_values) {
     for (int i = 0; i < output_node_dims[1]; i++) {
         output_values.push_back(floatarr[i]);
     }
+
+    return true;
 }

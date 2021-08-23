@@ -25,8 +25,12 @@ link_directories(${ABSOLUTE_OnnxRuntime_DIR}/lib)
 include_directories(../../zco/install/include)
 link_directories(../../zco/install/lib)
 
-#add_executable(onnx_to_onnx_runtime main.cpp infer_engine.cpp infer_engine.h test_infer_engine.cpp)
-add_executable(onnx_to_onnxruntime onnx_infer.cpp onnx_infer.h test_onnx_infer.cpp)
+add_executable(onnx_to_onnxruntime
+        source/onnx_infer.cpp
+        source/onnx_infer.h
+        source/infer_engine.cpp
+        source/infer_engine.h
+        test/single_image_test.cpp)
 target_link_libraries(onnx_to_onnxruntime ${OpenCV_LIBS})
 target_link_libraries(onnx_to_onnxruntime onnxruntime)
 target_link_libraries(onnx_to_onnxruntime zco)
