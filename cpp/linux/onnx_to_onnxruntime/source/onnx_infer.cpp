@@ -62,7 +62,7 @@ ONNXInfer::ONNXInfer() {
     // ORT_ENABLE_BASIC -> To enable basic optimizations (Such as redundant node removals)
     // ORT_ENABLE_EXTENDED -> To enable extended optimizations (Includes level 1 + more complex optimizations like node fusions)
     // ORT_ENABLE_ALL -> To Enable All possible opitmizations
-    session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
+    session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
 }
 
 
