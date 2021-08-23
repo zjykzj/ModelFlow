@@ -49,6 +49,10 @@ bool square_padding(cv::Mat &img) {
 }
 
 bool resize(cv::Mat &orig_img, cv::Mat &dst, const cv::Size2i &size) {
+    if (orig_img.empty()) {
+        std::cerr << "orig_img is empty\n";
+        return false;
+    }
     const int MODEL_IN_WIDTH = size.width;
     const int MODEL_IN_HEIGHT = size.height;
 
