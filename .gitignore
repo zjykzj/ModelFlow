@@ -3,6 +3,7 @@
 outputs/
 assets/*.onnx
 assets/*.jpg
+assets/*.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
