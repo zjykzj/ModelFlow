@@ -5,56 +5,11 @@
 
 #include "onnx_infer.h"
 
-ONNXInfer::ONNXInfer(const char *model_path) {
-    session_options.SetIntraOpNumThreads(4);
-    // If onnxruntime.dll is built with CUDA enabled, we can uncomment out this line to use CUDA for this
-    // session (we also need to include cuda_provider_factory.h above which defines it)
-    // #include "cuda_provider_factory.h"
-    // OrtSessionOptionsAppendExecutionProvider_CUDA(session_options, 1);
+// --------------------------------------------------------------------
+// Function
+// --------------------------------------------------------------------
 
-    // Sets graph optimization level
-    // Available levels are
-    // ORT_DISABLE_ALL -> To disable all optimizations
-    // ORT_ENABLE_BASIC -> To enable basic optimizations (Such as redundant node removals)
-    // ORT_ENABLE_EXTENDED -> To enable extended optimizations (Includes level 1 + more complex optimizations like node fusions)
-    // ORT_ENABLE_ALL -> To Enable All possible opitmizations
-    session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
-
-    session = Ort::Session(env, model_path, session_options);
-
-    get_input_info();
-
-    size_t num_input_nodes = session.GetInputCount();
-    input_node_names = std::vector<const char *>(num_input_nodes);
-
-    input_tensor = Ort::Value::CreateTensor<float>(memory_info,
-                                                   input_tensor_values.data(),
-                                                   input_tensor_size,
-                                                   input_node_dims.data(),
-                                                   input_node_dims.size());
-    assert(input_tensor.IsTensor());
-
-
-    size_t num_output_nodes = session.GetOutputCount();
-    output_node_names = std::vector<const char *>(num_output_nodes);
-
-    get_output_info();
-
-    output_tensor_size = vector_product(output_node_dims);
-    output_tensor_values = std::vector<float>(output_tensor_size);
-    output_tensor = Ort::Value::CreateTensor<float>(memory_info,
-                                                    output_tensor_values.data(),
-                                                    output_tensor_size,
-                                                    output_node_dims.data(),
-                                                    output_node_dims.size());
-    assert(output_tensor.IsTensor());
-}
-
-void ONNXInfer::release() {
-
-}
-
-void ONNXInfer::get_input_info() {
+void get_input_info(Ort::Session &session, std::vector<int64_t> &input_node_dims) {
     // input node types
     Ort::TypeInfo type_info = session.GetInputTypeInfo(0);
     auto tensor_info = type_info.GetTensorTypeAndShapeInfo();
@@ -65,7 +20,8 @@ void ONNXInfer::get_input_info() {
     input_node_dims[0] = 1;
 }
 
-void ONNXInfer::get_output_info() {
+void get_output_info(Ort::Session &session, std::vector<int64_t> &output_node_dims,
+                     std::vector<const char *> &output_node_names) {
     Ort::AllocatorWithDefaultOptions allocator;
 
     // print output node names
@@ -83,6 +39,61 @@ void ONNXInfer::get_output_info() {
     // Set the size of dimension 0 to 1
     output_node_dims[0] = 1;
 }
+
+// --------------------------------------------------------------------
+// Definition
+// --------------------------------------------------------------------
+
+ONNXInfer::ONNXInfer() {
+    session_options.SetIntraOpNumThreads(4);
+    // If onnxruntime.dll is built with CUDA enabled, we can uncomment out this line to use CUDA for this
+    // session (we also need to include cuda_provider_factory.h above which defines it)
+    // #include "cuda_provider_factory.h"
+    // OrtSessionOptionsAppendExecutionProvider_CUDA(session_options, 1);
+
+    // Sets graph optimization level
+    // Available levels are
+    // ORT_DISABLE_ALL -> To disable all optimizations
+    // ORT_ENABLE_BASIC -> To enable basic optimizations (Such as redundant node removals)
+    // ORT_ENABLE_EXTENDED -> To enable extended optimizations (Includes level 1 + more complex optimizations like node fusions)
+    // ORT_ENABLE_ALL -> To Enable All possible opitmizations
+    session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
+}
+
+
+bool ONNXInfer::create(const char *model_path) {
+    session = Ort::Session(env, model_path, session_options);
+
+    size_t num_input_nodes = session.GetInputCount();
+    input_node_names = std::vector<const char *>(num_input_nodes);
+    get_input_info(session, input_node_dims);
+
+    input_tensor = Ort::Value::CreateTensor<float>(memory_info,
+                                                   input_tensor_values.data(),
+                                                   input_tensor_size,
+                                                   input_node_dims.data(),
+                                                   input_node_dims.size());
+    assert(input_tensor.IsTensor());
+
+    size_t num_output_nodes = session.GetOutputCount();
+    output_node_names = std::vector<const char *>(num_output_nodes);
+    get_output_info(session, output_node_dims, output_node_names);
+
+    size_t output_tensor_size = vector_product(output_node_dims);
+    output_tensor_values = std::vector<float>(output_tensor_size);
+    output_tensor = Ort::Value::CreateTensor<float>(memory_info,
+                                                    output_tensor_values.data(),
+                                                    output_tensor_size,
+                                                    output_node_dims.data(),
+                                                    output_node_dims.size());
+    assert(output_tensor.IsTensor());
+    return true;
+}
+
+bool ONNXInfer::release() {
+    return true;
+}
+
 
 void ONNXInfer::print_input_info() {
     Ort::AllocatorWithDefaultOptions allocator;
@@ -155,26 +166,7 @@ void ONNXInfer::print_output_info() {
 
 void ONNXInfer::infer(const cv::Mat &img, std::vector<float> &output_values) {
     // Score the model using sample data, and inspect values
-//    std::vector<float> input_tensor_values(input_tensor_size);
     input_tensor_values.assign(img.begin<float>(), img.end<float>());
-
-//    // create input tensor object from data values
-//    Ort::Value input_tensor = Ort::Value::CreateTensor<float>(memory_info,
-//                                                              input_tensor_values.data(),
-//                                                              input_tensor_size,
-//                                                              input_node_dims.data(),
-//                                                              input_node_dims.size());
-//    assert(input_tensor.IsTensor());
-
-    // create output tensor object
-//    size_t output_tensor_size = vector_product(output_node_dims);
-//    std::vector<float> output_tensor_values(output_tensor_size);
-//    Ort::Value output_tensor = Ort::Value::CreateTensor<float>(memory_info,
-//                                                               output_tensor_values.data(),
-//                                                               output_tensor_size,
-//                                                               output_node_dims.data(),
-//                                                               output_node_dims.size());
-//    assert(output_tensor.IsTensor());
 
     // score model & input tensor, get back output tensor
     session.Run(Ort::RunOptions{nullptr},
@@ -187,11 +179,8 @@ void ONNXInfer::infer(const cv::Mat &img, std::vector<float> &output_values) {
     // Get pointer to output tensor float values
     auto *floatarr = output_tensor.GetTensorMutableData<float>();
 
-//    std::vector<float> output_values;
     // score the model, and print scores for first 5 classes
     for (int i = 0; i < output_node_dims[1]; i++) {
-//        printf("Score for class [%d] =  %f\n", i, floatarr[i]);
         output_values.push_back(floatarr[i]);
     }
 }
-

@@ -8,7 +8,8 @@
 int main(int argc, char *argv[]) {
     // init model
     const char *model_path = "../../../../assets/demo.onnx";
-    auto model = ONNXInfer(model_path);
+    auto model = ONNXInfer();
+    model.create(model_path);
     model.print_input_info();
     model.print_output_info();
 
@@ -39,6 +40,8 @@ int main(int argc, char *argv[]) {
         // model infer
         model.infer(dst, output_values);
     }
+    model.release();
+
     std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
     std::cout << "Minimum Inference Latency: "
               << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() /

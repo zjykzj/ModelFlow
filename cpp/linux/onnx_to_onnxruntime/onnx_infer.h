@@ -21,9 +21,11 @@ class ONNXInfer {
 
 public:
 
-    explicit ONNXInfer(const char *model_path);
+    ONNXInfer();
 
-    void release();
+    bool create(const char *model_path);
+
+    bool release();
 
     void print_input_info();
 
@@ -40,12 +42,8 @@ public:
 
 private:
 
-    void get_input_info();
-
-    void get_output_info();
-
-    // initialize  enviroment...one enviroment per process
-    // enviroment maintains thread pools and other state info
+    // initialize environment...one environment per process
+    // environment maintains thread pools and other state info
     Ort::Env env{ORT_LOGGING_LEVEL_WARNING, "infer"};
 
     // initialize session options if needed
@@ -58,23 +56,19 @@ private:
     // simplify... this model has only 1 input node {1, 3, 224, 224}.
     // Otherwise need vector<vector<>>
     std::vector<int64_t> input_node_dims;
-    // print number of model input nodes
     std::vector<const char *> input_node_names{nullptr};
-
-    // create input tensor object from data values
-    std::vector<float> input_tensor_values = std::vector<float>(input_tensor_size);
-
     Ort::Value input_tensor{nullptr};
 
     // simplify... this model has only 1 output node {1, N}.
     // Otherwise need vector<vector<>>
     std::vector<int64_t> output_node_dims;
     std::vector<const char *> output_node_names{nullptr};
-
-    // create output tensor object
-    size_t output_tensor_size;
-    std::vector<float> output_tensor_values;
     Ort::Value output_tensor{nullptr};
+
+    // create input tensor object from data values
+    std::vector<float> input_tensor_values = std::vector<float>(input_tensor_size);
+    // create output tensor object
+    std::vector<float> output_tensor_values;
 };
 
 
