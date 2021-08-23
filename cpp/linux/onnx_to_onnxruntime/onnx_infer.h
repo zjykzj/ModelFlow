@@ -17,11 +17,11 @@
  * ONNX-Runtime-Inference/src/inference.cpp
  * https://github.com/leimao/ONNX-Runtime-Inference/blob/main/src/inference.cpp
  */
-class InferEngine {
+class ONNXInfer {
 
 public:
 
-    explicit InferEngine(const char *model_path);
+    explicit ONNXInfer(const char *model_path);
 
     void release();
 
@@ -36,9 +36,13 @@ public:
     static const size_t IMAGE_CHANNEL = 3;
     // simplify ... using known dim values to calculate size
     // use OrtGetTensorShapeElementCount() to get official size!
-    size_t input_tensor_size = IMAGE_WIDTH * IMAGE_HEIGHT * IMAGE_CHANNEL;
+    const static size_t input_tensor_size = IMAGE_WIDTH * IMAGE_HEIGHT * IMAGE_CHANNEL;
 
 private:
+
+    void get_input_info();
+
+    void get_output_info();
 
     // initialize  enviroment...one enviroment per process
     // enviroment maintains thread pools and other state info
@@ -49,16 +53,28 @@ private:
 
     Ort::Session session{nullptr};
 
+    Ort::MemoryInfo memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
+
     // simplify... this model has only 1 input node {1, 3, 224, 224}.
     // Otherwise need vector<vector<>>
     std::vector<int64_t> input_node_dims;
     // print number of model input nodes
     std::vector<const char *> input_node_names{nullptr};
 
+    // create input tensor object from data values
+    std::vector<float> input_tensor_values = std::vector<float>(input_tensor_size);
+
+    Ort::Value input_tensor{nullptr};
+
     // simplify... this model has only 1 output node {1, N}.
     // Otherwise need vector<vector<>>
     std::vector<int64_t> output_node_dims;
     std::vector<const char *> output_node_names{nullptr};
+
+    // create output tensor object
+    size_t output_tensor_size;
+    std::vector<float> output_tensor_values;
+    Ort::Value output_tensor{nullptr};
 };
 
 

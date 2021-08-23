@@ -3,10 +3,10 @@
 //
 
 
-#include "InferEngine.h"
+#include "onnx_infer.h"
 
-InferEngine::InferEngine(const char *model_path) {
-    session_options.SetIntraOpNumThreads(1);
+ONNXInfer::ONNXInfer(const char *model_path) {
+    session_options.SetIntraOpNumThreads(4);
     // If onnxruntime.dll is built with CUDA enabled, we can uncomment out this line to use CUDA for this
     // session (we also need to include cuda_provider_factory.h above which defines it)
     // #include "cuda_provider_factory.h"
@@ -18,22 +18,73 @@ InferEngine::InferEngine(const char *model_path) {
     // ORT_ENABLE_BASIC -> To enable basic optimizations (Such as redundant node removals)
     // ORT_ENABLE_EXTENDED -> To enable extended optimizations (Includes level 1 + more complex optimizations like node fusions)
     // ORT_ENABLE_ALL -> To Enable All possible opitmizations
-    session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
+    session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
 
     session = Ort::Session(env, model_path, session_options);
+
+    get_input_info();
 
     size_t num_input_nodes = session.GetInputCount();
     input_node_names = std::vector<const char *>(num_input_nodes);
 
+    input_tensor = Ort::Value::CreateTensor<float>(memory_info,
+                                                   input_tensor_values.data(),
+                                                   input_tensor_size,
+                                                   input_node_dims.data(),
+                                                   input_node_dims.size());
+    assert(input_tensor.IsTensor());
+
+
     size_t num_output_nodes = session.GetOutputCount();
     output_node_names = std::vector<const char *>(num_output_nodes);
+
+    get_output_info();
+
+    output_tensor_size = vector_product(output_node_dims);
+    output_tensor_values = std::vector<float>(output_tensor_size);
+    output_tensor = Ort::Value::CreateTensor<float>(memory_info,
+                                                    output_tensor_values.data(),
+                                                    output_tensor_size,
+                                                    output_node_dims.data(),
+                                                    output_node_dims.size());
+    assert(output_tensor.IsTensor());
 }
 
-void InferEngine::release() {
+void ONNXInfer::release() {
 
 }
 
-void InferEngine::print_input_info() {
+void ONNXInfer::get_input_info() {
+    // input node types
+    Ort::TypeInfo type_info = session.GetInputTypeInfo(0);
+    auto tensor_info = type_info.GetTensorTypeAndShapeInfo();
+
+    // print input shapes/dims
+    input_node_dims = tensor_info.GetShape();
+    // Set the size of dimension 0 to 1
+    input_node_dims[0] = 1;
+}
+
+void ONNXInfer::get_output_info() {
+    Ort::AllocatorWithDefaultOptions allocator;
+
+    // print output node names
+    char *output_name = session.GetOutputName(0, allocator);
+    output_node_names[0] = output_name;
+
+    // print output node types
+    Ort::TypeInfo type_info = session.GetOutputTypeInfo(0);
+    auto tensor_info = type_info.GetTensorTypeAndShapeInfo();
+
+    ONNXTensorElementDataType type = tensor_info.GetElementType();
+
+    // print output shapes/dims
+    output_node_dims = tensor_info.GetShape();
+    // Set the size of dimension 0 to 1
+    output_node_dims[0] = 1;
+}
+
+void ONNXInfer::print_input_info() {
     Ort::AllocatorWithDefaultOptions allocator;
 
     // print model input layer (node names, types, shape etc.)
@@ -65,7 +116,8 @@ void InferEngine::print_input_info() {
     }
 }
 
-void InferEngine::print_output_info() {
+
+void ONNXInfer::print_output_info() {
     Ort::AllocatorWithDefaultOptions allocator;
 
     // print number of model output nodes
@@ -100,29 +152,29 @@ void InferEngine::print_output_info() {
     // OrtSessionGetOutputTypeInfo() as shown above.
 }
 
-void InferEngine::infer(const cv::Mat &img, std::vector<float> &output_values) {
+
+void ONNXInfer::infer(const cv::Mat &img, std::vector<float> &output_values) {
     // Score the model using sample data, and inspect values
-    std::vector<float> input_tensor_values(input_tensor_size);
+//    std::vector<float> input_tensor_values(input_tensor_size);
     input_tensor_values.assign(img.begin<float>(), img.end<float>());
 
-    // create input tensor object from data values
-    auto memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
-    Ort::Value input_tensor = Ort::Value::CreateTensor<float>(memory_info,
-                                                              input_tensor_values.data(),
-                                                              input_tensor_size,
-                                                              input_node_dims.data(),
-                                                              input_node_dims.size());
-    assert(input_tensor.IsTensor());
+//    // create input tensor object from data values
+//    Ort::Value input_tensor = Ort::Value::CreateTensor<float>(memory_info,
+//                                                              input_tensor_values.data(),
+//                                                              input_tensor_size,
+//                                                              input_node_dims.data(),
+//                                                              input_node_dims.size());
+//    assert(input_tensor.IsTensor());
 
     // create output tensor object
-    size_t output_tensor_size = vector_product(output_node_dims);
-    std::vector<float> output_tensor_values(output_tensor_size);
-    Ort::Value output_tensor = Ort::Value::CreateTensor<float>(memory_info,
-                                                               output_tensor_values.data(),
-                                                               output_tensor_size,
-                                                               output_node_dims.data(),
-                                                               output_node_dims.size());
-    assert(output_tensor.IsTensor());
+//    size_t output_tensor_size = vector_product(output_node_dims);
+//    std::vector<float> output_tensor_values(output_tensor_size);
+//    Ort::Value output_tensor = Ort::Value::CreateTensor<float>(memory_info,
+//                                                               output_tensor_values.data(),
+//                                                               output_tensor_size,
+//                                                               output_node_dims.data(),
+//                                                               output_node_dims.size());
+//    assert(output_tensor.IsTensor());
 
     // score model & input tensor, get back output tensor
     session.Run(Ort::RunOptions{nullptr},
@@ -142,3 +194,4 @@ void InferEngine::infer(const cv::Mat &img, std::vector<float> &output_values) {
         output_values.push_back(floatarr[i]);
     }
 }
+

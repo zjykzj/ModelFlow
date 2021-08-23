@@ -2,13 +2,13 @@
 // Created by zj on 2021/8/19.
 //
 
-#include "InferEngine.h"
+#include "onnx_infer.h"
 #include "image_process.h"
 
 int main(int argc, char *argv[]) {
     // init model
     const char *model_path = "../../../../assets/demo.onnx";
-    auto model = InferEngine(model_path);
+    auto model = ONNXInfer(model_path);
     model.print_input_info();
     model.print_output_info();
 
@@ -32,9 +32,9 @@ int main(int argc, char *argv[]) {
     hwc_2_chw(resize_img, dst);
 
     // Measure latency
-    int numTests{100};
-    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+    int numTests{1};
     std::vector<float> output_values;
+    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
     for (int i = 0; i < numTests; i++) {
         // model infer
         model.infer(dst, output_values);

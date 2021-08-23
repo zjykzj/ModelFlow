@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.17)
-project(onnx_to_onnx_runtime)
+project(onnx_to_onnxruntime)
 
 set(CMAKE_CXX_STANDARD 14)
 
@@ -25,8 +25,8 @@ link_directories(${ABSOLUTE_OnnxRuntime_DIR}/lib)
 include_directories(../../zco/install/include)
 link_directories(../../zco/install/lib)
 
-#add_executable(onnx_to_onnx_runtime main.cpp InferEngine.cpp InferEngine.h test_infer_engine.cpp)
-add_executable(onnx_to_onnx_runtime InferEngine.cpp InferEngine.h test_infer_engine.cpp)
-target_link_libraries(onnx_to_onnx_runtime ${OpenCV_LIBS})
-target_link_libraries(onnx_to_onnx_runtime onnxruntime)
-target_link_libraries(onnx_to_onnx_runtime zco)
+#add_executable(onnx_to_onnx_runtime main.cpp infer_engine.cpp infer_engine.h test_infer_engine.cpp)
+add_executable(onnx_to_onnxruntime onnx_infer.cpp onnx_infer.h test_onnx_infer.cpp)
+target_link_libraries(onnx_to_onnxruntime ${OpenCV_LIBS})
+target_link_libraries(onnx_to_onnxruntime onnxruntime)
+target_link_libraries(onnx_to_onnxruntime zco)
