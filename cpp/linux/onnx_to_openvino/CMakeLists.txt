@@ -28,11 +28,6 @@ MESSAGE("OpenCV OpenCV_LIBS: ${OpenCV_LIBS}")
 include_directories(../../zco/install/include)
 link_directories(../../zco/install/lib)
 
-add_executable(onnx_to_openvino
-        main.cpp
-        source/openvino_infer.cpp source/openvino_infer.h source/infer_engine.cpp source/infer_engine.h)
-target_link_libraries(onnx_to_openvino PRIVATE ${InferenceEngine_LIBRARIES} ${OpenCV_LIBS} ${NGRAPH_LIBRARIES} zco)
-
 add_executable(single_image_test
         source/openvino_infer.cpp
         source/openvino_infer.h
