@@ -17,7 +17,7 @@ public:
 
     static bool preprocess(const cv::Mat &src, cv::Mat &dst);
 
-    virtual bool infer(const char *img_path,const cv::Mat &img, std::vector<float> &output_values);
+    virtual bool infer(const cv::Mat &img, std::vector<float> &output_values);
 
     static bool
     postprocess(const std::vector<float> &output_values, std::vector<size_t> &output_idxes, std::vector<float> &probes);

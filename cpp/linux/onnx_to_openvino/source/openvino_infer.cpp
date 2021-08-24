@@ -3,12 +3,14 @@
 //
 
 #include "openvino_infer.h"
-#include "../classification_results.h"
-#include "../common.hpp"
-#include "../ocv_common.hpp"
 
 OpenVINOInfer::OpenVINOInfer() {
-
+    input_tensor = cv::Mat::zeros(IMAGE_WIDTH, IMAGE_HEIGHT, CV_32FC3);
+    // just wrap Mat data by Blob::Ptr
+    img_blob = InferenceEngine::make_shared_blob<float>(
+            {InferenceEngine::Precision::FP32, {1, IMAGE_CHANNEL, IMAGE_HEIGHT, IMAGE_WIDTH},
+             InferenceEngine::Layout::NHWC},
+            (float *) input_tensor.data);
 }
 
 bool OpenVINOInfer::create(const char *model_path, const char *device_name) {
@@ -55,72 +57,29 @@ bool OpenVINOInfer::release() {
     return false;
 }
 
-void OpenVINOInfer::print_input_info() {
+bool OpenVINOInfer::infer(const cv::Mat &img, std::vector<float> &output_values) {
+    img.copyTo(input_tensor);
 
-}
-
-void OpenVINOInfer::print_output_info() {
-
-}
-
-bool OpenVINOInfer::infer(const char *img_path, const cv::Mat &img, std::vector<float> &output_values) {
-    // --------------------------- Step 6. Prepare input
-    // --------------------------------------------------------
-    /* Read input image to a blob and set it to an infer request without resize
-     * and layout conversions. */
-    //        auto input = infer_request.GetBlob(input_name);
-    //        std::cout << input << std::endl;
-    //        size_t num_channels = input->getTensorDesc().getDims()[1];
-    //        size_t h = input->getTensorDesc().getDims()[2];
-    //        size_t w = input->getTensorDesc().getDims()[3];
-    //        size_t image_size = h * w;
-
-    clock_t start, inner, finish;
-    double duration, duration_img, duration_model;
-    start = clock();
-
-    Blob::Ptr imgBlob = wrapMat2Blob(img);     // just wrap Mat data by Blob::Ptr
     // without allocating of new memory
-    infer_request.SetBlob(input_name, imgBlob);  // infer_request accepts input blob of any size
+    // infer_request accepts input blob of any size
+    infer_request.SetBlob(input_name, img_blob);
     // -----------------------------------------------------------------------------------------------------
 
-    // --------------------------- Step 7. Do inference
-    // --------------------------------------------------------
+    // Step 7. Do inference
     /* Running the request synchronously */
-    inner = clock();
     infer_request.Infer();
     // -----------------------------------------------------------------------------------------------------
 
-    // --------------------------- Step 8. Process output
-    // ------------------------------------------------------
+    // Step 8. Process output
     Blob::Ptr output = infer_request.GetBlob(output_name);
-    //            std::cout << "output size: " << output->size() << std::endl;
-    // Print classification results
-    //        ClassificationResult_t classificationResult(output, {input_image_path}, 1, output->size());
-    ClassificationResult classificationResult(output, {img_path}, 1, 5);
-    //            classificationResult.print();
-
-    auto _results = classificationResult.getResults();
-    auto _outputs = classificationResult.getOuts();
-    std::vector<float> probs(_outputs);
-    softmax(probs);
-
-    //            std::cout << _results.size() << " " << _outputs.size() << std::endl;
-    for (int i = 0; i < _results.size(); i++) {
-        std::cout << _results.at(i) << " " << _outputs.at(i) << " " << probs.at(i) << std::endl;
-
-        auto pred_idx = int(_results.at(i));
-
+    auto const memLocker = output->cbuffer(); // use const memory locker
+    // output_buffer is valid as long as the lifetime of memLocker
+    const float *output_buffer = memLocker.as<const float *>();
+    for (int i = 0; i < output->getTensorDesc().getDims()[1]; i++) {
+//        std::cout << i << ": " << output_buffer[i] << std::endl;
+        output_values.push_back(output_buffer[i]);
     }
+    /** output_buffer[] - accessing output blob data **/
 
-    // -----------------------------------------------------------------------------------------------------
-    finish = clock();
-    duration_img = (double) (inner - start) / CLOCKS_PER_SEC;
-    duration_model = (double) (finish - inner) / CLOCKS_PER_SEC;
-    duration = (double) (finish - start) / CLOCKS_PER_SEC;
-    printf("image process need %f seconds\n", duration_img);
-    printf("model process need %f seconds\n", duration_model);
-    printf("total need %f seconds\n", duration);
-
-    return false;
+    return true;
 }

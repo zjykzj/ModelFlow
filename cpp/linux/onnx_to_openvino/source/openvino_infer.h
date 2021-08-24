@@ -15,11 +15,13 @@
 #include <common_operation.h>
 #include "opencv2/opencv.hpp"
 
-
 using namespace InferenceEngine;
 
+/***
+ * refer to
+ * [Integrate the Inference Engine with Your Application](https://docs.openvinotoolkit.org/latest/openvino_docs_IE_DG_Integrate_with_customer_application_new_API.html)
+ */
 class OpenVINOInfer {
-
 
 public:
 
@@ -29,11 +31,7 @@ public:
 
     bool release();
 
-    void print_input_info();
-
-    void print_output_info();
-
-    bool infer(const char *img_path, const cv::Mat &img, std::vector<float> &output_values);
+    bool infer(const cv::Mat &img, std::vector<float> &output_values);
 
     static const size_t IMAGE_WIDTH = 224;
     static const size_t IMAGE_HEIGHT = 224;
@@ -56,6 +54,9 @@ private:
 
     std::string input_name;
     std::string output_name;
+
+    cv::Mat input_tensor;
+    Blob::Ptr img_blob;
 };
 
 

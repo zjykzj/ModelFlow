@@ -1,31 +1,26 @@
+//
+// Created by zj on 2021/8/23.
+//
 
-#include <inference_engine.hpp>
-#include <iterator>
-#include <string>
-
+#include "../source/infer_engine.h"
 #include "image_process.h"
-#include "source/infer_engine.h"
-
-using namespace InferenceEngine;
-
 
 int main(int argc, char *argv[]) {
-    // ------------------------------ Parsing and validation of input arguments
-    // ---------------------------------
     if (argc != 4) {
         std::cout << "Usage : " << argv[0] << " <path_to_model> <path_to_image> <device_name>" << std::endl;
         return EXIT_FAILURE;
     }
 
-    const std::string input_model{argv[1]};
-    const std::string input_image_path{argv[2]};
-    const std::string device_name{argv[3]};
+    const char *model_path = argv[1];
+    const char *img_path = argv[2];
+    const char *device_name = argv[3];
+    printf("model path is %s\nimg path is %s\ndevice name is %s\n", model_path, img_path, device_name);
 
     clock_t start, end, clock_img_read, clock_img_preprocess, clock_model_create, clock_model_infer;
 
     start = clock();
     cv::Mat img;
-    read_image(input_image_path.c_str(), img, true);
+    read_image(img_path, img, true);
     print_image_info(img);
     clock_img_read = clock();
 
@@ -34,7 +29,7 @@ int main(int argc, char *argv[]) {
     clock_img_preprocess = clock();
 
     auto model = new InferEngine();
-    model->create(input_model.c_str(), device_name.c_str());
+    model->create(model_path, device_name);
     clock_model_create = clock();
 
     std::vector<float> output_values;
@@ -60,5 +55,5 @@ int main(int argc, char *argv[]) {
     std::cout << "post process: " << (double) (end - clock_model_infer) / CLOCKS_PER_SEC << std::endl;
     std::cout << "total infer: " << (double) (end - start) / CLOCKS_PER_SEC << std::endl;
 
-    return EXIT_SUCCESS;
+    return 0;
 }

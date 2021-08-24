@@ -33,11 +33,18 @@ bool InferEngine::preprocess(const cv::Mat &src, cv::Mat &dst) {
     return true;
 }
 
-bool InferEngine::infer(const char *img_path, const cv::Mat &img, std::vector<float> &output_values) {
-    return model->infer(img_path, img, output_values);
+bool InferEngine::infer(const cv::Mat &img, std::vector<float> &output_values) {
+    return model->infer(img, output_values);
 }
 
 bool InferEngine::postprocess(const std::vector<float> &output_values, std::vector<size_t> &output_idxes,
                               std::vector<float> &probes) {
-    return false;
+    // sort
+    output_idxes = std::vector<size_t>(output_values.size());
+    get_top_n(output_values, output_idxes);
+
+    // probes
+    std::copy(output_values.begin(), output_values.end(), probes.begin());
+    softmax(probes);
+    return true;
 }
