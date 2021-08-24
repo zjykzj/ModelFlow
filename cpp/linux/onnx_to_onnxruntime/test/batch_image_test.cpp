@@ -8,8 +8,8 @@
 
 int main(int argc, char *argv[]) {
     if (argc != 4) {
-        std::cerr << "Please input model_path、image_file_path and label_file_path\n" << std::endl;
-        exit(-1);
+        std::cout << "Usage : " << argv[0] << " <path_to_model> <path_to_image_file> <path_to_label_file>" << std::endl;
+        return EXIT_FAILURE;
     }
 
     const char *model_path = argv[1];
