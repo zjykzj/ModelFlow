@@ -26,7 +26,7 @@ public:
 
 private:
 
-    ONNXInfer *model;
+    ONNXInfer *model{};
 
 };
 
