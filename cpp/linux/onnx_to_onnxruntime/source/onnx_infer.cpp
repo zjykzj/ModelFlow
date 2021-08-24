@@ -170,7 +170,6 @@ void ONNXInfer::print_output_info() {
 
 
 bool ONNXInfer::infer(const cv::Mat &img, std::vector<float> &output_values) {
-    // Score the model using sample data, and inspect values
     input_tensor_values.assign(img.begin<float>(), img.end<float>());
 
     // score model & input tensor, get back output tensor

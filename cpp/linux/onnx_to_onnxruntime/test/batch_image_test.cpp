@@ -65,7 +65,7 @@ int main(int argc, char *argv[]) {
         clock_model_infer = clock();
 
         std::vector<size_t> output_idxes;
-        std::vector<float> output_probes(output_values.size());;
+        std::vector<float> output_probes(output_values.size());
         InferEngine::postprocess(output_values, output_idxes, output_probes);
 
         for (int i = 0; i < 5; i++) {
