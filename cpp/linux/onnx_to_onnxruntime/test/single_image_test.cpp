@@ -13,7 +13,7 @@ int main(int argc, char *argv[]) {
 
     const char *model_path = argv[1];
     const char *img_path = argv[2];
-    printf("model path is %s, img path is %s\n", model_path, img_path);
+    printf("model path is %s\nimg path is %s\n", model_path, img_path);
 
     clock_t start, end, clock_img_read, clock_img_preprocess, clock_model_create, clock_model_infer;
 
