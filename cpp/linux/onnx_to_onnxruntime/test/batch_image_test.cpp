@@ -61,7 +61,6 @@ int main(int argc, char *argv[]) {
 
         std::vector<float> output_values;
         model->infer(preprocess_img, output_values);
-        model->release();
         clock_model_infer = clock();
 
         std::vector<size_t> output_idxes;
@@ -80,6 +79,7 @@ int main(int argc, char *argv[]) {
                 current_top5_num += 1;
             }
         }
+        model->release();
         end = clock();
 
         duration = (float) (end - start) / CLOCKS_PER_SEC;
