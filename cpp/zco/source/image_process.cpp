@@ -97,6 +97,7 @@ bool hwc_2_chw(cv::Mat &src, cv::Mat &dst) {
         std::cerr << "src is empty\n";
         return false;
     }
+    // refer to [how could I change memory layout from hwc to chw ?](https://answers.opencv.org/question/226929/how-could-i-change-memory-layout-from-hwc-to-chw/)
     // HWC to CHW
     const int src_h = src.rows;
     const int src_w = src.cols;
