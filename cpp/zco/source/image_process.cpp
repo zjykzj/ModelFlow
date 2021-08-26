@@ -98,7 +98,18 @@ bool hwc_2_chw(cv::Mat &src, cv::Mat &dst) {
         return false;
     }
     // HWC to CHW
-    cv::dnn::blobFromImage(src, dst);
+    const int src_h = src.rows;
+    const int src_w = src.cols;
+    const int src_c = src.channels();
+
+    cv::Mat hw_c = src.reshape(1, src_h * src_w);
+
+    dst.create(3, src_h * src_w, src.depth());
+    cv::transpose(hw_c, dst);
+    dst.reshape(1, {src_c, src_h, src_w});
+
+    // you can choose following function, more quick but need opencv_contrib dnn module
+//    cv::dnn::blobFromImage(src, dst);
     return false;
 }
 
