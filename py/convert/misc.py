@@ -11,6 +11,7 @@ import onnx
 
 import numpy as np
 
+
 def check_model(onnx_name, verbose=False):
     # Load the ONNX model
     model = onnx.load(onnx_name)
