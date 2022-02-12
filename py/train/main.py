@@ -100,8 +100,8 @@ def main():
         transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))
     ])
-    dataset1 = datasets.MNIST('./data', train=True, download=True, transform=transform)
-    dataset2 = datasets.MNIST('./data', train=False, transform=transform)
+    dataset1 = datasets.MNIST('../data', train=True, download=True, transform=transform)
+    dataset2 = datasets.MNIST('../data', train=False, transform=transform)
     train_loader = torch.utils.data.DataLoader(dataset1, **train_kwargs)
     test_loader = torch.utils.data.DataLoader(dataset2, **test_kwargs)
 
@@ -116,7 +116,7 @@ def main():
         scheduler.step()
 
     if args.save_model:
-        output_dir = './outputs'
+        output_dir = '../assets'
         if not os.path.exists(output_dir):
             os.mkdir(output_dir)
         torch.save(model.state_dict(), os.path.join(output_dir, "mnist_cnn.pt"))
