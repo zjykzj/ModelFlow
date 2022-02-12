@@ -2,7 +2,7 @@
 
 """
 @date: 2021/7/24 下午1:53
-@file: compute_zcls_pytorch.py
+@file: zcls_pytorch_count.py
 @author: zj
 @description: Calculate the model size, flops and reasoning time
 """
