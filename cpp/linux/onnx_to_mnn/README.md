@@ -27,7 +27,10 @@ You should compile Infer Engine and Converter of MNN
 ./MNNConvert -f ONNX --modelFile XXX.onnx --MNNModel XXX.mnn --bizCode biz
 ```
 
-See: [模型转换](https://www.yuque.com/mnn/cn/model_convert)
+See: 
+
+1. [模型转换](https://www.yuque.com/mnn/cn/model_convert)
+2. [MNNConvert](https://github.com/alibaba/MNN/blob/master/tools/converter/README_CN.md)
 
 ## Test
 
