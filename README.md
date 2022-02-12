@@ -7,7 +7,7 @@
  <div align="center"><a title="" href="git@github.com:zjykzj/onnx.git"><img align="center" src="./imgs/onnx.png"></a></div>
 
 <p align="center">
-  «onnx» records the usage of ONNX/ONNXRuntime/OpenVINO/OpenCV/PyTorch
+  «onnx» records the usage of ONNX/ONNXRuntime/OpenVINO/MNN/OpenCV/PyTorch
 <br>
 <br>
   <a href="https://github.com/RichardLitt/standard-readme"><img src="https://img.shields.io/badge/standard--readme-OK-green.svg?style=flat-square"></a>
@@ -19,8 +19,6 @@
 
 - [Table of Contents](#table-of-contents)
 - [Background](#background)
-- [Installation](#installation)
-- [Usage](#usage)
 - [Maintainers](#maintainers)
 - [Thanks](#thanks)
 - [Contributing](#contributing)
@@ -28,15 +26,7 @@
 
 ## Background
 
-Realize the conversion from Pytorch to ONNX and the call of ONNXRuntime/OpenVINO to ONNX, and accelerate the use of the model in the landing scene
-
-## Installation
-
-...
-
-## Usage
-
-...
+Realize the conversion from Pytorch to ONNX and the call of ONNXRuntime/OpenVINO/MNN to ONNX, and accelerate the use of the model in the landing scene
 
 ## Maintainers
 
