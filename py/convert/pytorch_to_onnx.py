@@ -71,10 +71,10 @@ def export_to_onnx(torch_model, batch_size=1, img_dim=1, img_size=28, onnx_path=
 
 
 def main():
-    weight_path = './assets/mnist_cnn.pt'
+    weight_path = '../assets/mnist_cnn.pt'
     model = load_model(weight_path)
 
-    export_to_onnx(model, batch_size=1, img_dim=1, img_size=28, onnx_path='./assets/mnist_cnn.onnx')
+    export_to_onnx(model, batch_size=1, img_dim=1, img_size=28, onnx_path='../assets/mnist_cnn.onnx')
 
 
 if __name__ == '__main__':
