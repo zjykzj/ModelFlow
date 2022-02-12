@@ -23,3 +23,41 @@ You should compile Infer Engine and Converter of MNN
 
 ## Convert
 
+see: [模型转换](https://www.yuque.com/mnn/cn/model_convert)
+
+```bash
+./MNNConvert -f ONNX --modelFile XXX.onnx --MNNModel XXX.mnn --bizCode biz
+```
+
+## Test
+
+MNN provides scripts to test whether different format conversion leads to inconsistent accuracy. See [正确性校验](https://www.yuque.com/mnn/cn/model_convert#nxImR)
+
+1. cp `fastTestOnnx.py` to `build/`
+2. cp `*.onnx` to `build/`
+3. test: `python3 fastTestOnnx.py mnist_cnn.onnx` 
+
+```bash
+$ python3 fastTestOnnx.py mnist_cnn.onnx 
+
+
+onnx/test.onnx
+tensor(float)
+['output']
+inputs:
+input
+onnx/
+outputs:
+onnx/output.txt (1, 10)
+onnx/
+Test onnx
+Start to Convert Other Model Format To MNN Model...
+[15:39:15] /home/zj/mnn/MNN-1.2.0/tools/converter/source/onnx/onnxConverter.cpp:30: ONNX Model ir version: 7
+Start to Optimize the MNN Net...
+inputTensors : [ input, ]
+outputTensors: [ output, ]
+Converted Success!
+input
+output: output
+TEST_SUCCESS
+```
