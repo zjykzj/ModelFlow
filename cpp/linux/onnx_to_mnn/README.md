@@ -23,19 +23,19 @@ You should compile Infer Engine and Converter of MNN
 
 ## Convert
 
-see: [模型转换](https://www.yuque.com/mnn/cn/model_convert)
-
 ```bash
 ./MNNConvert -f ONNX --modelFile XXX.onnx --MNNModel XXX.mnn --bizCode biz
 ```
 
+See: [模型转换](https://www.yuque.com/mnn/cn/model_convert)
+
 ## Test
 
-MNN provides scripts to test whether different format conversion leads to inconsistent accuracy. See [正确性校验](https://www.yuque.com/mnn/cn/model_convert#nxImR)
+MNN provides scripts to test whether different format conversion leads to inconsistent accuracy. 
 
 1. cp `fastTestOnnx.py` to `build/`
 2. cp `*.onnx` to `build/`
-3. test: `python3 fastTestOnnx.py mnist_cnn.onnx` 
+3. test: `python3 fastTestOnnx.py *.onnx` 
 
 ```bash
 $ python3 fastTestOnnx.py mnist_cnn.onnx 
@@ -61,3 +61,5 @@ input
 output: output
 TEST_SUCCESS
 ```
+
+See: [正确性校验](https://www.yuque.com/mnn/cn/model_convert#nxImR)
