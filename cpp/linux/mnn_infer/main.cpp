@@ -5,8 +5,15 @@
 
 #include "stb_image.h"
 
+void find_max(std::vector<std::pair<int, float>> &data) {
+    // Find Max
+    std::sort(data.begin(), data.end(),
+              [](std::pair<int, float> a, std::pair<int, float> b) { return a.second > b.second; });
+}
+
 int main() {
-    const char *file_name = "../assets/mnist_0.png";
+//    const char *file_name = "../assets/mnist_0.png";
+    const char *file_name = "../assets/2010301_label0.jpg";
 
     // 分别获取宽 / 高 / 通道数
     int x, y, n;
@@ -17,17 +24,31 @@ int main() {
     auto engine = InferEngine();
     const char *model_path = "../assets/mnist_cnn.mnn";
     engine.create(model_path);
-    engine.printInfo();
+    engine.printModelInfo();
 
-    float mean[1] = {0.1307f,};
-    float normals[1] = {0.3081f,};
+    float means[3] = {0.f, 0.f, 0.f};
+    float normal = 1.0 / 256;
+    float normals[3] = {normal, normal, normal};
 
-    MNN::CV::ImageFormat sourceFormat = MNN::CV::GRAY;
-    MNN::CV::ImageFormat destFormat = MNN::CV::GRAY;
+    MNN::CV::ImageFormat sourceFormat = MNN::CV::RGB;
+    MNN::CV::ImageFormat destFormat = MNN::CV::RGB;
 
-    engine.setInputTensor(data, x, y, n, mean, normals, sourceFormat, destFormat);
+    engine.setPretreat(n, means, normals, sourceFormat, destFormat);
+    engine.setInputTensor(data, x, y);
     engine.run();
-    engine.getOutputTensor();
+    std::vector<std::pair<int, float>> tmpValues = engine.getOutputTensor();
+
+    int tmp_size = tmpValues.size();
+    int length = tmp_size > 10 ? 10 : tmp_size;
+    for (int i = 0; i < length; i++) {
+        MNN_PRINT("%d, %f\n", tmpValues[i].first, tmpValues[i].second);
+    }
+
+    MNN_PRINT("sorted...\n");
+    find_max(tmpValues);
+    for (int i = 0; i < length; i++) {
+        MNN_PRINT("%d, %f\n", tmpValues[i].first, tmpValues[i].second);
+    }
 
     // 释放字节数组
     stbi_image_free(data);

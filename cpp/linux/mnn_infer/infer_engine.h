@@ -14,46 +14,70 @@ public:
     InferEngine();
 
     /**
-     * 创建解释器Interpreter
-     * 创建会话Session
-     * 会话配置
-     * 预处理配置
+     * 1. 创建Interpreter
+     * 2. 创建Session
+     * 3. 会话配置
      * @param model_path
      */
     void create(const char *model_path);
 
     /**
-     * 打印模型相关信息，包括：
-     * 1. 模型：内存占用、计算量FLOPs、后端引擎类型、批量大小
-     * 2. 输入：图像长 / 图像宽 / 通道数 / 数据类型 / 数组长度
-     * 3. 输出：
+     * 打印模型信息
+     * 1. 内存占用、计算量、后端类型
+     * 2. 输入大小、数据类型
+     * 3. 输出大小
      */
-    void printInfo();
+    void printModelInfo();
 
     /**
-     * 图像预处理
-     * 输入图像数据
-     *
-     * @param data
-     * @param data_size
+     * 创建预处理器
+     * 1. 数据归一化
+     * 2. 预处理前后图像格式
+     * @param channel
+     * @param means
+     * @param normals
+     * @param srcFormat
+     * @param dstFormat
      */
-    void setInputTensor(const unsigned char *inputImage, int width, int height, int channels,
-                        float *mean, float *std,
-                        MNN::CV::ImageFormat srcFormat, MNN::CV::ImageFormat dstFormat);
+    void setPretreat(int channel,
+                     float *means, float *normals,
+                     MNN::CV::ImageFormat srcFormat, MNN::CV::ImageFormat dstFormat);
+
+
+    /**
+     * 1. 图像缩放
+     * 2. 图像预处理
+     * 3. 复制数据到模型
+     * @param inputImage
+     * @param width
+     * @param height
+     */
+    void setInputTensor(const unsigned char *inputImage, int width, int height);
 
     /**
      * 模型推理
+     * @return
      */
-    void run();
+    int run();
 
     /**
-     * 获取输出结果
+     * 获取计算结果
+     * @return
      */
-    void getOutputTensor();
+    std::vector<std::pair<int, float>> getOutputTensor();
+
+    /**
+     * 获取输入Tensor大小
+     * @param width
+     * @param height
+     * @param channel
+     */
+    void getInputTensorShape(int &width, int &height, int &channel);
 
 private:
     std::shared_ptr<MNN::Interpreter> net;
     MNN::Session *session{};
+    std::shared_ptr<MNN::CV::ImageProcess> pretreat;
 };
 
 
