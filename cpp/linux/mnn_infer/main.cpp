@@ -12,8 +12,7 @@ void find_max(std::vector<std::pair<int, float>> &data) {
 }
 
 int main() {
-//    const char *file_name = "../assets/mnist_0.png";
-    const char *file_name = "../assets/2010301_label0.jpg";
+    const char *file_name = "../assets/mnist_0.png";
 
     // 分别获取宽 / 高 / 通道数
     int x, y, n;
@@ -33,8 +32,7 @@ int main() {
     MNN::CV::ImageFormat sourceFormat = MNN::CV::RGB;
     MNN::CV::ImageFormat destFormat = MNN::CV::RGB;
 
-    engine.setPretreat(n, means, normals, sourceFormat, destFormat);
-    engine.setInputTensor(data, x, y);
+    engine.setInputTensor(data, x, y, n, means, normals, sourceFormat, destFormat);
     engine.run();
     std::vector<std::pair<int, float>> tmpValues = engine.getOutputTensor();
 

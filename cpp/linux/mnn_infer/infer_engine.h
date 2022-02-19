@@ -17,7 +17,6 @@ public:
      * 1. 创建Interpreter
      * 2. 创建Session
      * 3. 会话配置
-     * @param model_path
      */
     void create(const char *model_path);
 
@@ -30,54 +29,35 @@ public:
     void printModelInfo();
 
     /**
-     * 创建预处理器
-     * 1. 数据归一化
-     * 2. 预处理前后图像格式
-     * @param channel
-     * @param means
-     * @param normals
-     * @param srcFormat
-     * @param dstFormat
+     * 1. 图像预处理（图像缩放、数据归一化、数据格式转换）
+     * 2. 复制数据到模型
      */
-    void setPretreat(int channel,
-                     float *means, float *normals,
-                     MNN::CV::ImageFormat srcFormat, MNN::CV::ImageFormat dstFormat);
-
-
-    /**
-     * 1. 图像缩放
-     * 2. 图像预处理
-     * 3. 复制数据到模型
-     * @param inputImage
-     * @param width
-     * @param height
-     */
-    void setInputTensor(const unsigned char *inputImage, int width, int height);
+    void setInputTensor(const unsigned char *inputImage, int width, int height, int channel,
+                        float *means, float *normals,
+                        MNN::CV::ImageFormat srcFormat, MNN::CV::ImageFormat dstFormat);
 
     /**
      * 模型推理
-     * @return
      */
     int run();
 
     /**
      * 获取计算结果
-     * @return
      */
     std::vector<std::pair<int, float>> getOutputTensor();
 
     /**
      * 获取输入Tensor大小
-     * @param width
-     * @param height
-     * @param channel
      */
     void getInputTensorShape(int &width, int &height, int &channel);
 
 private:
     std::shared_ptr<MNN::Interpreter> net;
     MNN::Session *session{};
-    std::shared_ptr<MNN::CV::ImageProcess> pretreat;
+
+    int last_width{};
+    int last_height{};
+    std::shared_ptr<MNN::CV::ImageProcess> pretreat = nullptr;
 };
 
 
