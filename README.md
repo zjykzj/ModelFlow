@@ -34,10 +34,16 @@ Synchronize python and c/c++ implementation to speed up the use of the model.
 
 ## Thanks
 
-* [ pytorch/pytorch](https://github.com/pytorch/pytorch)
-* [ pytorch/vision](https://github.com/pytorch/vision)
+* [pytorch/pytorch](https://github.com/pytorch/pytorch)
+* [pytorch/vision](https://github.com/pytorch/vision)
 * [Open Neural Network Exchange](https://onnx.ai/)
-* [ microsoft/onnxruntime](https://github.com/microsoft/onnxruntime)
+* [microsoft/onnxruntime](https://github.com/microsoft/onnxruntime)
+* [alibaba/MNN](https://github.com/alibaba/MNN)
+* [libjpeg-turbo/libjpeg-turbo](https://github.com/libjpeg-turbo/libjpeg-turbo)
+* [nothings/stb](https://github.com/nothings/stb)
+* [opencv/opencv](https://github.com/search?q=opencv)
+* [opencv/opencv-python](https://github.com/opencv/opencv-python)
+* [ermig1979/Simd](https://github.com/ermig1979/Simd)
 
 ## Contributing
 
