@@ -113,3 +113,4 @@ fabric.properties
 *.iml
 out
 gen
+/3rdparty/googletest/
