@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(GTestDemo)
+project(ONNX)
 
 set(CMAKE_CXX_STANDARD 17)
 
