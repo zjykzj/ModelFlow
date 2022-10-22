@@ -30,7 +30,7 @@
 
 ## Background
 
-As a computer vision engineer, how to better apply image algorithms to landing scenes is crucial. In practice, C++ can provide a faster reasoning speed and a more practical deployment platform; In addition, Python can provide faster simulation and processing.
+As a computer vision engineer, how to better apply image algorithms to landing scenes is crucial. In practice, C++ can provide a faster reasoning speed and a more practical deployment platform; In addition, Python can provide more convenient simulation and processing.
 
 ## Maintainers
 
