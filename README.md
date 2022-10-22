@@ -38,16 +38,19 @@ As a computer vision engineer, how to better apply image algorithms to landing s
 
 ## Thanks
 
+* [Open Neural Network Exchange](https://onnx.ai/)
 * [pytorch/pytorch](https://github.com/pytorch/pytorch)
 * [pytorch/vision](https://github.com/pytorch/vision)
-* [Open Neural Network Exchange](https://onnx.ai/)
-* [microsoft/onnxruntime](https://github.com/microsoft/onnxruntime)
 * [alibaba/MNN](https://github.com/alibaba/MNN)
+* [microsoft/onnxruntime](https://github.com/microsoft/onnxruntime)
+* [rockchip-linux/rknn-toolkit2](https://github.com/rockchip-linux/rknn-toolkit2)
 * [libjpeg-turbo/libjpeg-turbo](https://github.com/libjpeg-turbo/libjpeg-turbo)
-* [nothings/stb](https://github.com/nothings/stb)
 * [opencv/opencv](https://github.com/search?q=opencv)
 * [opencv/opencv-python](https://github.com/opencv/opencv-python)
 * [ermig1979/Simd](https://github.com/ermig1979/Simd)
+* [nothings/stb](https://github.com/nothings/stb)
+* [gabime/spdlog](https://github.com/gabime/spdlog)
+* [facebookresearch/faiss](https://github.com/facebookresearch/faiss)
 
 ## Contributing
 
