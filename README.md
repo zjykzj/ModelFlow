@@ -7,13 +7,17 @@
  <div align="center"><a title="" href="git@github.com:zjykzj/onnx.git"><img align="center" src="./imgs/onnx.png"></a></div>
 
 <p align="center">
-  «onnx» records the commonly used image processing and model conversion/quantization/reasoning operations.
+  «onnx» implements the model deployment phase.
 <br>
 <br>
   <a href="https://github.com/RichardLitt/standard-readme"><img src="https://img.shields.io/badge/standard--readme-OK-green.svg?style=flat-square"></a>
   <a href="https://conventionalcommits.org"><img src="https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg"></a>
   <a href="http://commitizen.github.io/cz-cli/"><img src="https://img.shields.io/badge/commitizen-friendly-brightgreen.svg"></a>
 </p>
+
+* `For C++ deployment`
+
+![](./cplusplus/assets/framework.png)
 
 ## Table of Contents
 
@@ -26,7 +30,7 @@
 
 ## Background
 
-Synchronize python and c/c++ implementation to speed up the use of the model.
+As a computer vision engineer, how to better apply image algorithms to landing scenes is crucial. In practice, C++ can provide a faster reasoning speed and a more practical deployment platform; In addition, Python can provide faster simulation and processing.
 
 ## Maintainers
 
