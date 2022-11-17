@@ -15,10 +15,6 @@
   <a href="http://commitizen.github.io/cz-cli/"><img src="https://img.shields.io/badge/commitizen-friendly-brightgreen.svg"></a>
 </p>
 
-* `For C++ deployment`
-
-![](./cplusplus/assets/framework.png)
-
 ## Table of Contents
 
 - [Table of Contents](#table-of-contents)
