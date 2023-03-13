@@ -12,4 +12,7 @@
 ## Operates
 
 1. classify
+   2. one image 
 2. detect
+   3. one image
+   4. camera
