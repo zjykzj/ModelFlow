@@ -11,6 +11,10 @@
 
 See `pytorch_to_onnx.py`
 
+固定轴转换 + 测试
+
+静态轴转换 + 测试
+
 ## onnx -> mnn
 
 See https://mnn-docs.readthedocs.io/en/latest/tools/convert.html
