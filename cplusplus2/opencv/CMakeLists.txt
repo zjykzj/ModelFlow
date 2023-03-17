@@ -18,3 +18,6 @@ MESSAGE("OpenCV OpenCV_LIBS: ${OpenCV_LIBS}")
 
 add_executable(opencv main.cpp)
 target_link_libraries(opencv ${OpenCV_LIBS})
+
+add_executable(RotateRectCrop rotate_rect_crop.cpp)
+target_link_libraries(RotateRectCrop ${OpenCV_LIBS})
