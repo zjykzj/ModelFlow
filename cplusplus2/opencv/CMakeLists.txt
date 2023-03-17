@@ -21,3 +21,6 @@ target_link_libraries(opencv ${OpenCV_LIBS})
 
 add_executable(RotateRectCrop rotate_rect_crop.cpp)
 target_link_libraries(RotateRectCrop ${OpenCV_LIBS})
+
+add_executable(Jpeg2Mat jpeg2mat.cpp)
+target_link_libraries(Jpeg2Mat ${OpenCV_LIBS})
