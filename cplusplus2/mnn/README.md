@@ -1,6 +1,10 @@
 
 # MNN
 
+## Install
+
+* [INSTALL](./INSTALL.md)
+
 ## Base
 
 * Init instance
@@ -12,3 +16,7 @@
 
 * classify
 * detection
+
+## Compile
+
+## 
