@@ -24,3 +24,6 @@ target_link_libraries(RotateRectCrop ${OpenCV_LIBS})
 
 add_executable(Jpeg2Mat jpeg2mat.cpp)
 target_link_libraries(Jpeg2Mat ${OpenCV_LIBS})
+
+add_executable(ObjectDetect object_detect.cpp)
+target_link_libraries(ObjectDetect ${OpenCV_LIBS})
