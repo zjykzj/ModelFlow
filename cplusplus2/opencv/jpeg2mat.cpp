@@ -10,6 +10,8 @@ int Mat2Jpeg(const cv::Mat &mat_data, std::vector<unsigned char> &jpeg_buff) {
 	param.push_back(cv::IMWRITE_JPEG_QUALITY);
 	param.push_back(95); // default(95) 0-100
 	cv::imencode(".jpg", mat_data, jpeg_buff, param);
+
+	return 0;
 }
 
 void demo1() {
@@ -37,6 +39,8 @@ int Jpeg2Mat(const std::vector<unsigned char> &jpeg_buff, cv::Mat &mat_data) {
 		std::cerr << "jpeg_buff format error" << std::endl;
 		exit(1);
 	}
+
+	return 0;
 }
 
 void demo2() {
