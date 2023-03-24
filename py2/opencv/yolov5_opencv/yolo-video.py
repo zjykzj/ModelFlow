@@ -22,13 +22,21 @@ np.random.seed(30)
 
 def parse_args():
     parser = argparse.ArgumentParser(description="YOLOv5 OpenCV Video Test.")
-    parser.add_argument('-v', '--video', metavar='VIDEO', type=str, default='../../../assets/sample.mp4')
-    parser.add_argument('-m', '--model', metavar='MODEL', type=str, default='../../../assets/yolov5n.onnx')
-    parser.add_argument('-cls', '--classes', metavar='CLASSES', type=str, default="../../../assets/coco.names")
+    parser.add_argument('-v', '--video', metavar='VIDEO',
+                        type=str, default='../../../assets/sample.mp4',
+                        help='Video source to be detected.')
+    parser.add_argument('-m', '--model', metavar='MODEL', type=str,
+                        default='../../../assets/yolov5n.onnx',
+                        help='Path to onnx model.')
+    parser.add_argument('-cls', '--classes', metavar='CLASSES', type=str,
+                        default="../../../assets/coco.names",
+                        help='Path to class names file.')
 
-    parser.add_argument('--is_cuda', action='store_true', default=False)
+    parser.add_argument('--is_cuda', action='store_true', default=False, help='Runing in GPU.')
 
-    parser.add_argument('-o', '--output', metavar='OUTPUT', type=str, default="../../../assets/yolov5-opencv-det.mp4")
+    parser.add_argument('-o', '--output', metavar='OUTPUT', type=str,
+                        default="../../../assets/yolov5-opencv-det.mp4",
+                        help='Path to output.')
     args = parser.parse_args()
     print("args:", args)
     return args

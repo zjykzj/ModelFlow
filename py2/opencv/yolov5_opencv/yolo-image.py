@@ -16,11 +16,19 @@ import numpy as np
 
 def parse_args():
     parser = argparse.ArgumentParser(description="YOLOv5 OpenCV　Image Test.")
-    parser.add_argument('-i', '--img', metavar='IMG', type=str, default='../../../assets/bus.jpg')
-    parser.add_argument('-m', '--model', metavar='MODEL', type=str, default='../../../assets/yolov5n.onnx')
-    parser.add_argument('-cls', '--classes', metavar='CLASSES', type=str, default="../../../assets/coco.names")
+    parser.add_argument('-i', '--img', metavar='IMG', type=str,
+                        default='../../../assets/bus.jpg',
+                        help='Image source to be detected.')
+    parser.add_argument('-m', '--model', metavar='MODEL', type=str,
+                        default='../../../assets/yolov5n.onnx',
+                        help='Path to onnx model.')
+    parser.add_argument('-cls', '--classes', metavar='CLASSES', type=str,
+                        default="../../../assets/coco.names",
+                        help='Path to class names file.')
 
-    parser.add_argument('-o', '--output', metavar='OUTPUT', type=str, default="../../../assets/yolov5-opencv-det.jpg")
+    parser.add_argument('-o', '--output', metavar='OUTPUT', type=str,
+                        default="../../../assets/yolov5-opencv-det.jpg",
+                        help='Path to output.')
     args = parser.parse_args()
     print("args:", args)
     return args
