@@ -57,7 +57,7 @@ def load_model(model_path):
     return model
 
 
-def post_process(output_data, img_shape, img_sz=640, box_num=25200, conf_th=0.4, cls_th=0.25,
+def post_process(output_data, img_shape, img_sz=640, conf_th=0.4, cls_th=0.25,
                  score_th=0.25, nms_th=0.45):
     image_width, image_height = img_shape[:2]
     x_factor = image_width / img_sz
@@ -66,7 +66,7 @@ def post_process(output_data, img_shape, img_sz=640, box_num=25200, conf_th=0.4,
     class_ids = []
     confidences = []
     boxes = []
-    for r in range(box_num):
+    for r in range(len(output_data)):
         row = output_data[r]
         confidence = row[4]
         if confidence >= conf_th:
