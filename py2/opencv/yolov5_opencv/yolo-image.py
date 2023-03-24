@@ -19,8 +19,8 @@ def parse_args():
     parser.add_argument('-i', '--img', metavar='IMG', type=str, default='../../../assets/bus.jpg')
     parser.add_argument('-m', '--model', metavar='MODEL', type=str, default='../../../assets/yolov5n.onnx')
     parser.add_argument('-cls', '--classes', metavar='CLASSES', type=str, default="../../../assets/coco.names")
-    parser.add_argument('-o', '--output', metavar='OUTPUT', type=str, default="../../../assets/yolov5-opencv-det.jpg")
 
+    parser.add_argument('-o', '--output', metavar='OUTPUT', type=str, default="../../../assets/yolov5-opencv-det.jpg")
     args = parser.parse_args()
     print("args:", args)
     return args

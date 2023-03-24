@@ -10,9 +10,14 @@
 import os
 import cv2
 import time
+import random
 import argparse
 
 import numpy as np
+
+class_colors = dict()
+random.seed(30)
+np.random.seed(30)
 
 
 def parse_args():
@@ -20,9 +25,10 @@ def parse_args():
     parser.add_argument('-v', '--video', metavar='VIDEO', type=str, default='../../../assets/sample.mp4')
     parser.add_argument('-m', '--model', metavar='MODEL', type=str, default='../../../assets/yolov5n.onnx')
     parser.add_argument('-cls', '--classes', metavar='CLASSES', type=str, default="../../../assets/coco.names")
-    parser.add_argument('-o', '--output', metavar='OUTPUT', type=str, default="../../../assets/yolov5-opencv-det.jpg")
+
     parser.add_argument('--is_cuda', action='store_true', default=False)
 
+    parser.add_argument('-o', '--output', metavar='OUTPUT', type=str, default="../../../assets/yolov5-opencv-det.mp4")
     args = parser.parse_args()
     print("args:", args)
     return args
@@ -105,9 +111,12 @@ def draw_results(image, class_path, result_class_ids, result_confidences, result
     for i in range(len(result_class_ids)):
         box = result_boxes[i]
         class_id = result_class_ids[i]
+        if class_id not in class_colors.keys():
+            class_colors[class_id] = (random.randint(100, 255), random.randint(100, 255), random.randint(100, 255))
+        color = class_colors[class_id]
 
-        cv2.rectangle(image, box, (0, 255, 255), 2)
-        cv2.rectangle(image, (box[0], box[1] - 20), (box[0] + box[2], box[1]), (0, 255, 255), -1)
+        cv2.rectangle(image, box, color, 2)
+        cv2.rectangle(image, (box[0], box[1] - 20), (box[0] + box[2], box[1]), color, -1)
         cv2.putText(image, f'{class_list[class_id]} {result_confidences[i]:.3f}', (box[0], box[1] - 10),
                     cv2.FONT_HERSHEY_SIMPLEX, .5, (0, 0, 0))
 
@@ -134,7 +143,7 @@ def main():
         model.setInput(blob)
         predictions = model.forward()
         result_class_ids, result_confidences, result_boxes = post_process(predictions[0], input_image.shape)
-        draw_image = draw_results(frame, args.classes, result_class_ids, result_confidences, result_boxes, args.output)
+        draw_image = draw_results(frame, args.classes, result_class_ids, result_confidences, result_boxes)
 
         frame_count += 1
         total_frames += 1
