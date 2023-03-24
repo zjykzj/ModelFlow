@@ -54,6 +54,9 @@ def load_model(model_path):
     assert os.path.isfile(model_path), model_path
 
     model = cv2.dnn.readNet(model_path)
+    model.setPreferableBackend(cv2.dnn.DNN_BACKEND_DEFAULT)
+    model.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
+
     return model
 
 
