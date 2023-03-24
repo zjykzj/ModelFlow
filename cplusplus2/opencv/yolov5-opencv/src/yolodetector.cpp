@@ -14,7 +14,7 @@ cv::Mat YOLODetector::FormatYOLOv5(const cv::Mat &source) {
 }
 
 int YOLODetector::Init(const std::string &model_path, bool is_cuda) {
-	this->net_ = std::make_shared<cv::dnn::Net>(cv::dnn::readNet(model_path.c_str()));
+	this->net_ = std::make_shared<cv::dnn::Net>(cv::dnn::readNet(model_path));
 	if (is_cuda) {
 		std::cout << "Attempt to use CUDA\n";
 		this->net_->setPreferableBackend(cv::dnn::DNN_BACKEND_CUDA);
@@ -77,7 +77,7 @@ int YOLODetector::Detect(const cv::Mat &image,
 				int top = int((y - 0.5 * h) * y_factor);
 				int width = int(w * x_factor);
 				int height = int(h * y_factor);
-				boxes.push_back(cv::Rect(left, top, width, height));
+				boxes.emplace_back(left, top, width, height);
 			}
 		}
 		data += 85;

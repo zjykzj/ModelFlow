@@ -31,7 +31,7 @@ class YOLODetector {
   int Detect(const cv::Mat &image, const std::vector<std::string> &class_names, std::vector<BoxInfo> &output);
 
  private:
-  cv::Mat FormatYOLOv5(const cv::Mat &source);
+  static cv::Mat FormatYOLOv5(const cv::Mat &source);
 
   std::shared_ptr<cv::dnn::Net> net_ = nullptr;
 };

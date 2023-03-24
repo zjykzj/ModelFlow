@@ -12,5 +12,5 @@ MESSAGE("OpenCV version: ${OpenCV_VERSION}")
 MESSAGE("OpenCV OpenCV_INCLUDE_DIRS: ${OpenCV_INCLUDE_DIRS}")
 MESSAGE("OpenCV OpenCV_LIBS: ${OpenCV_LIBS}")
 
-add_executable(yolo-image yolo-image.cpp src/yolodetector.cpp)
-target_link_libraries(yolo-image ${OpenCV_LIBS})
+add_executable(yolo-video yolo-video.cpp src/yolodetector.cpp)
+target_link_libraries(yolo-video ${OpenCV_LIBS})

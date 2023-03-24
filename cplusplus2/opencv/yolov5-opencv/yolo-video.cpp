@@ -17,18 +17,16 @@ std::vector<std::string> load_class_names(const std::string &class_path) {
 	return class_names;
 }
 
-int DrawImage(cv::Mat &image, std::vector<BoxInfo> output, const std::vector<std::string> &class_list) {
-	int detections = output.size();
-	for (int i = 0; i < detections; ++i) {
-		auto detection = output[i];
+int DrawImage(cv::Mat &image, const std::vector<BoxInfo>& output, const std::vector<std::string> &class_names) {
+	for (auto detection : output) {
 		auto box = detection.box;
 		auto classId = detection.class_id;
-		const auto color = colors[classId % colors.size()];
+		const auto& color = colors[classId % colors.size()];
 		cv::rectangle(image, box, color, 3);
 
 		cv::rectangle(image, cv::Point(box.x, box.y - 20), cv::Point(box.x + box.width, box.y), color, cv::FILLED);
 		cv::putText(image,
-					class_list[classId].c_str(),
+					class_names[classId],
 					cv::Point(box.x, box.y - 5),
 					cv::FONT_HERSHEY_SIMPLEX,
 					0.5,
@@ -72,7 +70,8 @@ int main(int argc, char **argv) {
 		total_frames++;
 		if (frame_count >= 30) {
 			auto end = std::chrono::high_resolution_clock::now();
-			fps = frame_count * 1000.0 / std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+			fps = frame_count * 1000.0
+				/ (float)std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 
 			frame_count = 0;
 			start = std::chrono::high_resolution_clock::now();
@@ -85,7 +84,7 @@ int main(int argc, char **argv) {
 			std::string fps_label_str = fps_label.str();
 
 			cv::putText(frame,
-						fps_label_str.c_str(),
+						fps_label_str,
 						cv::Point(10, 25),
 						cv::FONT_HERSHEY_SIMPLEX,
 						1,
