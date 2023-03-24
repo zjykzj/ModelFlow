@@ -17,16 +17,21 @@ std::vector<std::string> load_class_names(const std::string &class_path) {
 	return class_names;
 }
 
-int DrawImage(cv::Mat &image, const std::vector<BoxInfo>& output, const std::vector<std::string> &class_names) {
+int DrawImage(cv::Mat &image, const std::vector<BoxInfo> &output, const std::vector<std::string> &class_names) {
 	for (auto detection : output) {
 		auto box = detection.box;
 		auto classId = detection.class_id;
-		const auto& color = colors[classId % colors.size()];
+		const auto &color = colors[classId % colors.size()];
 		cv::rectangle(image, box, color, 3);
 
 		cv::rectangle(image, cv::Point(box.x, box.y - 20), cv::Point(box.x + box.width, box.y), color, cv::FILLED);
+		std::ostringstream text_info;
+		text_info << class_names[classId];
+		text_info << " ";
+		text_info << std::fixed << std::setprecision(3);
+		text_info << detection.confidence;
 		cv::putText(image,
-					class_names[classId],
+					text_info.str(),
 					cv::Point(box.x, box.y - 5),
 					cv::FONT_HERSHEY_SIMPLEX,
 					0.5,
