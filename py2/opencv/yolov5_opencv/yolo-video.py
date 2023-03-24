@@ -129,6 +129,13 @@ def main():
     model = load_model(args.model, is_cuda=args.is_cuda)
     capture = cv2.VideoCapture(args.video)
 
+    size = (int(capture.get(cv2.CAP_PROP_FRAME_WIDTH)),
+            int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+    fps = capture.get(cv2.CAP_PROP_FPS)
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    video_writer = cv2.VideoWriter(args.output, fourcc, fps,
+                                   size)  # (cfg.DEMO.DISPLAY_WIDTH, cfg.DEMO.DISPLAY_HEIGHT))
+
     start = time.time_ns()
     frame_count = 0
     total_frames = 0
@@ -155,12 +162,15 @@ def main():
         if fps > 0:
             fps_label = "FPS: %.2f" % fps
             cv2.putText(draw_image, fps_label, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        video_writer.write(draw_image)
 
         cv2.imshow("output", draw_image)
         if cv2.waitKey(1) > -1:
             print("finished by user")
             break
     print("Total frames: " + str(total_frames))
+
+    video_writer.release()
 
 
 if __name__ == '__main__':
