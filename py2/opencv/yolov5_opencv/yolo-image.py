@@ -15,7 +15,7 @@ import numpy as np
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="YOLOv5 OpenCV test.")
+    parser = argparse.ArgumentParser(description="YOLOv5 OpenCV　Image Test.")
     parser.add_argument('-i', '--img', metavar='IMG', type=str, default='../../../assets/bus.jpg')
     parser.add_argument('-m', '--model', metavar='MODEL', type=str, default='../../../assets/yolov5n.onnx')
     parser.add_argument('-cls', '--classes', metavar='CLASSES', type=str, default="../../../assets/coco.names")
@@ -38,7 +38,7 @@ def load_data(img_path, img_sz=640):
         return result
 
     input_image = format_yolov5(image)
-    blob = cv2.dnn.blobFromImage(input_image, 1 / 255.0, (img_sz, img_sz), swapRB=True)
+    blob = cv2.dnn.blobFromImage(input_image, 1 / 255.0, (img_sz, img_sz), swapRB=True, crop=False)
     return image, input_image, blob
 
 
@@ -49,10 +49,8 @@ def load_model(model_path):
     return model
 
 
-def post_process(predictions, img_shape, img_sz=640, box_num=25200, conf_th=0.4, cls_th=0.25,
+def post_process(output_data, img_shape, img_sz=640, box_num=25200, conf_th=0.4, cls_th=0.25,
                  score_th=0.25, nms_th=0.45):
-    output_data = predictions[0]
-
     image_width, image_height = img_shape[:2]
     x_factor = image_width / img_sz
     y_factor = image_height / img_sz
@@ -94,7 +92,6 @@ def post_process(predictions, img_shape, img_sz=640, box_num=25200, conf_th=0.4,
 
 
 def show_results(image, class_path, result_class_ids, result_confidences, result_boxes, output_path):
-    class_list = []
     with open(class_path, "r") as f:
         class_list = [cname.strip() for cname in f.readlines()]
 
@@ -120,7 +117,7 @@ def main():
 
     model.setInput(blob)
     predictions = model.forward()
-    result_class_ids, result_confidences, result_boxes = post_process(predictions, input_image.shape)
+    result_class_ids, result_confidences, result_boxes = post_process(predictions[0], input_image.shape)
 
     show_results(image, args.classes, result_class_ids, result_confidences, result_boxes, args.output)
 
