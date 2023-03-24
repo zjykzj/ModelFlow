@@ -131,7 +131,7 @@ void detect(cv::Mat &image,
 class YOLODetector {
  public:
   YOLODetector() = default;
-  ~YOLODetector();
+  ~YOLODetector() = default;
 
   int Init(const std::string &model_path, bool is_cuda);
 
@@ -255,8 +255,11 @@ int main(int argc, char **argv) {
 	std::vector<std::string> class_list = load_class_list();
 
 	bool is_cuda = argc > 1 && strcmp(argv[1], "cuda") == 0;
-	cv::dnn::Net net;
-	load_net(net, is_cuda);
+	YOLODetector yolo_detector;
+	yolo_detector.Init("../../../../assets/yolov5n.onnx", is_cuda);
+
+//	cv::dnn::Net net;
+//	load_net(net, is_cuda);
 
 	auto start = std::chrono::high_resolution_clock::now();
 	int frame_count = 0;
@@ -271,7 +274,8 @@ int main(int argc, char **argv) {
 		}
 
 		std::vector<Detection> output;
-		detect(frame, net, output, class_list);
+//		detect(frame, net, output, class_list);
+		yolo_detector.Detect(frame, class_list, output);
 
 		DrawImage(frame, output, class_list);
 
