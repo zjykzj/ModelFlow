@@ -28,6 +28,24 @@
 
 As a computer vision engineer, how to better apply image algorithms to landing scenes is crucial. In practice, C++ can provide a faster reasoning speed and a more practical deployment platform; In addition, Python can provide more convenient simulation and processing.
 
+## Requirements
+
+* [2.4.0 NNAPI后端/CUDA后端支持量化模型](https://github.com/alibaba/MNN/releases/tag/2.4.0)
+* [ONNX Runtime v1.14.1](https://github.com/microsoft/onnxruntime/releases/tag/v1.14.1)
+* [OpenCV 4.7.0](https://github.com/opencv/opencv/releases/tag/4.7.0)
+* [ultralytics/yolov5 v7.0 - YOLOv5 SOTA Realtime Instance Segmentation](https://github.com/ultralytics/yolov5/releases/tag/v7.0)
+
+## Troubleshooting
+
+```text
+[ERROR:0@2.663] global onnx_importer.cpp:1051 handleNode DNN/ONNX: ERROR during processing node with 2 inputs and 3 outputs: [Split]:(onnx_node!/model.24/Split) from domain='ai.onnx'
+```
+
+* [global onnx_importer.cpp:1051 handleNode DNN/ONNX](https://github.com/opencv/opencv/issues/23227)
+* [OPENCV部署ONNX模型报错 ERROR during processing node with 1 inputs and 1 outputs](https://ask.csdn.net/questions/7795689)
+
+>In short, OpenCV 4.7.0 only supports ONNX models with fixed input sizes, and this issue will be resolved after the 5. X. X series
+
 ## Maintainers
 
 * zhujian - *Initial work* - [zjykzj](https://github.com/zjykzj)
