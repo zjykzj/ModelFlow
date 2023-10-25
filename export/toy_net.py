@@ -2,7 +2,7 @@
 
 """
 @date: 2022/2/12 下午1:54
-@file: tiny_net.py
+@file: toy_net.py
 @author: zj
 @description: 
 """
@@ -12,9 +12,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class Net(nn.Module):
+class ToyNet(nn.Module):
+
     def __init__(self):
-        super(Net, self).__init__()
+        super(ToyNet, self).__init__()
         self.conv1 = nn.Conv2d(1, 32, 3, 1)
         self.conv2 = nn.Conv2d(32, 64, 3, 1)
         self.dropout1 = nn.Dropout(0.25)

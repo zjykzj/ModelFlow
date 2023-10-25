@@ -6,6 +6,7 @@
 3. onnx -> mnn fp16
 4. onnx -> mnn int8
 5. mnn -> header file
+6. onnx -> tensorrt
 
 ## pytorch -> onnx
 
@@ -50,3 +51,11 @@ See https://mnn-docs.readthedocs.io/en/latest/tools/quant.html
 ```shell
 xxd -i xxx.mnn xxx.h
 ```
+
+## onnx -> tensorrt
+
+See 
+
+1. https://docs.nvidia.com/deeplearning/tensorrt/quick-start-guide/index.html#onnx-export
+2. https://docs.nvidia.com/deeplearning/tensorrt/quick-start-guide/index.html#ex-deploy-onnx
+

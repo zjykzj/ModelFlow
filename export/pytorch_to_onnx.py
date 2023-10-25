@@ -10,22 +10,42 @@ See:
 2. [Converting to ONNX format](https://github.com/onnx/tutorials#converting-to-onnx-format)
 """
 
+import argparse
+import numpy as np
+
 import onnx
 import onnxruntime
-import numpy as np
 
 import torch.onnx
 import torch.nn as nn
+from torchvision import models
 
-from tiny_net import Net
+from toy_net import ToyNet
 
 
-def load_model(weight_path=None):
-    model = Net()
+def parse_opt():
+    parser = argparse.ArgumentParser(description="Pytorch to ONNX")
+    parser.add_argument("--model", metavar="model", type=str, default=None,
+                        help="Pytorch Model path, default: None, means using ToyNet")
+    parser.add_argument("--save", metavar="SAVE", type=str, default='../assets/mnist_cnn.onnx',
+                        help="Saving onnx path, default: '../assets/mnist_cnn.onnx'")
 
-    if weight_path is not None:
-        weights = torch.load(weight_path, map_location='cpu')
-        model.load_state_dict(weights)
+    args = parser.parse_args()
+    print(f"args: {args}")
+
+    return args
+
+
+def load_model(pytorch_model=None):
+    if pytorch_model is None:
+        model = ToyNet()
+    else:
+        model_names = sorted(name for name in models.__dict__
+                             if name.islower() and not name.startswith("__")
+                             and callable(models.__dict__[name]))
+        assert pytorch_model in model_names
+
+        model = models.__dict__[pytorch_model](pretrained=True)
 
     model.eval()
     return model
@@ -38,6 +58,9 @@ def check_onnx(onnx_path='pytorch.onnx'):
 
 def check_output(x, torch_out, onnx_path='pytorch.onnx'):
     ort_session = onnxruntime.InferenceSession(onnx_path)
+    print("onnx info:")
+    print(f"    input: {ort_session.get_inputs()[0]}")
+    print(f"    output: {ort_session.get_outputs()[0]}")
 
     def to_numpy(tensor):
         return tensor.detach().cpu().numpy() if tensor.requires_grad else tensor.cpu().numpy()
@@ -48,7 +71,6 @@ def check_output(x, torch_out, onnx_path='pytorch.onnx'):
 
     # compare ONNX Runtime and PyTorch results
     np.testing.assert_allclose(to_numpy(torch_out), ort_outs[0], rtol=1e-03, atol=1e-05)
-
     print("Exported model has been tested with ONNXRuntime, and the result looks good!")
 
 
@@ -59,7 +81,7 @@ def export_to_onnx(torch_model, batch_size=1, img_dim=1, img_size=28, onnx_path=
     torch_out = torch_model(x)
 
     # Export the model
-    if is_dynamic:
+    if not is_dynamic:
         torch.onnx.export(torch_model,  # model being run
                           x,  # model input (or a tuple for multiple inputs)
                           onnx_path,  # where to save the model (can be a file or file-like object)
@@ -86,12 +108,22 @@ def export_to_onnx(torch_model, batch_size=1, img_dim=1, img_size=28, onnx_path=
     check_output(x, torch_out, onnx_path=onnx_path)
 
 
-def main():
-    # weight_path = '../assets/mnist_cnn.pt'
-    model = load_model()
+def main(args):
+    model = load_model(pytorch_model=args.model)
+    if args.model is None:
+        batch_size = 1
+        img_dim = 1
+        img_size = 28
+    else:
+        batch_size = 1
+        img_dim = 3
+        img_size = 224
 
-    export_to_onnx(model, batch_size=1, img_dim=1, img_size=28, onnx_path='../assets/mnist_cnn.onnx')
+    onnx_path = args.save
+    export_to_onnx(model, batch_size=batch_size, img_dim=img_dim, img_size=img_size, onnx_path=onnx_path)
+    print(f"Save to {onnx_path}")
 
 
 if __name__ == '__main__':
-    main()
+    args = parse_opt()
+    main(args)
