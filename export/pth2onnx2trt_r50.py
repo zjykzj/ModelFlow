@@ -20,9 +20,6 @@ import numpy as np
 BATCH_SIZE = 32
 dummy_input = torch.randn(BATCH_SIZE, 3, 224, 224)
 
-USE_FP16 = True
-target_dtype = np.float16 if USE_FP16 else np.float32
-
 
 def get_input_batch(url='../assets/retriever-golden/n02099601_3004.jpg'):
     # url = 'https://images.dog.ceo/breeds/retriever-golden/n02099601_3004.jpg'
