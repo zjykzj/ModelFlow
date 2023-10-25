@@ -2,7 +2,7 @@
 
 """
 @Time    : 2023/10/25 16:14
-@File    : pth2onnx2trt_r18.py
+@File    : pth2onnx2trt_r50.py
 @Author  : zj
 @Description: Full reference https://github.com/NVIDIA/TensorRT/blob/main/quickstart/IntroNotebooks/4.%20Using%20PyTorch%20through%20ONNX.ipynb
 """
@@ -80,40 +80,29 @@ def step3_export_onnx():
     torch.onnx.export(resnet50, dummy_input, "resnet50_pytorch.onnx", verbose=False)
 
 
-def preprocess_image(img, dtype=np.float16):
-    norm = Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    result = norm(torch.from_numpy(img).transpose(0, 2).transpose(1, 2))
-    return np.array(result, dtype=dtype)
-
-
-def step4_test_with_tensorrt(input_batch, trt_path="resnet_engine_pytorch.trt", USE_FP16=False):
+def step5_test_with_tensorrt(input_batch, trt_path="resnet_engine_pytorch.trt", USE_FP16=False):
     target_dtype = np.float16 if USE_FP16 else np.float32
+
+    def preprocess_image(img, dtype=np.float16):
+        norm = Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        result = norm(torch.from_numpy(img).transpose(0, 2).transpose(1, 2))
+        return np.array(result, dtype=dtype)
+
     preprocessed_images = np.array([preprocess_image(image, dtype=target_dtype) for image in input_batch])
 
     import tensorrt as trt
     import pycuda.driver as cuda
     import pycuda.autoinit
 
-    f = open("resnet_engine_pytorch.trt", "rb")
-    runtime = trt.Runtime(trt.Logger(trt.Logger.WARNING))
+    def load_trt_runtime(trt_path):
+        runtime = trt.Runtime(trt.Logger(trt.Logger.WARNING))
+        with open(trt_path, "rb") as f:
+            engine = runtime.deserialize_cuda_engine(f.read())
+        context = engine.create_execution_context()
 
-    engine = runtime.deserialize_cuda_engine(f.read())
-    context = engine.create_execution_context()
+        return context
 
-    # runtime = trt.Runtime(trt.Logger(trt.Logger.WARNING))
-    # with open(trt_path, "rb") as f:
-    #     engine = runtime.deserialize_cuda_engine(f.read())
-    # context = engine.create_execution_context()
-
-    # def load_trt_runtime(trt_path):
-    #     runtime = trt.Runtime(trt.Logger(trt.Logger.WARNING))
-    #     with open(trt_path, "rb") as f:
-    #         engine = runtime.deserialize_cuda_engine(f.read())
-    #     context = engine.create_execution_context()
-    #
-    #     return context
-    #
-    # context = load_trt_runtime(trt_path)
+    context = load_trt_runtime(trt_path)
 
     # allocate input and output memory
     # need to set input and output precisions to FP16 to fully enable it
@@ -156,5 +145,14 @@ if __name__ == '__main__':
     step2_verify_fp16_performance(resnet50_gpu, input_batch_gpu)
     # print("=> step3_export_onnx")
     # step3_export_onnx()
-    print("=> step4_test_with_tensorrt")
-    step4_test_with_tensorrt(input_batch)
+    # print("=> step4_export_tensorrt")
+    #
+    # # Float32
+    # trtexec --onnx=resnet50_pytorch.onnx --saveEngine=resnet_engine_pytorch.trt  --explicitBatch
+    # # FP16
+    # trtexec --onnx=resnet50_pytorch.onnx --saveEngine=resnet_engine_pytorch_fp16.trt  --explicitBatch --inputIOFormats=fp16:chw --outputIOFormats=fp16:chw --fp16
+    #
+    print("=> step5_test_with_tensorrt")
+    step5_test_with_tensorrt(input_batch, trt_path="resnet_engine_pytorch.trt", USE_FP16=False)
+    print("=> step6_verify_tensorrt_with_fp16")
+    step5_test_with_tensorrt(input_batch, trt_path="resnet_engine_pytorch_fp16.trt", USE_FP16=True)
