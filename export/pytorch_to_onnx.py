@@ -8,6 +8,13 @@
 See:
 1. [(optional) Exporting a Model from PyTorch to ONNX and Running it using ONNX Runtime](https://pytorch.org/tutorials/advanced/super_resolution_with_onnxruntime.html)
 2. [Converting to ONNX format](https://github.com/onnx/tutorials#converting-to-onnx-format)
+
+Usage: Convert Pytorch ToyNet to ONNX:
+    $ python pytorch_to_onnx.py
+
+Usage: Convert Pytorch Resnet18 to ONNX:
+    $ python pytorch_to_onnx.py --model resnet18 --save resnet18_pytorch.onnx
+
 """
 
 import argparse
