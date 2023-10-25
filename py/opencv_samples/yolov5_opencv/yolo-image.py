@@ -9,22 +9,16 @@
 
 import os
 import cv2
-import time
-import random
 import argparse
 
 import numpy as np
 
-class_colors = dict()
-random.seed(30)
-np.random.seed(30)
-
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="YOLOv5 OpenCV Video Test.")
-    parser.add_argument('-v', '--video', metavar='VIDEO',
-                        type=str, default='../../../assets/sample.mp4',
-                        help='Video source to be detected.')
+    parser = argparse.ArgumentParser(description="YOLOv5 OpenCV　Image Test.")
+    parser.add_argument('-i', '--img', metavar='IMG', type=str,
+                        default='../../../assets/bus.jpg',
+                        help='Image source to be detected.')
     parser.add_argument('-m', '--model', metavar='MODEL', type=str,
                         default='../../../assets/yolov5n.onnx',
                         help='Path to onnx model.')
@@ -32,17 +26,18 @@ def parse_args():
                         default="../../../assets/coco.names",
                         help='Path to class names file.')
 
-    parser.add_argument('--is_cuda', action='store_true', default=False, help='Runing in GPU.')
-
     parser.add_argument('-o', '--output', metavar='OUTPUT', type=str,
-                        default="../../../assets/yolov5-opencv-det.mp4",
+                        default="../../../assets/yolov5-opencv_samples-det.jpg",
                         help='Path to output.')
     args = parser.parse_args()
     print("args:", args)
     return args
 
 
-def load_data(image, img_sz=640):
+def load_data(img_path, img_sz=640):
+    assert os.path.isfile(img_path), img_path
+    image = cv2.imread(img_path, cv2.IMREAD_COLOR)
+
     def format_yolov5(frame):
         row, col, _ = frame.shape
         _max = max(col, row)
@@ -52,27 +47,21 @@ def load_data(image, img_sz=640):
 
     input_image = format_yolov5(image)
     blob = cv2.dnn.blobFromImage(input_image, 1 / 255.0, (img_sz, img_sz), swapRB=True, crop=False)
-    return input_image, blob
+    return image, input_image, blob
 
 
-def load_model(model_path, is_cuda=False):
+def load_model(model_path):
     assert os.path.isfile(model_path), model_path
 
     model = cv2.dnn.readNet(model_path)
-    if is_cuda:
-        print("Attempt to use CUDA")
-        model.setPreferableBackend(cv2.dnn.DNN_BACKEND_CUDA)
-        model.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA_FP16)
-    else:
-        print("Running on CPU")
-        model.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
-        model.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
+    model.setPreferableBackend(cv2.dnn.DNN_BACKEND_DEFAULT)
+    model.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
+
     return model
 
 
 def post_process(output_data, img_shape, img_sz=640, conf_th=0.4, cls_th=0.25,
                  score_th=0.25, nms_th=0.45):
-    assert len(output_data.shape) == 2, output_data.shape
     image_width, image_height = img_shape[:2]
     x_factor = image_width / img_sz
     y_factor = image_height / img_sz
@@ -113,73 +102,35 @@ def post_process(output_data, img_shape, img_sz=640, conf_th=0.4, cls_th=0.25,
     return result_class_ids, result_confidences, result_boxes
 
 
-def draw_results(image, class_path, result_class_ids, result_confidences, result_boxes):
+def show_results(image, class_path, result_class_ids, result_confidences, result_boxes, output_path):
     with open(class_path, "r") as f:
         class_list = [cname.strip() for cname in f.readlines()]
 
     for i in range(len(result_class_ids)):
         box = result_boxes[i]
         class_id = result_class_ids[i]
-        if class_id not in class_colors.keys():
-            class_colors[class_id] = (random.randint(100, 255), random.randint(100, 255), random.randint(100, 255))
-        color = class_colors[class_id]
 
-        cv2.rectangle(image, box, color, 2)
-        cv2.rectangle(image, (box[0], box[1] - 20), (box[0] + box[2], box[1]), color, -1)
+        cv2.rectangle(image, box, (0, 255, 255), 2)
+        cv2.rectangle(image, (box[0], box[1] - 20), (box[0] + box[2], box[1]), (0, 255, 255), -1)
         cv2.putText(image, f'{class_list[class_id]} {result_confidences[i]:.3f}', (box[0], box[1] - 10),
                     cv2.FONT_HERSHEY_SIMPLEX, .5, (0, 0, 0))
 
-    return image
+    cv2.imwrite(output_path, image)
+    cv2.imshow("output", image)
+    cv2.waitKey()
 
 
 def main():
     args = parse_args()
 
-    model = load_model(args.model, is_cuda=args.is_cuda)
-    capture = cv2.VideoCapture(args.video)
+    image, input_image, blob = load_data(args.img)
+    model = load_model(args.model)
 
-    size = (int(capture.get(cv2.CAP_PROP_FRAME_WIDTH)),
-            int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT)))
-    fps = capture.get(cv2.CAP_PROP_FPS)
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    video_writer = cv2.VideoWriter(args.output, fourcc, fps,
-                                   size)  # (cfg.DEMO.DISPLAY_WIDTH, cfg.DEMO.DISPLAY_HEIGHT))
+    model.setInput(blob)
+    predictions = model.forward()
+    result_class_ids, result_confidences, result_boxes = post_process(predictions[0], input_image.shape)
 
-    start = time.time_ns()
-    frame_count = 0
-    total_frames = 0
-    fps = -1
-    while True:
-        _, frame = capture.read()
-        if frame is None:
-            print("End of stream")
-            break
-
-        input_image, blob = load_data(frame)
-        model.setInput(blob)
-        predictions = model.forward()
-        result_class_ids, result_confidences, result_boxes = post_process(predictions[0], input_image.shape)
-        draw_image = draw_results(frame, args.classes, result_class_ids, result_confidences, result_boxes)
-
-        frame_count += 1
-        total_frames += 1
-        if frame_count >= 30:
-            end = time.time_ns()
-            fps = 1000000000 * frame_count / (end - start)
-            frame_count = 0
-            start = time.time_ns()
-        if fps > 0:
-            fps_label = "FPS: %.2f" % fps
-            cv2.putText(draw_image, fps_label, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-        video_writer.write(draw_image)
-
-        cv2.imshow("output", draw_image)
-        if cv2.waitKey(1) > -1:
-            print("finished by user")
-            break
-    print("Total frames: " + str(total_frames))
-
-    video_writer.release()
+    show_results(image, args.classes, result_class_ids, result_confidences, result_boxes, args.output)
 
 
 if __name__ == '__main__':

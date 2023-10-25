@@ -13,7 +13,7 @@ import MNN.numpy as np
 import MNN.expr as expr
 
 # 创建interpreter
-interpreter = MNN.Interpreter("mobilenet_v1.mnn")
+interpreter = MNN.Interpreter("mobilenet_v1.mnn_samples")
 # 创建session
 config = {}
 config['precision'] = 'low'
