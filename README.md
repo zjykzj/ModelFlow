@@ -4,7 +4,7 @@
   <a title="Chinese" href="./README.zh-CN.md">🇨🇳</a>
 </div> -->
 
- <div align="center"><a title="" href="git@github.com:zjykzj/onnx.git"><img align="center" src="./imgs/onnx.png"></a></div>
+ <div align="center"><a title="" href="git@github.com:zjykzj/onnx.git"><img align="center" src="./assets/logos/deploy.svg"></a></div>
 
 <p align="center">
   «onnx» implements the model deployment phase.
