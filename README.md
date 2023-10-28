@@ -7,7 +7,7 @@
  <div align="center"><a title="" href="git@github.com:zjykzj/onnx.git"><img align="center" src="./assets/logos/deploy.svg"></a></div>
 
 <p align="center">
-  «onnx» implements the model deployment phase.
+  Pytorch -> ONNX -> ONNXRuntime/OpenCV/MNN/TensorRT/OpenVINO
 <br>
 <br>
   <a href="https://github.com/RichardLitt/standard-readme"><img src="https://img.shields.io/badge/standard--readme-OK-green.svg?style=flat-square"></a>
@@ -65,6 +65,9 @@ As a computer vision engineer, how to better apply image algorithms to landing s
 * [nothings/stb](https://github.com/nothings/stb)
 * [gabime/spdlog](https://github.com/gabime/spdlog)
 * [facebookresearch/faiss](https://github.com/facebookresearch/faiss)
+* [NVIDIA/TensorRT](https://github.com/NVIDIA/TensorRT/tree/release/8.6/quickstart)
+* [NVIDIA Deep Learning TensorRT Documentation](https://docs.nvidia.com/deeplearning/tensorrt/quick-start-guide/index.html#install)
+
 
 ## Contributing
 
