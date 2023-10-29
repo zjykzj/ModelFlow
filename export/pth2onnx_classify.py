@@ -2,21 +2,22 @@
 
 """
 @date: 2022/2/12 下午1:46
-@file: pytorch_to_onnx.py
+@file: pth2onnx_classify.py
 @author: zj
 @description: Convert pytorch model to onnx format
 See:
 1. [(optional) Exporting a Model from PyTorch to ONNX and Running it using ONNX Runtime](https://pytorch.org/tutorials/advanced/super_resolution_with_onnxruntime.html)
 2. [Converting to ONNX format](https://github.com/onnx/tutorials#converting-to-onnx-format)
+3. [TensorRT/quickstart/SemanticSegmentation/](https://github.com/NVIDIA/TensorRT/blob/release/8.6/quickstart/SemanticSegmentation/export.py)
 
 Usage: Convert Pytorch ToyNet to ONNX:
-    $ python pytorch_to_onnx.py
+    $ python pth2onnx_classify.py
 
-Usage: Convert Pytorch Resnet18 to ONNX:
-    $ python pytorch_to_onnx.py --model resnet18 --save resnet18_pytorch.onnx
+Usage: Convert Pytorch Resnet50 to ONNX:
+    $ python pth2onnx_classify.py --model resnet50 --save resnet50_pytorch.onnx
 
 Usage: Dynamically setting batch size:
-    $ python pytorch_to_onnx.py --model resnet18 --save resnet18_pytorch.onnx --dynamic
+    $ python pth2onnx_classify.py --model resnet50 --save resnet50_pytorch.onnx --dynamic
 
 """
 
@@ -55,7 +56,7 @@ def load_model(pytorch_model=None):
         model_names = sorted(name for name in models.__dict__
                              if name.islower() and not name.startswith("__")
                              and callable(models.__dict__[name]))
-        assert pytorch_model in model_names
+        assert pytorch_model in model_names, print(model_names)
 
         model = models.__dict__[pytorch_model](pretrained=True)
 
@@ -94,7 +95,8 @@ def check_output(x, torch_out, onnx_path='pytorch.onnx'):
     print("Exported model has been tested with ONNXRuntime, and the result looks good!")
 
 
-def export_to_onnx(torch_model, batch_size=1, img_dim=1, img_size=28, onnx_path="pytorch.onnx", is_dynamic=False):
+def export_to_onnx(torch_model, batch_size=1, img_dim=1, img_size=28, onnx_path="pytorch.onnx",
+                   is_dynamic=False, is_detect=False):
     assert isinstance(torch_model, nn.Module)
 
     if is_dynamic:
@@ -105,28 +107,22 @@ def export_to_onnx(torch_model, batch_size=1, img_dim=1, img_size=28, onnx_path=
     torch_out = torch_model(x)
 
     # Export the model
-    if not is_dynamic:
-        torch.onnx.export(torch_model,  # model being run
-                          x,  # model input (or a tuple for multiple inputs)
-                          onnx_path,  # where to save the model (can be a file or file-like object)
-                          export_params=True,  # store the trained parameter weights inside the model file
-                          opset_version=12,  # the ONNX version to export the model to
-                          do_constant_folding=True,  # whether to execute constant folding for optimization
-                          input_names=['input'],  # the model's input names
-                          output_names=['output'],  # the model's output names
-                          )
+    if is_dynamic:
+        # variable length axes
+        dynamic_axes = {'input': {0: 'batch_size'}, 'output': {0: 'batch_size'}}
     else:
-        torch.onnx.export(torch_model,  # model being run
-                          x,  # model input (or a tuple for multiple inputs)
-                          onnx_path,  # where to save the model (can be a file or file-like object)
-                          export_params=True,  # store the trained parameter weights inside the model file
-                          opset_version=12,  # the ONNX version to export the model to
-                          do_constant_folding=True,  # whether to execute constant folding for optimization
-                          input_names=['input'],  # the model's input names
-                          output_names=['output'],  # the model's output names
-                          dynamic_axes={'input': {0: 'batch_size'},  # variable length axes
-                                        'output': {0: 'batch_size'}}
-                          )
+        dynamic_axes = None
+
+    torch.onnx.export(torch_model,  # model being run
+                      x,  # model input (or a tuple for multiple inputs)
+                      onnx_path,  # where to save the model (can be a file or file-like object)
+                      export_params=True,  # store the trained parameter weights inside the model file
+                      opset_version=12,  # the ONNX version to export the model to
+                      do_constant_folding=True,  # whether to execute constant folding for optimization
+                      input_names=['input'],  # the model's input names
+                      output_names=['output'],  # the model's output names
+                      dynamic_axes=dynamic_axes
+                      )
 
     check_onnx(onnx_path=onnx_path)
     check_output(x, torch_out, onnx_path=onnx_path)
