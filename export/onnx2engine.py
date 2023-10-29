@@ -2,9 +2,20 @@
 
 """
 @Time    : 2023/10/29 15:55
-@File    : onnx_to_engine.py
+@File    : onnx2engine.py
 @Author  : zj
-@Description: Refer to https://github.com/NVIDIA/TensorRT/blob/main/quickstart/IntroNotebooks/onnx_helper.py
+@Description: Convert onnx model to tensorrt format
+See:
+1. https://github.com/NVIDIA/TensorRT/blob/main/quickstart/IntroNotebooks/onnx_helper.py
+
+Usage: Convert ONNX Resnet50 to Engine:
+    $ python onnx2engine.py resnet50_pytorch.onnx resnet50_pytorch.engine
+
+Usage: Convert to FP16 precision:
+    $ python onnx2engine.py resnet50_pytorch.onnx resnet50_pytorch_fp16.engine --fp16
+
+[TensorRT] ERROR: Network has dynamic or shape inputs, but no optimization profile has been defined.
+Fix: Using the trtexec command-line tool for dynamic onnx model conversion
 """
 
 import argparse
@@ -15,6 +26,8 @@ import tensorrt as trt
 
 import pycuda.driver as cuda
 import pycuda.autoinit
+
+print("TensorRT version: {}".format(trt.__version__))
 
 
 def parse_opt():
