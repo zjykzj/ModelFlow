@@ -17,7 +17,7 @@ Usage: Convert Pytorch Resnet50 to ONNX:
     $ python pth2onnx_classify.py --model resnet50 --save resnet50_pytorch.onnx
 
 Usage: Dynamically setting batch size:
-    $ python pth2onnx_classify.py --model resnet50 --save resnet50_pytorch.onnx --dynamic
+    $ python pth2onnx_classify.py --model resnet50 --save resnet50_pytorch_dynamic.onnx --dynamic
 
 """
 
