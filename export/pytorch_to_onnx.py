@@ -69,6 +69,10 @@ def check_onnx(onnx_path='pytorch.onnx'):
 
 
 def check_output(x, torch_out, onnx_path='pytorch.onnx'):
+    # See https://blog.csdn.net/zunzunle/article/details/130087922
+    print("Supported onnxruntime version: ", onnxruntime.__version__)
+    print("Supported Opset versions: ", onnxruntime.get_available_providers())
+
     # ValueError: This ORT build has ['TensorrtExecutionProvider', 'CUDAExecutionProvider', 'CPUExecutionProvider'] enabled. \
     # Since ORT 1.9, you are required to explicitly set the providers parameter when instantiating InferenceSession.
     # For example, onnxruntime.InferenceSession(..., providers=['TensorrtExecutionProvider', 'CUDAExecutionProvider', 'CPUExecutionProvider'], ...)
