@@ -2,17 +2,17 @@
 
 """
 @Time    : 2023/10/29 15:55
-@File    : onnx2engine.py
+@File    : onnx2trt_classify.py
 @Author  : zj
 @Description: Convert onnx model to tensorrt format
 See:
 1. https://github.com/NVIDIA/TensorRT/blob/main/quickstart/IntroNotebooks/onnx_helper.py
 
 Usage: Convert ONNX Resnet50 to Engine:
-    $ python onnx2engine.py resnet50_pytorch.onnx resnet50_pytorch.engine
+    $ python onnx2trt_classify.py resnet50_pytorch.onnx resnet50_pytorch.engine
 
 Usage: Convert to FP16 precision:
-    $ python onnx2engine.py resnet50_pytorch.onnx resnet50_pytorch_fp16.engine --fp16
+    $ python onnx2trt_classify.py resnet50_pytorch.onnx resnet50_pytorch_fp16.engine --fp16
 
 [TensorRT] ERROR: Network has dynamic or shape inputs, but no optimization profile has been defined.
 Fix: Using the trtexec command-line tool for dynamic onnx model conversion
@@ -120,9 +120,10 @@ class ONNXClassifierWrapper():
 
 
 def get_onnx_output(onnx_path):
+    # providers=['TensorrtExecutionProvider', 'CUDAExecutionProvider', 'AzureExecutionProvider', 'CPUExecutionProvider']
     ort_session = onnxruntime.InferenceSession(onnx_path,
                                                providers=['TensorrtExecutionProvider', 'CUDAExecutionProvider',
-                                                          'AzureExecutionProvider', 'CPUExecutionProvider'])
+                                                          'CPUExecutionProvider'])
     print("Onnx info:")
     print(f"    input: {ort_session.get_inputs()[0]}")
     print(f"    output: {ort_session.get_outputs()[0]}")
