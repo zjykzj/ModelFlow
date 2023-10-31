@@ -4,8 +4,14 @@
 @Time    : 2023/10/30 18:02
 @File    : yolov8_trt.py
 @Author  : zj
-@Description: 
+@Description:
+
+Usage: Specify YOLOv8 Engine model for TensorRT inference:
+    $ python3 py/tensorrt_samples/yolov8_trt.py export/yolov8n.trt assets/bus.jpg
+    $ python3 py/tensorrt_samples/yolov8_trt.py export/yolov8n_fp16.trt assets/bus.jpg
+
 """
+import copy
 
 import cv2
 import numpy as np
@@ -53,6 +59,7 @@ class YOLOv8TRT:
         for binding in engine:
             size = trt.volume(engine.get_binding_shape(binding))
             dtype = trt.nptype(engine.get_binding_dtype(binding))
+            # print(engine.get_binding_dtype(binding), dtype, np.dtype(dtype))
             # Allocate host and device buffers
             host_mem = cuda.pagelocked_empty(size, dtype)
             device_mem = cuda.mem_alloc(host_mem.nbytes)
@@ -67,9 +74,12 @@ class YOLOv8TRT:
                 self.output_shapes.append(engine.get_binding_shape(binding))
                 self.outputs.append({'host': host_mem, 'device': device_mem})
 
+        self.dtype = np.dtype(trt.nptype(engine.get_binding_dtype(binding)))
+        print(f"Init Done. Work with {self.dtype}")
+
     def inference(self, img):
         # Copy input image to host buffer
-        self.inputs[0]['host'] = np.ravel(img)
+        self.inputs[0]['host'] = np.ravel(img.astype(self.dtype))
         # Transfer input data  to the GPU.
         for inp in self.inputs:
             cuda.memcpy_htod_async(inp['device'], inp['host'], self.stream)
@@ -113,8 +123,15 @@ def parse_opt():
 def main(args):
     model = YOLOv8TRT(args.model)
     img = cv2.imread(args.image)
-    boxes, confs, classes = model.detect(img)
-    print(boxes, confs, classes)
+    boxes, confs, classes = model.detect(copy.deepcopy(img))
+    # print(boxes, confs, classes)
+
+    for box, conf, class_id in zip(boxes, confs, classes):
+        x1, y1, x2, y2 = box
+        cv2.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 1)
+        print(box, conf, class_id)
+
+    cv2.imwrite("yolov8_trt_out.jpg", img)
 
 
 if __name__ == '__main__':
