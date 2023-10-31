@@ -22,7 +22,7 @@ After obtaining the onnx file, it can be converted into a trt file using the trt
 # 半精度转换
 >>>trtexec --onnx=yolov8n.onnx --saveEngine=yolov8n_fp16.trt  --explicitBatch --inputIOFormats=fp16:chw --outputIOFormats=fp16:chw --fp16
 
-Note: For TensorRT 7.X version, setting opset=12 can perform the correct conversion
+Note: For TensorRT 7.X version, setting opset=12 can perform the correct conversion and inference
 
 """
 
