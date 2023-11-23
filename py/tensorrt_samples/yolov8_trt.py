@@ -4,7 +4,7 @@
 @Time    : 2023/10/30 18:02
 @File    : yolov8_trt.py
 @Author  : zj
-@Description:
+@Description: YOLOv8 + TensorRT + Numpy (without pytorch)
 
 Usage: Specify YOLOv8 Engine model for TensorRT inference:
     $ python3 py/tensorrt_samples/yolov8_trt.py export/yolov8n.trt assets/bus.jpg
@@ -21,6 +21,8 @@ import pycuda.autoinit
 import pycuda.driver as cuda
 
 from yolov8_utils import det_process_box_output
+
+print("TensorRT version: {}".format(trt.__version__))
 
 
 def preprocess(image_raw, input_h, input_w, is_fp16=False):
@@ -56,6 +58,7 @@ class YOLOv8TRT:
 
         # Allocate memory
         self.inputs, self.outputs, self.bindings, self.output_shapes = [], [], [], []
+        print_input, print_output = True, True
         for binding in engine:
             size = trt.volume(engine.get_binding_shape(binding))
             dtype = trt.nptype(engine.get_binding_dtype(binding))
@@ -66,13 +69,22 @@ class YOLOv8TRT:
             # Append the device buffer to device bindings.
             self.bindings.append(int(device_mem))
             # Append to the appropriate list.
+            binding_shape = engine.get_binding_shape(binding)
             if engine.binding_is_input(binding):
-                self.input_w = engine.get_binding_shape(binding)[-1]
-                self.input_h = engine.get_binding_shape(binding)[-2]
+                self.input_w = binding_shape[-1]
+                self.input_h = binding_shape[-2]
                 self.inputs.append({'host': host_mem, 'device': device_mem})
+                if print_input:
+                    print("Input info:")
+                    print_input = False
+                print("\t\t", binding, binding_shape)
             else:
-                self.output_shapes.append(engine.get_binding_shape(binding))
+                self.output_shapes.append(binding_shape)
                 self.outputs.append({'host': host_mem, 'device': device_mem})
+                if print_output:
+                    print("Output info:")
+                    print_output = False
+                print("\t\t", binding, binding_shape)
 
         self.dtype = np.dtype(trt.nptype(engine.get_binding_dtype(binding)))
         print(f"Init Done. Work with {self.dtype}")
@@ -101,7 +113,7 @@ class YOLOv8TRT:
         for output, shape in zip(outputs, self.output_shapes):
             reshaped.append(output.reshape(shape))
         boxes, confs, classes = post_process(reshaped, self.input_h, self.input_w,
-                                             conf_thres=0.4, iou_thres=0.4, origin_w=w, origin_h=h)
+                                             conf_thres=0.25, iou_thres=0.45, origin_w=w, origin_h=h)
         return boxes, confs, classes
 
 
