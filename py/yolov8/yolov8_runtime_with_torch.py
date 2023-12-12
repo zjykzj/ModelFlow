@@ -4,7 +4,11 @@
 @Time    : 2023/12/12 14:32
 @File    : yolov8_trt_with_torch.py
 @Author  : zj
-@Description: 
+@Description:
+
+Yolov8: https://github.com/ultralytics/ultralytics
+Commit id: e58db228c2fd9856e7bff54a708bf5acde26fb29
+
 """
 
 import os
@@ -17,10 +21,6 @@ from torch import Tensor
 import numpy as np
 from numpy import ndarray
 
-import tensorrt as trt
-import pycuda.autoinit
-import pycuda.driver as cuda
-
 import sys
 from pathlib import Path
 
@@ -31,7 +31,7 @@ if str(ROOT) not in sys.path:
 ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
 from general import LOGGER
-from image_util import LetterBox, draw_results
+from yolov8_util import LetterBox, draw_results
 from torch_util import non_max_suppression, scale_boxes
 
 MODEL_NAMES = {0: 'person', 1: 'bicycle', 2: 'car', 3: 'motorcycle', 4: 'airplane', 5: 'bus', 6: 'train', 7: 'truck',
@@ -90,71 +90,35 @@ def postprocess(preds,
     return boxes, confs, cls_ids
 
 
-class YOLOv8TRT:
+class YOLOv8Runtime:
 
-    def __init__(self, weight: str = 'yolov8n.engine'):
+    def __init__(self, weight: str = 'yolov8n.onnx'):
         super().__init__()
-        self.load_engine(weight)
+        self.load_onnx(weight)
 
         self.device = torch.device("cpu")
 
-    def load_engine(self, weight: str):
+    def load_onnx(self, weight: str):
         assert os.path.isfile(weight), weight
-        LOGGER.info(f'Loading {weight} for TensorRT inference...')
 
-        TRT_LOGGER = trt.Logger(trt.Logger.INFO)
-        with open(weight, 'rb') as f, trt.Runtime(TRT_LOGGER) as runtime:
-            engine = runtime.deserialize_cuda_engine(f.read())
-        self.context = engine.create_execution_context()
-        self.stream = cuda.Stream()
+        LOGGER.info(f'Loading {weight} for ONNX Runtime inference...')
+        import onnxruntime
+        providers = ['CPUExecutionProvider']
+        session = onnxruntime.InferenceSession(weight, providers=providers)
+        output_names = [x.name for x in session.get_outputs()]
+        metadata = session.get_modelmeta().custom_metadata_map  # metadata
+        LOGGER.info(f"metadata: {metadata}")
 
-        # Allocate memory
-        self.inputs, self.outputs, self.bindings, self.output_shapes = [], [], [], []
-        for binding in engine:
-            size = trt.volume(engine.get_binding_shape(binding))
-            dtype = trt.nptype(engine.get_binding_dtype(binding))
-            # Allocate host and device buffers
-            host_mem = cuda.pagelocked_empty(size, dtype)
-            device_mem = cuda.mem_alloc(host_mem.nbytes)
-            # Append the device buffer to device bindings.
-            self.bindings.append(int(device_mem))
-            print(binding, engine.get_binding_shape(binding))
-            # Append to the appropriate list.
-            if engine.binding_is_input(binding):
-                self.input_w = engine.get_binding_shape(binding)[-1]
-                self.input_h = engine.get_binding_shape(binding)[-2]
-                self.inputs.append({'host': host_mem, 'device': device_mem})
-            else:
-                self.output_shapes.append(engine.get_binding_shape(binding))
-                self.outputs.append({'host': host_mem, 'device': device_mem})
-
-        self.dtype = np.dtype(trt.nptype(engine.get_binding_dtype(binding)))
+        self.session = session
+        self.output_names = output_names
+        self.dtype = np.float32
         LOGGER.info(f"Init Done. Work with {self.dtype}")
 
     def infer(self, im: Tensor):
         im = im.cpu().numpy()  # torch to numpy
 
-        # Copy input image to host buffer
-        self.inputs[0]['host'] = np.ravel(im.astype(self.dtype))
-        # Transfer input data to the GPU.
-        for inp in self.inputs:
-            cuda.memcpy_htod_async(inp['device'], inp['host'], self.stream)
+        y = self.session.run(self.output_names, {self.session.get_inputs()[0].name: im})
 
-        # Transfer input data to the GPU.
-        self.context.execute_async_v2(bindings=self.bindings, stream_handle=self.stream.handle)
-
-        # fetch outputs from gpu
-        for out in self.outputs:
-            cuda.memcpy_dtoh_async(out['host'], out['device'], self.stream)
-        # synchronize stream
-        self.stream.synchronize()
-
-        outputs = [out['host'] for out in self.outputs]
-        reshaped = []
-        for output, shape in zip(outputs, self.output_shapes):
-            reshaped.append(output.reshape(shape))
-
-        y = reshaped
         if isinstance(y, (list, tuple)):
             return self.from_numpy(y[0]) if len(y) == 1 else [self.from_numpy(x) for x in y]
         else:
@@ -190,7 +154,7 @@ class YOLOv8TRT:
 
         overlay = draw_results(im0, boxes, confs, cls_ids, CLASSES_NAME, is_xyxy=True)
         image_name = os.path.splitext(os.path.basename(img_path))[0]
-        img_path = os.path.join(output_dir, f"{image_name}-yolov8_trt_with_torch.jpg")
+        img_path = os.path.join(output_dir, f"{image_name}-yolov8_runtime_with_torch_out.jpg")
         print(f"Save to {img_path}")
         cv2.imwrite(img_path, overlay)
 
@@ -207,7 +171,7 @@ class YOLOv8TRT:
             f"video_fps: {video_fps}, frame_count: {frame_count}, frame_width: {frame_width}, frame_height: {frame_height}")
 
         image_name = os.path.splitext(os.path.basename(video_file))[0]
-        video_out_name = f'{image_name}-yolov8_trt_with_torch.mp4'
+        video_out_name = f'{image_name}-yolov8_runtime_with_torch_out.mp4'
         video_path = os.path.join(output_dir, video_out_name)
         video_format = 'mp4v'
         fourcc = cv2.VideoWriter_fourcc(*video_format)
@@ -234,9 +198,9 @@ class YOLOv8TRT:
 def parse_opt():
     import argparse
 
-    parser = argparse.ArgumentParser(description="YOLOv8TRT Infer")
+    parser = argparse.ArgumentParser(description="YOLOv8Runtime Infer")
     parser.add_argument("model", metavar="MODEL", type=str, default='yolov8n.engine',
-                        help="Path of TensorRT engine")
+                        help="Path of ONNX Runtime model")
     parser.add_argument("input", metavar="INPUT", type=str, default="assets/bus.jpg",
                         help="Path of input, default to image")
     parser.add_argument("--video", action="store_true", default=False,
@@ -249,7 +213,7 @@ def parse_opt():
 
 
 def main(args):
-    model = YOLOv8TRT(args.model)
+    model = YOLOv8Runtime(args.model)
 
     input = args.input
     if args.video:
