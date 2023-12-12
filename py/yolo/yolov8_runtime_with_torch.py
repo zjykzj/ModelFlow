@@ -17,10 +17,6 @@ from torch import Tensor
 import numpy as np
 from numpy import ndarray
 
-import tensorrt as trt
-import pycuda.autoinit
-import pycuda.driver as cuda
-
 import sys
 from pathlib import Path
 
@@ -94,67 +90,31 @@ class YOLOv8TRT:
 
     def __init__(self, weight: str = 'yolov8n.engine'):
         super().__init__()
-        self.load_engine(weight)
+        self.load_onnx(weight)
 
         self.device = torch.device("cpu")
 
-    def load_engine(self, weight: str):
+    def load_onnx(self, weight: str):
         assert os.path.isfile(weight), weight
-        LOGGER.info(f'Loading {weight} for TensorRT inference...')
 
-        TRT_LOGGER = trt.Logger(trt.Logger.INFO)
-        with open(weight, 'rb') as f, trt.Runtime(TRT_LOGGER) as runtime:
-            engine = runtime.deserialize_cuda_engine(f.read())
-        self.context = engine.create_execution_context()
-        self.stream = cuda.Stream()
+        LOGGER.info(f'Loading {weight} for ONNX Runtime inference...')
+        import onnxruntime
+        providers = ['CPUExecutionProvider']
+        session = onnxruntime.InferenceSession(weight, providers=providers)
+        output_names = [x.name for x in session.get_outputs()]
+        metadata = session.get_modelmeta().custom_metadata_map  # metadata
+        LOGGER.info(f"metadata: {metadata}")
 
-        # Allocate memory
-        self.inputs, self.outputs, self.bindings, self.output_shapes = [], [], [], []
-        for binding in engine:
-            size = trt.volume(engine.get_binding_shape(binding))
-            dtype = trt.nptype(engine.get_binding_dtype(binding))
-            # Allocate host and device buffers
-            host_mem = cuda.pagelocked_empty(size, dtype)
-            device_mem = cuda.mem_alloc(host_mem.nbytes)
-            # Append the device buffer to device bindings.
-            self.bindings.append(int(device_mem))
-            print(binding, engine.get_binding_shape(binding))
-            # Append to the appropriate list.
-            if engine.binding_is_input(binding):
-                self.input_w = engine.get_binding_shape(binding)[-1]
-                self.input_h = engine.get_binding_shape(binding)[-2]
-                self.inputs.append({'host': host_mem, 'device': device_mem})
-            else:
-                self.output_shapes.append(engine.get_binding_shape(binding))
-                self.outputs.append({'host': host_mem, 'device': device_mem})
-
-        self.dtype = np.dtype(trt.nptype(engine.get_binding_dtype(binding)))
+        self.session = session
+        self.output_names = output_names
+        self.dtype = np.float32
         LOGGER.info(f"Init Done. Work with {self.dtype}")
 
     def infer(self, im: Tensor):
         im = im.cpu().numpy()  # torch to numpy
 
-        # Copy input image to host buffer
-        self.inputs[0]['host'] = np.ravel(im.astype(self.dtype))
-        # Transfer input data to the GPU.
-        for inp in self.inputs:
-            cuda.memcpy_htod_async(inp['device'], inp['host'], self.stream)
+        y = self.session.run(self.output_names, {self.session.get_inputs()[0].name: im})
 
-        # Transfer input data to the GPU.
-        self.context.execute_async_v2(bindings=self.bindings, stream_handle=self.stream.handle)
-
-        # fetch outputs from gpu
-        for out in self.outputs:
-            cuda.memcpy_dtoh_async(out['host'], out['device'], self.stream)
-        # synchronize stream
-        self.stream.synchronize()
-
-        outputs = [out['host'] for out in self.outputs]
-        reshaped = []
-        for output, shape in zip(outputs, self.output_shapes):
-            reshaped.append(output.reshape(shape))
-
-        y = reshaped
         if isinstance(y, (list, tuple)):
             return self.from_numpy(y[0]) if len(y) == 1 else [self.from_numpy(x) for x in y]
         else:
@@ -190,7 +150,7 @@ class YOLOv8TRT:
 
         overlay = draw_results(im0, boxes, confs, cls_ids, CLASSES_NAME, is_xyxy=True)
         image_name = os.path.splitext(os.path.basename(img_path))[0]
-        img_path = os.path.join(output_dir, f"{image_name}-yolov8_trt_out.jpg")
+        img_path = os.path.join(output_dir, f"{image_name}-yolov8_runtime_with_torch_out.jpg")
         print(f"Save to {img_path}")
         cv2.imwrite(img_path, overlay)
 
@@ -207,7 +167,7 @@ class YOLOv8TRT:
             f"video_fps: {video_fps}, frame_count: {frame_count}, frame_width: {frame_width}, frame_height: {frame_height}")
 
         image_name = os.path.splitext(os.path.basename(video_file))[0]
-        video_out_name = f'{image_name}-yolov8_trt_out.mp4'
+        video_out_name = f'{image_name}-yolov8_runtime_with_torch_out.mp4'
         video_path = os.path.join(output_dir, video_out_name)
         video_format = 'mp4v'
         fourcc = cv2.VideoWriter_fourcc(*video_format)
