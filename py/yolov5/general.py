@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-@Time    : 2023/12/12 17:26
+@Time    : 2023/12/10 17:26
 @File    : general.py
 @Author  : zj
 @Description: 
@@ -11,9 +11,6 @@ import os
 import logging
 import logging.config
 import platform
-
-import numpy as np
-from numpy_util import letterbox, non_max_suppression, scale_boxes
 
 LOGGING_NAME = "yolov5"
 

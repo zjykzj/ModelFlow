@@ -1,14 +1,13 @@
 # -*- coding: utf-8 -*-
 
 """
-@Time    : 2023/12/12 14:32
-@File    : yolov8_trt_with_torch.py
+@Time    : 2023/12/16 14:32
+@File    : yolov8_trt_w_torch.py
 @Author  : zj
 @Description:
 
-Yolov5: https://github.com/ultralytics/yolov5
-Commit id: 8d4058e093249cb538bc31a5248045cffb6d60af
-Tag: v7.0
+Yolov8: https://github.com/ultralytics/ultralytics
+Commit id: e58db228c2fd9856e7bff54a708bf5acde26fb29
 
 """
 
@@ -31,8 +30,8 @@ if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))  # add ROOT to PATH
 ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
-from general import LOGGER, letterbox
-from numpy_util import draw_results
+from general import LOGGER
+from yolov8_util import LetterBox, draw_results
 from torch_util import non_max_suppression, scale_boxes
 
 MODEL_NAMES = {0: 'person', 1: 'bicycle', 2: 'car', 3: 'motorcycle', 4: 'airplane', 5: 'bus', 6: 'train', 7: 'truck',
@@ -51,17 +50,23 @@ MODEL_NAMES = {0: 'person', 1: 'bicycle', 2: 'car', 3: 'motorcycle', 4: 'airplan
 CLASSES_NAME = [item[1] for item in MODEL_NAMES.items()]
 
 
-def preprocess(im0, device, fp16=False, img_size=640, stride=32, auto=False):
-    im = letterbox(im0, img_size, stride=stride, auto=auto)[0]  # padded resize
-    im = im.transpose((2, 0, 1))[::-1]  # HWC to CHW, BGR to RGB
-    im = np.ascontiguousarray(im)  # contiguous
+def pre_transform(im, imgsz=(640, 640), auto=False, stride=32):
+    letterbox = LetterBox(imgsz, auto=auto, stride=stride)
+    return [letterbox(image=x) for x in im]
 
-    im = torch.from_numpy(im).to(device)
+
+def preprocess(im, device=torch.device("cpu"), fp16=False):
+    not_tensor = not isinstance(im, torch.Tensor)
+    if not_tensor:
+        im = np.stack(pre_transform(im))
+        im = im[..., ::-1].transpose((0, 3, 1, 2))  # BGR to RGB, BHWC to BCHW, (n, 3, h, w)
+        im = np.ascontiguousarray(im)  # contiguous
+        im = torch.from_numpy(im)
+
+    im = im.to(device)
     im = im.half() if fp16 else im.float()  # uint8 to fp16/32
-    im /= 255  # 0 - 255 to 0.0 - 1.0
-    if len(im.shape) == 3:
-        im = im[None]  # expand for batch dim
-
+    if not_tensor:
+        im /= 255  # 0 - 255 to 0.0 - 1.0
     return im
 
 
@@ -73,23 +78,25 @@ def postprocess(preds,
                 classes=None,
                 agnostic=False,
                 max_det=300, ):
-    print("********* NMS START ***********")
-    pred = non_max_suppression(preds, conf, iou, classes, agnostic, max_det=max_det)[0]
-    print("********* NMS END *************")
-
+    pred = non_max_suppression(preds,
+                               conf,
+                               iou,
+                               agnostic=agnostic,
+                               max_det=max_det,
+                               classes=classes)[0]
     boxes = scale_boxes(im_shape, pred[:, :4], im0_shape)
     confs = pred[:, 4:5]
     cls_ids = pred[:, 5:6]
     return boxes, confs, cls_ids
 
 
-class YOLOv5Runtime:
+class YOLOv8Runtime:
 
-    def __init__(self, weight: str = 'yolov5s.onnx'):
+    def __init__(self, weight: str = 'yolov8n.onnx'):
         super().__init__()
         self.load_onnx(weight)
 
-        self.device = torch.device('cpu')
+        self.device = torch.device("cpu")
 
     def load_onnx(self, weight: str):
         assert os.path.isfile(weight), weight
@@ -130,10 +137,9 @@ class YOLOv5Runtime:
         return torch.tensor(x).to(self.device) if isinstance(x, np.ndarray) else x
 
     def detect(self, im0: ndarray):
-        im = preprocess(im0, device=self.device)
+        im = preprocess([im0], device=self.device)
 
         outputs = self.infer(im)
-        np.save("outputs.npy", outputs)
 
         boxes, confs, cls_ids = postprocess(outputs, im.shape[2:], im0.shape[:2], conf=0.25, iou=0.45)
         return boxes, confs, cls_ids
@@ -148,7 +154,7 @@ class YOLOv5Runtime:
 
         overlay = draw_results(im0, boxes, confs, cls_ids, CLASSES_NAME, is_xyxy=True)
         image_name = os.path.splitext(os.path.basename(img_path))[0]
-        img_path = os.path.join(output_dir, f"{image_name}-yolov5_runtime_with_torch.jpg")
+        img_path = os.path.join(output_dir, f"{image_name}-yolov8_runtime_with_torch_out.jpg")
         print(f"Save to {img_path}")
         cv2.imwrite(img_path, overlay)
 
@@ -165,7 +171,7 @@ class YOLOv5Runtime:
             f"video_fps: {video_fps}, frame_count: {frame_count}, frame_width: {frame_width}, frame_height: {frame_height}")
 
         image_name = os.path.splitext(os.path.basename(video_file))[0]
-        video_out_name = f'{image_name}-yolov5_runtime_with_torch.mp4'
+        video_out_name = f'{image_name}-yolov8_runtime_with_torch_out.mp4'
         video_path = os.path.join(output_dir, video_out_name)
         video_format = 'mp4v'
         fourcc = cv2.VideoWriter_fourcc(*video_format)
@@ -192,8 +198,8 @@ class YOLOv5Runtime:
 def parse_opt():
     import argparse
 
-    parser = argparse.ArgumentParser(description="YOLOv5Runtime Infer")
-    parser.add_argument("model", metavar="MODEL", type=str, default='yolov5s.onnx',
+    parser = argparse.ArgumentParser(description="YOLOv8Runtime Infer")
+    parser.add_argument("model", metavar="MODEL", type=str, default='yolov8n.engine',
                         help="Path of ONNX Runtime model")
     parser.add_argument("input", metavar="INPUT", type=str, default="assets/bus.jpg",
                         help="Path of input, default to image")
@@ -207,7 +213,7 @@ def parse_opt():
 
 
 def main(args):
-    model = YOLOv5Runtime(args.model)
+    model = YOLOv8Runtime(args.model)
 
     input = args.input
     if args.video:

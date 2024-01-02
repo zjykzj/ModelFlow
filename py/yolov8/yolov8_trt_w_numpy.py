@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
 """
-@Time    : 2023/12/12 16:09
-@File    : yolov8_trt_with_numpy.py
+@Time    : 2023/12/16 16:09
+@File    : yolov8_trt_w_numpy.py
 @Author  : zj
 @Description:
 

@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
 """
-@Time    : 2023/12/12 14:32
-@File    : yolov8_trt_with_torch.py
+@Time    : 2023/12/24 14:32
+@File    : yolov8_trt_w_torch.py
 @Author  : zj
 @Description:
 
@@ -14,9 +14,6 @@ Commit id: e58db228c2fd9856e7bff54a708bf5acde26fb29
 import os
 import cv2
 import copy
-
-import torch
-from torch import Tensor
 
 import numpy as np
 from numpy import ndarray
@@ -34,64 +31,8 @@ if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))  # add ROOT to PATH
 ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
-from general import LOGGER
-from yolov8_util import LetterBox, draw_results
-from torch_util import non_max_suppression, scale_boxes
-
-MODEL_NAMES = {0: 'person', 1: 'bicycle', 2: 'car', 3: 'motorcycle', 4: 'airplane', 5: 'bus', 6: 'train', 7: 'truck',
-               8: 'boat', 9: 'traffic light', 10: 'fire hydrant', 11: 'stop sign', 12: 'parking meter', 13: 'bench',
-               14: 'bird', 15: 'cat', 16: 'dog', 17: 'horse', 18: 'sheep', 19: 'cow', 20: 'elephant', 21: 'bear',
-               22: 'zebra', 23: 'giraffe', 24: 'backpack', 25: 'umbrella', 26: 'handbag', 27: 'tie', 28: 'suitcase',
-               29: 'frisbee', 30: 'skis', 31: 'snowboard', 32: 'sports ball', 33: 'kite', 34: 'baseball bat',
-               35: 'baseball glove', 36: 'skateboard', 37: 'surfboard', 38: 'tennis racket', 39: 'bottle',
-               40: 'wine glass', 41: 'cup', 42: 'fork', 43: 'knife', 44: 'spoon', 45: 'bowl', 46: 'banana', 47: 'apple',
-               48: 'sandwich', 49: 'orange', 50: 'broccoli', 51: 'carrot', 52: 'hot dog', 53: 'pizza', 54: 'donut',
-               55: 'cake', 56: 'chair', 57: 'couch', 58: 'potted plant', 59: 'bed', 60: 'dining table', 61: 'toilet',
-               62: 'tv', 63: 'laptop', 64: 'mouse', 65: 'remote', 66: 'keyboard', 67: 'cell phone', 68: 'microwave',
-               69: 'oven', 70: 'toaster', 71: 'sink', 72: 'refrigerator', 73: 'book', 74: 'clock', 75: 'vase',
-               76: 'scissors', 77: 'teddy bear', 78: 'hair drier', 79: 'toothbrush'}
-
-CLASSES_NAME = [item[1] for item in MODEL_NAMES.items()]
-
-
-def pre_transform(im, imgsz=(640, 640), auto=False, stride=32):
-    letterbox = LetterBox(imgsz, auto=auto, stride=stride)
-    return [letterbox(image=x) for x in im]
-
-
-def preprocess(im, device=torch.device("cpu"), fp16=False):
-    not_tensor = not isinstance(im, torch.Tensor)
-    if not_tensor:
-        im = np.stack(pre_transform(im))
-        im = im[..., ::-1].transpose((0, 3, 1, 2))  # BGR to RGB, BHWC to BCHW, (n, 3, h, w)
-        im = np.ascontiguousarray(im)  # contiguous
-        im = torch.from_numpy(im)
-
-    im = im.to(device)
-    im = im.half() if fp16 else im.float()  # uint8 to fp16/32
-    if not_tensor:
-        im /= 255  # 0 - 255 to 0.0 - 1.0
-    return im
-
-
-def postprocess(preds,
-                im_shape,  # [h, w]
-                im0_shape,  # [h, w]
-                conf=0.25,
-                iou=0.45,
-                classes=None,
-                agnostic=False,
-                max_det=300, ):
-    pred = non_max_suppression(preds,
-                               conf,
-                               iou,
-                               agnostic=agnostic,
-                               max_det=max_det,
-                               classes=classes)[0]
-    boxes = scale_boxes(im_shape, pred[:, :4], im0_shape)
-    confs = pred[:, 4:5]
-    cls_ids = pred[:, 5:6]
-    return boxes, confs, cls_ids
+from general import LOGGER, CLASSES_NAME
+from numpy_util import draw_results, preprocess, postprocess
 
 
 class YOLOv8TRT:
@@ -99,8 +40,6 @@ class YOLOv8TRT:
     def __init__(self, weight: str = 'yolov8n.engine'):
         super().__init__()
         self.load_engine(weight)
-
-        self.device = torch.device("cpu")
 
     def load_engine(self, weight: str):
         assert os.path.isfile(weight), weight
@@ -135,9 +74,7 @@ class YOLOv8TRT:
         self.dtype = np.dtype(trt.nptype(engine.get_binding_dtype(binding)))
         LOGGER.info(f"Init Done. Work with {self.dtype}")
 
-    def infer(self, im: Tensor):
-        im = im.cpu().numpy()  # torch to numpy
-
+    def infer(self, im: ndarray):
         # Copy input image to host buffer
         self.inputs[0]['host'] = np.ravel(im.astype(self.dtype))
         # Transfer input data to the GPU.
@@ -158,26 +95,10 @@ class YOLOv8TRT:
         for output, shape in zip(outputs, self.output_shapes):
             reshaped.append(output.reshape(shape))
 
-        y = reshaped
-        if isinstance(y, (list, tuple)):
-            return self.from_numpy(y[0]) if len(y) == 1 else [self.from_numpy(x) for x in y]
-        else:
-            return self.from_numpy(y)
-
-    def from_numpy(self, x):
-        """
-        Convert a numpy array to a tensor.
-
-        Args:
-            x (np.ndarray): The array to be converted.
-
-        Returns:
-            (torch.Tensor): The converted tensor
-        """
-        return torch.tensor(x).to(self.device) if isinstance(x, np.ndarray) else x
+        return reshaped
 
     def detect(self, im0: ndarray):
-        im = preprocess([im0], device=self.device)
+        im = preprocess(im0)
 
         outputs = self.infer(im)
 
@@ -194,7 +115,7 @@ class YOLOv8TRT:
 
         overlay = draw_results(im0, boxes, confs, cls_ids, CLASSES_NAME, is_xyxy=True)
         image_name = os.path.splitext(os.path.basename(img_path))[0]
-        img_path = os.path.join(output_dir, f"{image_name}-yolov8_trt_with_torch.jpg")
+        img_path = os.path.join(output_dir, f"{image_name}-yolov5_trt_with_numpy.jpg")
         print(f"Save to {img_path}")
         cv2.imwrite(img_path, overlay)
 
@@ -211,7 +132,7 @@ class YOLOv8TRT:
             f"video_fps: {video_fps}, frame_count: {frame_count}, frame_width: {frame_width}, frame_height: {frame_height}")
 
         image_name = os.path.splitext(os.path.basename(video_file))[0]
-        video_out_name = f'{image_name}-yolov8_trt_with_torch.mp4'
+        video_out_name = f'{image_name}-yolov5_trt_with_numpy.mp4'
         video_path = os.path.join(output_dir, video_out_name)
         video_format = 'mp4v'
         fourcc = cv2.VideoWriter_fourcc(*video_format)
