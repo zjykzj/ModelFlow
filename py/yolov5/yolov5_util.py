@@ -4,7 +4,10 @@
 @Time    : 2023/12/12 17:13
 @File    : yolov5_util.py
 @Author  : zj
-@Description: 
+@Description:
+
+Refer: https://zhuanlan.zhihu.com/p/622053825
+
 """
 
 import cv2
@@ -65,6 +68,14 @@ def xywh2xyxy(x):
 
 def nms(bboxes, scores, iou_thresh):
     """
+    1. 计算预测框的面积
+    2. 按照置信度从大到小排序，逐个遍历预测框
+        2.1. 结果列表添加当前预测框
+        2.2. 计算当前预测框和其他预测框之间的IOU
+        2.3. 过滤IOU大于阈值的预测框，保留剩余预测框列表（维持置信度从大到小的顺序）
+        2.4. 如果剩余列表为空，跳出遍历；否则，继续遍历预测框列表
+    3. 返回结果列表
+
     :param bboxes: 检测框列表
     :param scores: 置信度列表
     :param iou_thresh: IOU阈值
@@ -78,6 +89,8 @@ def nms(bboxes, scores, iou_thresh):
 
     # 结果列表
     result = []
+    # 按照置信度进行排序
+    # 过滤IOU超过阈值的预测框
     index = scores.argsort()[::-1]  # 对检测框按照置信度进行从高到低的排序，并获取索引
     # 下面的操作为了安全，都是对索引处理
     while index.size > 0:

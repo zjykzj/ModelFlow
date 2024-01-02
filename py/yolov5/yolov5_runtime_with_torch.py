@@ -133,6 +133,7 @@ class YOLOv5Runtime:
         im = preprocess(im0, device=self.device)
 
         outputs = self.infer(im)
+        np.save("outputs.npy", outputs)
 
         boxes, confs, cls_ids = postprocess(outputs, im.shape[2:], im0.shape[:2], conf=0.25, iou=0.45)
         return boxes, confs, cls_ids
@@ -192,7 +193,7 @@ def parse_opt():
     import argparse
 
     parser = argparse.ArgumentParser(description="YOLOv5Runtime Infer")
-    parser.add_argument("model", metavar="MODEL", type=str, default='yolov8n.onnx',
+    parser.add_argument("model", metavar="MODEL", type=str, default='yolov5s.onnx',
                         help="Path of ONNX Runtime model")
     parser.add_argument("input", metavar="INPUT", type=str, default="assets/bus.jpg",
                         help="Path of input, default to image")

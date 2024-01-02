@@ -176,9 +176,17 @@ def clip_boxes(boxes, shape):
 
 
 def scale_boxes(img1_shape, boxes, img0_shape, ratio_pad=None):
+    """
+    将预测边界框坐标从输入图像映射到原始图像。
+
+    如果经过了填充，那么需要考虑到
+    """
     # Rescale boxes (xyxy) from img1_shape to img0_shape
     if ratio_pad is None:  # calculate from img0_shape
+        # 选择比率最小的作为填充比率
         gain = min(img1_shape[0] / img0_shape[0], img1_shape[1] / img0_shape[1])  # gain  = old / new
+        # pad_w = (w1 - w0 * gain) / 2
+        # 填充的目标是什么？
         pad = (img1_shape[1] - img0_shape[1] * gain) / 2, (img1_shape[0] - img0_shape[0] * gain) / 2  # wh padding
     else:
         gain = ratio_pad[0][0]
