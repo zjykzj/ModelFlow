@@ -145,4 +145,10 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
-/py/yolo/output/
+/py/yolov8/output/
+/export/bus.jpg
+/export/yolov8n.onnx
+/export/yolov8n.pt
+/output/
+/outputs.npy
+/yolov5s.onnx
