@@ -2,7 +2,7 @@
 
 """
 @Time    : 2023/12/12 17:13
-@File    : yolov5_util.py
+@File    : numpy_util.py
 @Author  : zj
 @Description:
 
@@ -273,3 +273,36 @@ def draw_results(img, boxes, confs, cls_ids, CLASSES_NAME, is_xyxy=True):
                         fontFace=cv2.FONT_HERSHEY_SIMPLEX,
                         fontScale=1, color=color)
     return overlay
+
+
+# --------------------------------------------------------------------------------------- Preprocess / Postprocess
+
+def preprocess(im0, img_size=640, stride=32, auto=False):
+    im = letterbox(im0, img_size, stride=stride, auto=auto)[0]  # padded resize
+    im = im.transpose((2, 0, 1))[::-1]  # HWC to CHW, BGR to RGB
+    im = np.ascontiguousarray(im)  # contiguous
+
+    im = im.astype(float)  # uint8 to fp16/32
+    im /= 255  # 0 - 255 to 0.0 - 1.0
+    if len(im.shape) == 3:
+        im = im[None]  # expand for batch dim
+
+    return im
+
+
+def postprocess(preds,
+                im_shape,  # [h, w]
+                im0_shape,  # [h, w]
+                conf=0.25,
+                iou=0.45,
+                classes=None,
+                agnostic=False,
+                max_det=300, ):
+    print("********* NMS START ***********")
+    pred = non_max_suppression(preds[0], conf, iou, classes, agnostic, max_det=max_det)[0]
+    print("********* NMS END *************")
+
+    boxes = scale_boxes(im_shape, pred[:, :4], im0_shape)
+    confs = pred[:, 4:5]
+    cls_ids = pred[:, 5:6]
+    return boxes, confs, cls_ids
