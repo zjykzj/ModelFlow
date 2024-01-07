@@ -5,6 +5,15 @@
 @File    : yolov8_trt_w_torch.py
 @Author  : zj
 @Description:
+
+Usage: Infer Image/Video using YOLOv5 with ONNXRuntime and Pytorch:
+    $ python3 py/yolov5/yolov5_runtime_w_torch.py yolov5s.onnx assets/bus.jpg
+    $ python3 py/yolov5/yolov5_runtime_w_torch.py yolov5s.onnx assets/bus.jpg  --video
+
+Usage: Save Image/Video:
+    $ python3 py/yolov5/yolov5_runtime_w_torch.py yolov5s.onnx assets/bus.jpg --save
+    $ python3 py/yolov5/yolov5_runtime_w_torch.py yolov5s.onnx assets/vtest.avi --video --save
+
 """
 
 import os
