@@ -31,7 +31,7 @@ if str(ROOT) not in sys.path:
 ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
 from general import LOGGER, CLASSES_NAME
-from numpy_util import draw_results, letterbox, non_max_suppression, scale_boxes
+from yolov5_util import draw_results, letterbox, non_max_suppression, scale_boxes
 
 
 class YOLOv5Base:

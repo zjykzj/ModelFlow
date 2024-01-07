@@ -25,7 +25,7 @@ import numpy as np
 from numpy import ndarray
 
 from general import LOGGER
-from numpy_util import draw_results, letterbox
+from yolov5_util import draw_results, letterbox
 from torch_util import non_max_suppression, scale_boxes
 from yolov5_base import YOLOv5Base
 
