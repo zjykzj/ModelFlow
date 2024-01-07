@@ -23,17 +23,26 @@ from yolov5_base import YOLOv5Base
 
 class YOLOv5Runtime(YOLOv5Base):
 
-    def __init__(self, weight: str = 'yolov5s.onnx', device=torch.device('cpu')):
+    def __init__(self, weight: str = 'yolov5s.onnx', gpu=False):
         super().__init__()
-        self.load_onnx(weight)
+        self.weight = weight
+        self.gpu = gpu
+
+        if gpu and torch.cuda.is_available():
+            providers = ['CUDAExecutionProvider']
+            device = torch.device("cuda")
+        else:
+            providers = ['CPUExecutionProvider']
+            device = torch.device('cpu')
+
+        self.load_onnx(weight, providers)
         self.device = device
 
-    def load_onnx(self, weight: str):
+    def load_onnx(self, weight: str, providers):
         assert os.path.isfile(weight), weight
 
         LOGGER.info(f'Loading {weight} for ONNX Runtime inference...')
         import onnxruntime
-        providers = ['CPUExecutionProvider']
         session = onnxruntime.InferenceSession(weight, providers=providers)
         output_names = [x.name for x in session.get_outputs()]
         metadata = session.get_modelmeta().custom_metadata_map  # metadata
@@ -67,7 +76,13 @@ class YOLOv5Runtime(YOLOv5Base):
         return torch.tensor(x).to(self.device) if isinstance(x, np.ndarray) else x
 
     def detect(self, im0: ndarray, conf=0.25, iou=0.45):
-        return super().detect(im0, conf, iou)
+        # return super().detect(im0, conf, iou)
+        im = self.preprocess(im0, device=self.device)
+
+        outputs = self.infer(im)
+
+        boxes, confs, cls_ids = self.postprocess(outputs, im.shape[2:], im0.shape[:2], conf=conf, iou=iou)
+        return boxes, confs, cls_ids
 
     def predict_image(self, img_path, output_dir="output/", suffix="yolov5_runtime_w_torch", save=False):
         super().predict_image(img_path, output_dir, suffix, save)
@@ -125,7 +140,7 @@ def parse_opt():
 
 
 def main(args):
-    model = YOLOv5Runtime(args.model)
+    model = YOLOv5Runtime(args.model, gpu=args.gpu)
 
     input = args.input
     if args.video:
