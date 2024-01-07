@@ -6,8 +6,15 @@
 @Author  : zj
 @Description:
 
-Yolov8: https://github.com/ultralytics/ultralytics
-Commit id: e58db228c2fd9856e7bff54a708bf5acde26fb29
+docker run --gpus all -it --rm -v ${PWD}:/workdir --workdir=/workdir nvcr.io/nvidia/pytorch:20.12-py3 bash
+
+Usage: Infer Image/Video using YOLOv5 with TensorRT and Numpy:
+    $ python3 py/yolov5/yolov5_trt_w_numpy.py yolov5s.onnx assets/bus.jpg
+    $ python3 py/yolov5/yolov5_trt_w_numpy.py yolov5s.onnx assets/bus.jpg  --video
+
+Usage: Save Image/Video:
+    $ python3 py/yolov5/yolov5_trt_w_numpy.py yolov5s.onnx assets/bus.jpg --save
+    $ python3 py/yolov5/yolov5_trt_w_numpy.py yolov5s.onnx assets/vtest.avi --video --save
 
 """
 
@@ -31,11 +38,11 @@ if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))  # add ROOT to PATH
 ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
-from general import LOGGER, CLASSES_NAME
-from numpy_util import draw_results, preprocess, postprocess
+from general import LOGGER
+from yolov5_base import YOLOv5Base
 
 
-class YOLOv8TRT:
+class YOLOv8TRT(YOLOv5Base):
 
     def __init__(self, weight: str = 'yolov8n.engine'):
         super().__init__()
@@ -97,63 +104,20 @@ class YOLOv8TRT:
 
         return reshaped
 
-    def detect(self, im0: ndarray):
-        im = preprocess(im0)
+    def detect(self, im0: ndarray, conf=0.25, iou=0.45):
+        return super().detect(im0, conf, iou)
 
-        outputs = self.infer(im)
+    def predict_image(self, img_path, output_dir="output/", suffix="yolov5_trt_w_numpy", save=False):
+        super().predict_image(img_path, output_dir, suffix, save)
 
-        boxes, confs, cls_ids = postprocess(outputs, im.shape[2:], im0.shape[:2], conf=0.25, iou=0.45)
-        return boxes, confs, cls_ids
+    def predict_video(self, video_file, output_dir="output/", suffix="yolov5_trt_w_numpy", save=False):
+        super().predict_video(video_file, output_dir, suffix, save)
 
-    def predict_image(self, img_path, output_dir="output/"):
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
+    def preprocess(self, im0, img_size=640, stride=32, auto=False):
+        return super().preprocess(im0, img_size, stride, auto)
 
-        im0 = cv2.imread(img_path)
-        boxes, confs, cls_ids = self.detect(copy.deepcopy(im0))
-        print(f"There are {len(boxes)} objects.")
-
-        overlay = draw_results(im0, boxes, confs, cls_ids, CLASSES_NAME, is_xyxy=True)
-        image_name = os.path.splitext(os.path.basename(img_path))[0]
-        img_path = os.path.join(output_dir, f"{image_name}-yolov5_trt_with_numpy.jpg")
-        print(f"Save to {img_path}")
-        cv2.imwrite(img_path, overlay)
-
-    def predict_video(self, video_file, output_dir="output/"):
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-
-        capture = cv2.VideoCapture(video_file)
-        frame_width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
-        frame_height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        video_fps = int(capture.get(cv2.CAP_PROP_FPS))
-        frame_count = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
-        print(
-            f"video_fps: {video_fps}, frame_count: {frame_count}, frame_width: {frame_width}, frame_height: {frame_height}")
-
-        image_name = os.path.splitext(os.path.basename(video_file))[0]
-        video_out_name = f'{image_name}-yolov5_trt_with_numpy.mp4'
-        video_path = os.path.join(output_dir, video_out_name)
-        video_format = 'mp4v'
-        fourcc = cv2.VideoWriter_fourcc(*video_format)
-        writer = cv2.VideoWriter(video_path, fourcc, video_fps, (frame_width, frame_height))
-
-        frame_id = 0
-        while True:
-            ret, frame = capture.read()
-            if not ret:
-                break
-
-            boxes, confs, classes = self.detect(frame)
-            print(f"There are {len(boxes)} objects.")
-            overlay = draw_results(frame, boxes, confs, classes, CLASSES_NAME, is_xyxy=True)
-            writer.write(overlay)
-
-            frame_id += 1
-            print(f'frame_id: {frame_id}')
-
-        writer.release()
-        print(f"Save to {video_path}")
+    def postprocess(self, preds, im_shape, im0_shape, conf=0.25, iou=0.45, classes=None, agnostic=False, max_det=300):
+        return super().postprocess(preds, im_shape, im0_shape, conf, iou, classes, agnostic, max_det)
 
 
 def parse_opt():
@@ -167,6 +131,9 @@ def parse_opt():
     parser.add_argument("--video", action="store_true", default=False,
                         help="Use video as input")
 
+    parser.add_argument("--save", action="store_true", default=False,
+                        help="Save or not.")
+
     args = parser.parse_args()
     print(f"args: {args}")
 
@@ -178,9 +145,9 @@ def main(args):
 
     input = args.input
     if args.video:
-        model.predict_video(input)
+        model.predict_video(input, save=args.save)
     else:
-        model.predict_image(input)
+        model.predict_image(input, save=args.save)
 
 
 if __name__ == '__main__':
