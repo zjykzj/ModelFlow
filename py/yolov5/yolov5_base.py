@@ -16,6 +16,9 @@ import os
 import cv2
 import copy
 
+from tqdm import tqdm
+
+import numpy as np
 from numpy import ndarray
 
 import sys
@@ -28,7 +31,7 @@ if str(ROOT) not in sys.path:
 ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
 from general import LOGGER, CLASSES_NAME
-from numpy_util import draw_results, preprocess, postprocess
+from numpy_util import draw_results, letterbox, non_max_suppression, scale_boxes
 
 
 class YOLOv5Base:
@@ -40,11 +43,11 @@ class YOLOv5Base:
         pass
 
     def detect(self, im0: ndarray, conf=0.25, iou=0.45):
-        im = preprocess(im0)
+        im = self.preprocess(im0)
 
         outputs = self.infer(im)
 
-        boxes, confs, cls_ids = postprocess(outputs, im.shape[2:], im0.shape[:2], conf=conf, iou=iou)
+        boxes, confs, cls_ids = self.postprocess(outputs, im.shape[2:], im0.shape[:2], conf=conf, iou=iou)
         return boxes, confs, cls_ids
 
     def predict_image(self, img_path, output_dir="output/", suffix="yolov5", save=False):
@@ -83,21 +86,52 @@ class YOLOv5Base:
             fourcc = cv2.VideoWriter_fourcc(*video_format)
             writer = cv2.VideoWriter(video_path, fourcc, video_fps, (frame_width, frame_height))
 
-        frame_id = 0
-        while True:
+        # frame_id = 0
+        # while True:
+        for _ in tqdm(range(frame_count)):
             ret, frame = capture.read()
             if not ret:
                 break
 
             boxes, confs, classes = self.detect(frame)
-            print(f"There are {len(boxes)} objects.")
+            # print(f"There are {len(boxes)} objects.")
             overlay = draw_results(frame, boxes, confs, classes, CLASSES_NAME, is_xyxy=True)
             if save:
                 writer.write(overlay)
 
-            frame_id += 1
-            print(f'frame_id: {frame_id}')
+            # frame_id += 1
+            # print(f'frame_id: {frame_id}')
 
         if save:
             writer.release()
             print(f"Save to {video_path}")
+
+    def preprocess(self, im0, img_size=640, stride=32, auto=False):
+        im = letterbox(im0, img_size, stride=stride, auto=auto)[0]  # padded resize
+        im = im.transpose((2, 0, 1))[::-1]  # HWC to CHW, BGR to RGB
+        im = np.ascontiguousarray(im)  # contiguous
+
+        im = im.astype(float)  # uint8 to fp16/32
+        im /= 255  # 0 - 255 to 0.0 - 1.0
+        if len(im.shape) == 3:
+            im = im[None]  # expand for batch dim
+
+        return im
+
+    def postprocess(self,
+                    preds,
+                    im_shape,  # [h, w]
+                    im0_shape,  # [h, w]
+                    conf=0.25,
+                    iou=0.45,
+                    classes=None,
+                    agnostic=False,
+                    max_det=300, ):
+        # print("********* NMS START ***********")
+        pred = non_max_suppression(preds[0], conf, iou, classes, agnostic, max_det=max_det)[0]
+        # print("********* NMS END *************")
+
+        boxes = scale_boxes(im_shape, pred[:, :4], im0_shape)
+        confs = pred[:, 4:5]
+        cls_ids = pred[:, 5:6]
+        return boxes, confs, cls_ids
