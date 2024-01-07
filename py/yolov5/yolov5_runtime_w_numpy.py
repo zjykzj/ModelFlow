@@ -5,26 +5,12 @@
 @File    : yolov8_trt_w_torch.py
 @Author  : zj
 @Description:
-
-Yolov5: https://github.com/ultralytics/yolov5
-Commit id: 915bbf294bb74c859f0b41f1c23bc395014ea679
-Tag: v7.0
-
 """
 
 import os
 
 import numpy as np
 from numpy import ndarray
-
-import sys
-from pathlib import Path
-
-FILE = Path(__file__).resolve()
-ROOT = FILE.parents[0]  # YOLOv5 root directory
-if str(ROOT) not in sys.path:
-    sys.path.append(str(ROOT))  # add ROOT to PATH
-ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
 from yolov5_base import YOLOv5Base
 from general import LOGGER
@@ -57,14 +43,14 @@ class YOLOv5Runtime(YOLOv5Base):
         preds = self.session.run(self.output_names, {self.session.get_inputs()[0].name: im})
         return preds
 
-    def detect(self, im0: ndarray):
-        return super().detect(im0)
+    def detect(self, im0: ndarray, conf=0.25, iou=0.45):
+        return super().detect(im0, conf, iou)
 
-    def predict_image(self, img_path, output_dir="output/", save=False):
-        super().predict_image(img_path, output_dir, save)
+    def predict_image(self, img_path, output_dir="output/", suffix="yolov5_runtime_w_numpy", save=False):
+        super().predict_image(img_path, output_dir, suffix, save)
 
-    def predict_video(self, video_file, output_dir="output/", save=False):
-        super().predict_video(video_file, output_dir, save)
+    def predict_video(self, video_file, output_dir="output/", suffix="yolov5_runtime_w_numpy", save=False):
+        super().predict_video(video_file, output_dir, suffix, save)
 
 
 def parse_opt():
@@ -92,9 +78,9 @@ def main(args):
 
     input = args.input
     if args.video:
-        model.predict_video(input)
+        model.predict_video(input, save=args.save)
     else:
-        model.predict_image(input)
+        model.predict_image(input, save=args.save)
 
 
 if __name__ == '__main__':

@@ -4,14 +4,18 @@
 @date: 2024/1/2 下午9:11
 @file: yolov5_base.py
 @author: zj
-@description: 
+@description:
+
+Yolov5: https://github.com/ultralytics/yolov5
+Commit id: 915bbf294bb74c859f0b41f1c23bc395014ea679
+Tag: v7.0
+
 """
 
 import os
 import cv2
 import copy
 
-import numpy as np
 from numpy import ndarray
 
 import sys
@@ -35,15 +39,15 @@ class YOLOv5Base:
     def infer(self, im: ndarray):
         pass
 
-    def detect(self, im0: ndarray):
+    def detect(self, im0: ndarray, conf=0.25, iou=0.45):
         im = preprocess(im0)
 
         outputs = self.infer(im)
 
-        boxes, confs, cls_ids = postprocess(outputs, im.shape[2:], im0.shape[:2], conf=0.25, iou=0.45)
+        boxes, confs, cls_ids = postprocess(outputs, im.shape[2:], im0.shape[:2], conf=conf, iou=iou)
         return boxes, confs, cls_ids
 
-    def predict_image(self, img_path, output_dir="output/", save=False):
+    def predict_image(self, img_path, output_dir="output/", suffix="yolov5", save=False):
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
@@ -55,11 +59,11 @@ class YOLOv5Base:
         image_name = os.path.splitext(os.path.basename(img_path))[0]
 
         if save:
-            img_path = os.path.join(output_dir, f"{image_name}-yolov5_runtime_w_numpy.jpg")
+            img_path = os.path.join(output_dir, f"{image_name}-{suffix}.jpg")
             print(f"Save to {img_path}")
             cv2.imwrite(img_path, overlay)
 
-    def predict_video(self, video_file, output_dir="output/", save=False):
+    def predict_video(self, video_file, output_dir="output/", suffix="yolov5", save=False):
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
@@ -73,7 +77,7 @@ class YOLOv5Base:
 
         if save:
             image_name = os.path.splitext(os.path.basename(video_file))[0]
-            video_out_name = f'{image_name}-yolov5_runtime_w_numpy.mp4'
+            video_out_name = f'{image_name}-{suffix}.mp4'
             video_path = os.path.join(output_dir, video_out_name)
             video_format = 'mp4v'
             fourcc = cv2.VideoWriter_fourcc(*video_format)
