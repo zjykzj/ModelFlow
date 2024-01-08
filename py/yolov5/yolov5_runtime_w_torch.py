@@ -143,7 +143,7 @@ def parse_opt():
                         help="Save or not.")
 
     args = parser.parse_args()
-    print(f"args: {args}")
+    LOGGER.info(f"args: {args}")
 
     return args
 
