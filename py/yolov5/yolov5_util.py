@@ -31,6 +31,17 @@ def letterbox(im, new_shape=(640, 640), color=(114, 114, 114), auto=True, scaleF
     if not scaleup:  # only scale down, do not scale up (for better val mAP)
         r = min(r, 1.0)
 
+    # 假设new_shape是一个正方形，其长宽比原图长宽都小
+    # 如果(new_shape[1] / shape[1])的值更小，说明原图的宽比高更大
+    #
+    # 1. 正常模式，按照结果图宽和原图宽的比例缩放，然后填充高
+    # r = min(new_shape[0] / shape[0], new_shape[1] / shape[1])
+    # new_unpad = int(round(shape[1] * r)), int(round(shape[0] * r))
+    # dh = new_shape[0] - new_unpad[1]
+    # dw = new_shape[1] - new_unpad[0] = 0
+    # 2. auto模式，较短边的填充执行dh=dh%stride，得到的是一个长方形
+    # 3. scaleFill模式，不执行填充操作，图像直接缩放到结果图像大小
+    #
     # Compute padding
     ratio = r, r  # width, height ratios
     new_unpad = int(round(shape[1] * r)), int(round(shape[0] * r))
