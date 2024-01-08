@@ -6,7 +6,12 @@
 @Author  : zj
 @Description:
 
-docker run --gpus all -it --rm -v ${PWD}:/workdir --workdir=/workdir ultralytics/yolov5:latest bash
+# Start Docker Container
+>>>docker run --gpus all -it --rm -v ${PWD}:/workdir --workdir=/workdir ultralytics/yolov5:latest bash
+# Convert onnx to engine
+>>>trtexec --onnx=yolov5s.onnx --saveEngine=yolov5s.engine
+# Install pycuda
+>>>pip3 install pycuda -i http://mirrors.aliyun.com/pypi/simple/ --trusted-host mirrors.aliyun.com
 
 Usage: Infer Image/Video using YOLOv5 with TensorRT and Numpy:
     $ python3 py/yolov5/yolov5_trt_w_numpy.py yolov5s.engine assets/bus.jpg
@@ -57,7 +62,7 @@ class YOLOv5TRT(YOLOv5Base):
             device_mem = cuda.mem_alloc(host_mem.nbytes)
             # Append the device buffer to device bindings.
             self.bindings.append(int(device_mem))
-            LOGGER.info(binding, engine.get_binding_shape(binding))
+            LOGGER.info(f"{binding} {engine.get_binding_shape(binding)}")
             # Append to the appropriate list.
             if engine.binding_is_input(binding):
                 self.input_w = engine.get_binding_shape(binding)[-1]
@@ -131,12 +136,10 @@ def parse_opt():
 
 def main(args):
     model = YOLOv5TRT(args.model)
-
-    input = args.input
     if args.video:
-        model.predict_video(input, save=args.save)
+        model.predict_video(args.input, save=args.save)
     else:
-        model.predict_image(input, save=args.save)
+        model.predict_image(args.input, save=args.save)
 
 
 if __name__ == '__main__':

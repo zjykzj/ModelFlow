@@ -84,12 +84,10 @@ def parse_opt():
 
 def main(args):
     model = YOLOv5Runtime(args.model)
-
-    input = args.input
     if args.video:
-        model.predict_video(input, save=args.save)
+        model.predict_video(args.input, save=args.save)
     else:
-        model.predict_image(input, save=args.save)
+        model.predict_image(args.input, save=args.save)
 
 
 if __name__ == '__main__':
