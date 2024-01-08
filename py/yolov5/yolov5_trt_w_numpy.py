@@ -6,21 +6,19 @@
 @Author  : zj
 @Description:
 
-docker run --gpus all -it --rm -v ${PWD}:/workdir --workdir=/workdir nvcr.io/nvidia/pytorch:20.12-py3 bash
+docker run --gpus all -it --rm -v ${PWD}:/workdir --workdir=/workdir ultralytics/yolov5:latest bash
 
 Usage: Infer Image/Video using YOLOv5 with TensorRT and Numpy:
-    $ python3 py/yolov5/yolov5_trt_w_numpy.py yolov5s.onnx assets/bus.jpg
-    $ python3 py/yolov5/yolov5_trt_w_numpy.py yolov5s.onnx assets/bus.jpg  --video
+    $ python3 py/yolov5/yolov5_trt_w_numpy.py yolov5s.engine assets/bus.jpg
+    $ python3 py/yolov5/yolov5_trt_w_numpy.py yolov5s.engine assets/bus.jpg  --video
 
 Usage: Save Image/Video:
-    $ python3 py/yolov5/yolov5_trt_w_numpy.py yolov5s.onnx assets/bus.jpg --save
-    $ python3 py/yolov5/yolov5_trt_w_numpy.py yolov5s.onnx assets/vtest.avi --video --save
+    $ python3 py/yolov5/yolov5_trt_w_numpy.py yolov5s.engine assets/bus.jpg --save
+    $ python3 py/yolov5/yolov5_trt_w_numpy.py yolov5s.engine assets/vtest.avi --video --save
 
 """
 
 import os
-import cv2
-import copy
 
 import numpy as np
 from numpy import ndarray
@@ -29,22 +27,13 @@ import tensorrt as trt
 import pycuda.autoinit
 import pycuda.driver as cuda
 
-import sys
-from pathlib import Path
-
-FILE = Path(__file__).resolve()
-ROOT = FILE.parents[0]  # YOLOv5 root directory
-if str(ROOT) not in sys.path:
-    sys.path.append(str(ROOT))  # add ROOT to PATH
-ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
-
 from general import LOGGER
 from yolov5_base import YOLOv5Base
 
 
-class YOLOv8TRT(YOLOv5Base):
+class YOLOv5TRT(YOLOv5Base):
 
-    def __init__(self, weight: str = 'yolov8n.engine'):
+    def __init__(self, weight: str = 'yolov5s.engine'):
         super().__init__()
         self.load_engine(weight)
 
@@ -68,7 +57,7 @@ class YOLOv8TRT(YOLOv5Base):
             device_mem = cuda.mem_alloc(host_mem.nbytes)
             # Append the device buffer to device bindings.
             self.bindings.append(int(device_mem))
-            print(binding, engine.get_binding_shape(binding))
+            LOGGER.info(binding, engine.get_binding_shape(binding))
             # Append to the appropriate list.
             if engine.binding_is_input(binding):
                 self.input_w = engine.get_binding_shape(binding)[-1]
@@ -123,8 +112,8 @@ class YOLOv8TRT(YOLOv5Base):
 def parse_opt():
     import argparse
 
-    parser = argparse.ArgumentParser(description="YOLOv8TRT Infer")
-    parser.add_argument("model", metavar="MODEL", type=str, default='yolov8n.engine',
+    parser = argparse.ArgumentParser(description="YOLOv5TRT Infer")
+    parser.add_argument("model", metavar="MODEL", type=str, default='yolov5s.engine',
                         help="Path of TensorRT engine")
     parser.add_argument("input", metavar="INPUT", type=str, default="assets/bus.jpg",
                         help="Path of input, default to image")
@@ -135,13 +124,13 @@ def parse_opt():
                         help="Save or not.")
 
     args = parser.parse_args()
-    print(f"args: {args}")
+    LOGGER.info(f"args: {args}")
 
     return args
 
 
 def main(args):
-    model = YOLOv8TRT(args.model)
+    model = YOLOv5TRT(args.model)
 
     input = args.input
     if args.video:
