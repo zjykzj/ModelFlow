@@ -203,7 +203,7 @@ def non_max_suppression(
 
         # Filter by class
         if classes is not None:
-            x = x[(x[:, 5:6] == np.array(classes).astype(int)).any(1)]
+            x = x[np.array(x[:, 5:6] == np.array(classes).astype(int)).any(1)]
 
         # Apply finite constraint
         # if not torch.isfinite(x).all():
