@@ -98,6 +98,12 @@ class YOLOv5TRT(YOLOv5Base):
 
         return reshaped
 
+    def preprocess(self, im0, img_size=640, stride=32, auto=False):
+        return super().preprocess(im0, img_size, stride, auto)
+
+    def postprocess(self, preds, im_shape, im0_shape, conf=0.25, iou=0.45, classes=None, agnostic=False, max_det=300):
+        return super().postprocess(preds, im_shape, im0_shape, conf, iou, classes, agnostic, max_det)
+
     def detect(self, im0: ndarray, conf=0.25, iou=0.45):
         return super().detect(im0, conf, iou)
 
@@ -106,12 +112,6 @@ class YOLOv5TRT(YOLOv5Base):
 
     def predict_video(self, video_file, output_dir="output/", suffix="yolov5_trt_w_numpy", save=False):
         super().predict_video(video_file, output_dir, suffix, save)
-
-    def preprocess(self, im0, img_size=640, stride=32, auto=False):
-        return super().preprocess(im0, img_size, stride, auto)
-
-    def postprocess(self, preds, im_shape, im0_shape, conf=0.25, iou=0.45, classes=None, agnostic=False, max_det=300):
-        return super().postprocess(preds, im_shape, im0_shape, conf, iou, classes, agnostic, max_det)
 
 
 def parse_opt():

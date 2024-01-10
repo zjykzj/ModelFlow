@@ -52,6 +52,12 @@ class YOLOv5Runtime(YOLOv5Base):
         preds = self.session.run(self.output_names, {self.session.get_inputs()[0].name: im})
         return preds
 
+    def preprocess(self, im0, img_size=640, stride=32, auto=False):
+        return super().preprocess(im0, img_size, stride, auto)
+
+    def postprocess(self, preds, im_shape, im0_shape, conf=0.25, iou=0.45, classes=None, agnostic=False, max_det=300):
+        return super().postprocess(preds, im_shape, im0_shape, conf, iou, classes, agnostic, max_det)
+
     def detect(self, im0: ndarray, conf=0.25, iou=0.45):
         return super().detect(im0, conf, iou)
 
@@ -84,6 +90,13 @@ def parse_opt():
 
 def main(args):
     model = YOLOv5Runtime(args.model)
+
+    # 三种情况
+    # 设置批量大小
+    # 指定图像，那么是单张运行
+    # 指定文件夹，那么遍历所有图片，批量运行
+    # 指定视频，那么也是单张运行
+
     if args.video:
         model.predict_video(args.input, save=args.save)
     else:

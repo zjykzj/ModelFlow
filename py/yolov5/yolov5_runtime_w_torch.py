@@ -84,21 +84,6 @@ class YOLOv5Runtime(YOLOv5Base):
         """
         return torch.tensor(x).to(self.device) if isinstance(x, np.ndarray) else x
 
-    def detect(self, im0: ndarray, conf=0.25, iou=0.45):
-        # return super().detect(im0, conf, iou)
-        im = self.preprocess(im0, device=self.device)
-
-        outputs = self.infer(im)
-
-        boxes, confs, cls_ids = self.postprocess(outputs, im.shape[2:], im0.shape[:2], conf=conf, iou=iou)
-        return boxes, confs, cls_ids
-
-    def predict_image(self, img_path, output_dir="output/", suffix="yolov5_runtime_w_torch", save=False):
-        super().predict_image(img_path, output_dir, suffix, save)
-
-    def predict_video(self, video_file, output_dir="output/", suffix="yolov5_runtime_w_troch", save=False):
-        super().predict_video(video_file, output_dir, suffix, save)
-
     def preprocess(self, im0, img_size=640, stride=32, auto=False, device=None, fp16=False):
         # return super().preprocess(im0, img_size, stride, auto)
         im = letterbox(im0, img_size, stride=stride, auto=auto)[0]  # padded resize
@@ -123,6 +108,21 @@ class YOLOv5Runtime(YOLOv5Base):
         confs = pred[:, 4:5]
         cls_ids = pred[:, 5:6]
         return boxes, confs, cls_ids
+
+    def detect(self, im0: ndarray, conf=0.25, iou=0.45):
+        # return super().detect(im0, conf, iou)
+        im = self.preprocess(im0, device=self.device)
+
+        outputs = self.infer(im)
+
+        boxes, confs, cls_ids = self.postprocess(outputs, im.shape[2:], im0.shape[:2], conf=conf, iou=iou)
+        return boxes, confs, cls_ids
+
+    def predict_image(self, img_path, output_dir="output/", suffix="yolov5_runtime_w_torch", save=False):
+        super().predict_image(img_path, output_dir, suffix, save)
+
+    def predict_video(self, video_file, output_dir="output/", suffix="yolov5_runtime_w_troch", save=False):
+        super().predict_video(video_file, output_dir, suffix, save)
 
 
 def parse_opt():
