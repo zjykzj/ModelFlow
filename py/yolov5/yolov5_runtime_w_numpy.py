@@ -91,12 +91,6 @@ def parse_opt():
 def main(args):
     model = YOLOv5Runtime(args.model)
 
-    # 三种情况
-    # 设置批量大小
-    # 指定图像，那么是单张运行
-    # 指定文件夹，那么遍历所有图片，批量运行
-    # 指定视频，那么也是单张运行
-
     if args.video:
         model.predict_video(args.input, save=args.save)
     else:
