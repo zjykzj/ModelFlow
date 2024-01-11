@@ -143,7 +143,7 @@ class YOLOv8Base(ABC):
         im0s = [im0]
         im = self.preprocess(im0s, self.imgsz)
 
-        preds = self.infer(im)[0]
+        preds = self.infer(im)
         print("*" * 20)
         print(preds.reshape(-1)[:20])
 

@@ -48,7 +48,7 @@ class YOLOv8Runtime(YOLOv8Base):
 
     def infer(self, im: ndarray):
         y = self.session.run(self.output_names, {self.session.get_inputs()[0].name: im})
-        return y
+        return y[0]
 
     def preprocess(self, im, imgsz, stride=32, pt=False, fp16=False):
         return super().preprocess(im, imgsz, stride, pt, fp16)
