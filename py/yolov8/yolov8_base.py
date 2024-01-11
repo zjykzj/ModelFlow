@@ -7,7 +7,7 @@
 @description:
 
 Yolov8: https://github.com/ultralytics/ultralytics
-Commit id: ed73c0fedc53251eefaf19cdaec17827ea2cfbfb
+Commit id: e58db228c2fd9856e7bff54a708bf5acde26fb29
 
 """
 
@@ -30,122 +30,22 @@ if str(ROOT) not in sys.path:
 ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
 from general import LOGGER, CLASSES_NAME
-from yolov8_util import draw_results, letterbox, non_max_suppression, scale_boxes
+from yolov8_util import LetterBox
 
 
-class YOLOv8Base:
+def pre_transform(im, imgsz, stride=32, pt=False):
+    """
+    Pre-transform input image before inference.
 
-    def __init__(self):
-        super().__init__()
+    Args:
+        im (List(np.ndarray)): (N, 3, h, w) for tensor, [(h, w, 3) x N] for list.
 
-    def infer(self, im: ndarray):
-        pass
-
-    def detect(self, im0: ndarray, conf=0.25, iou=0.45):
-        im = self.preprocess(im0)
-
-        outputs = self.infer(im)
-
-        boxes, confs, cls_ids = self.postprocess(outputs, im.shape[2:], im0.shape[:2], conf=conf, iou=iou)
-        return boxes, confs, cls_ids
-
-    def predict_image(self, img_path, output_dir="output/", suffix="yolov5", save=False):
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-
-        im0 = cv2.imread(img_path)
-        boxes, confs, cls_ids = self.detect(copy.deepcopy(im0))
-        print(f"There are {len(boxes)} objects.")
-
-        overlay = draw_results(im0, boxes, confs, cls_ids, CLASSES_NAME, is_xyxy=True)
-        image_name = os.path.splitext(os.path.basename(img_path))[0]
-
-        if save:
-            img_path = os.path.join(output_dir, f"{image_name}-{suffix}.jpg")
-            print(f"Save to {img_path}")
-            cv2.imwrite(img_path, overlay)
-
-    def predict_video(self, video_file, output_dir="output/", suffix="yolov5", save=False):
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-
-        capture = cv2.VideoCapture(video_file)
-        frame_width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
-        frame_height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        video_fps = int(capture.get(cv2.CAP_PROP_FPS))
-        frame_count = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
-        print(
-            f"video_fps: {video_fps}, frame_count: {frame_count}, frame_width: {frame_width}, frame_height: {frame_height}")
-
-        if save:
-            image_name = os.path.splitext(os.path.basename(video_file))[0]
-            video_out_name = f'{image_name}-{suffix}.mp4'
-            video_path = os.path.join(output_dir, video_out_name)
-            video_format = 'mp4v'
-            fourcc = cv2.VideoWriter_fourcc(*video_format)
-            writer = cv2.VideoWriter(video_path, fourcc, video_fps, (frame_width, frame_height))
-
-        # frame_id = 0
-        # while True:
-        for _ in tqdm(range(frame_count)):
-            ret, frame = capture.read()
-            if not ret:
-                break
-
-            boxes, confs, classes = self.detect(frame)
-            # print(f"There are {len(boxes)} objects.")
-            overlay = draw_results(frame, boxes, confs, classes, CLASSES_NAME, is_xyxy=True)
-            if save:
-                writer.write(overlay)
-
-            # frame_id += 1
-            # print(f'frame_id: {frame_id}')
-
-        if save:
-            writer.release()
-            print(f"Save to {video_path}")
-
-    def preprocess(self, im0, img_size=640, stride=32, auto=False):
-        im = letterbox(im0, img_size, stride=stride, auto=auto)[0]  # padded resize
-        im = im.transpose((2, 0, 1))[::-1]  # HWC to CHW, BGR to RGB
-        im = np.ascontiguousarray(im)  # contiguous
-
-        im = im.astype(float)  # uint8 to fp16/32
-        im /= 255  # 0 - 255 to 0.0 - 1.0
-        if len(im.shape) == 3:
-            im = im[None]  # expand for batch dim
-
-        return im
-
-    def postprocess(self,
-                    preds,
-                    im_shape,  # [h, w]
-                    im0_shape,  # [h, w]
-                    conf=0.25,
-                    iou=0.45,
-                    classes=None,
-                    agnostic_nms=False,
-                    max_det=300, ):
-        # print("********* NMS START ***********")
-        pred = non_max_suppression(preds,
-                                   conf,
-                                   iou,
-                                   agnostic=agnostic_nms,
-                                   max_det=max_det,
-                                   classes=classes)
-        # print("********* NMS END *************")
-        if not isinstance(orig_imgs, list):  # input images are a torch.Tensor, not a list
-            orig_imgs = convert_torch2numpy_batch(orig_imgs)
-
-        results = []
-        for i, pred in enumerate(preds):
-            orig_img = orig_imgs[i]
-            pred[:, :4] = scale_boxes(img.shape[2:], pred[:, :4], orig_img.shape)
-            img_path = self.batch[0][i]
-            results.append(Results(orig_img, path=img_path, names=self.model.names, boxes=pred))
-        return results
-
-        boxes = scale_boxes(im_shape, pred[:, :4], im0_shape)
-        confs = pred[:, 4:5]
-        cls_ids = pred[:, 5:6]
-        return boxes, confs, cls_ids
+    Returns:
+        (list): A list of transformed images.
+    """
+    same_shapes = all(x.shape == im[0].shape for x in im)
+    print(f"imgsz: {imgsz}")
+    print(f"auto = {same_shapes and pt}")
+    print(f"stride = {stride}")
+    letterbox = LetterBox(imgsz, auto=same_shapes and pt, stride=stride)
+    return [letterbox(image=x) for x in im]

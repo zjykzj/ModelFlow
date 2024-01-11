@@ -7,6 +7,7 @@
 @Description: 
 """
 
+import math
 import time
 import numpy as np
 
@@ -16,73 +17,87 @@ import torchvision
 from general import LOGGER
 
 
-def _get_covariance_matrix(boxes):
+def check_imgsz(imgsz, stride=32, min_dim=1, max_dim=2, floor=0):
     """
-    Generating covariance matrix from obbs.
+    Verify image size is a multiple of the given stride in each dimension. If the image size is not a multiple of the
+    stride, update it to the nearest multiple of the stride that is greater than or equal to the given floor value.
 
     Args:
-        boxes (torch.Tensor): A tensor of shape (N, 5) representing rotated bounding boxes, with xywhr format.
+        imgsz (int | cList[int]): Image size.
+        stride (int): Stride value.
+        min_dim (int): Minimum number of dimensions.
+        max_dim (int): Maximum number of dimensions.
+        floor (int): Minimum allowed value for image size.
 
     Returns:
-        (torch.Tensor): Covariance metrixs corresponding to original rotated bounding boxes.
+        (List[int]): Updated image size.
     """
-    # Gaussian bounding boxes, ignored the center points(the first two columns) cause it's not needed here.
-    gbbs = torch.cat((torch.pow(boxes[:, 2:4], 2) / 12, boxes[:, 4:]), dim=-1)
-    a, b, c = gbbs.split(1, dim=-1)
-    return (
-        a * torch.cos(c) ** 2 + b * torch.sin(c) ** 2,
-        a * torch.sin(c) ** 2 + b * torch.cos(c) ** 2,
-        a * torch.cos(c) * torch.sin(c) - b * torch.sin(c) * torch.cos(c),
-    )
+    # Convert stride to integer if it is a tensor
+    stride = int(stride.max() if isinstance(stride, torch.Tensor) else stride)
+
+    # Convert image size to list if it is an integer
+    if isinstance(imgsz, int):
+        imgsz = [imgsz]
+    elif isinstance(imgsz, (list, tuple)):
+        imgsz = list(imgsz)
+    else:
+        raise TypeError(f"'imgsz={imgsz}' is of invalid type {type(imgsz).__name__}. "
+                        f"Valid imgsz types are int i.e. 'imgsz=640' or list i.e. 'imgsz=[640,640]'")
+
+    # Apply max_dim
+    if len(imgsz) > max_dim:
+        msg = "'train' and 'val' imgsz must be an integer, while 'predict' and 'export' imgsz may be a [h, w] list " \
+              "or an integer, i.e. 'yolo export imgsz=640,480' or 'yolo export imgsz=640'"
+        if max_dim != 1:
+            raise ValueError(f'imgsz={imgsz} is not a valid image size. {msg}')
+        LOGGER.warning(f"WARNING ⚠️ updating to 'imgsz={max(imgsz)}'. {msg}")
+        imgsz = [max(imgsz)]
+    # Make image size a multiple of the stride
+    sz = [max(math.ceil(x / stride) * stride, floor) for x in imgsz]
+
+    # Print warning message if image size was updated
+    if sz != imgsz:
+        LOGGER.warning(f'WARNING ⚠️ imgsz={imgsz} must be multiple of max stride {stride}, updating to {sz}')
+
+    # Add missing dimensions if necessary
+    sz = [sz[0], sz[0]] if min_dim == 2 and len(sz) == 1 else sz[0] if min_dim == 1 and len(sz) == 1 else sz
+
+    return sz
 
 
-def batch_probiou(obb1, obb2, eps=1e-7):
+def convert_torch2numpy_batch(batch: torch.Tensor) -> np.ndarray:
     """
-    Calculate the prob iou between oriented bounding boxes, https://arxiv.org/pdf/2106.06072v1.pdf.
+    Convert a batch of FP32 torch tensors (0.0-1.0) to a NumPy uint8 array (0-255), changing from BCHW to BHWC layout.
 
     Args:
-        obb1 (torch.Tensor): A tensor of shape (N, 5) representing ground truth obbs, with xywhr format.
-        obb2 (torch.Tensor): A tensor of shape (M, 5) representing predicted obbs, with xywhr format.
-        eps (float, optional): A small value to avoid division by zero. Defaults to 1e-7.
+        batch (torch.Tensor): Input tensor batch of shape (Batch, Channels, Height, Width) and dtype torch.float32.
 
     Returns:
-        (torch.Tensor): A tensor of shape (N, M) representing obb similarities.
+        (np.ndarray): Output NumPy array batch of shape (Batch, Height, Width, Channels) and dtype uint8.
     """
-    x1, y1 = obb1[..., :2].split(1, dim=-1)
-    x2, y2 = (x.squeeze(-1)[None] for x in obb2[..., :2].split(1, dim=-1))
-    a1, b1, c1 = _get_covariance_matrix(obb1)
-    a2, b2, c2 = (x.squeeze(-1)[None] for x in _get_covariance_matrix(obb2))
-
-    t1 = (((a1 + a2) * (torch.pow(y1 - y2, 2)) + (b1 + b2) * (torch.pow(x1 - x2, 2))) /
-          ((a1 + a2) * (b1 + b2) - (torch.pow(c1 + c2, 2)) + eps)) * 0.25
-    t2 = (((c1 + c2) * (x2 - x1) * (y1 - y2)) / ((a1 + a2) * (b1 + b2) - (torch.pow(c1 + c2, 2)) + eps)) * 0.5
-    t3 = torch.log(((a1 + a2) * (b1 + b2) - (torch.pow(c1 + c2, 2))) /
-                   (4 * torch.sqrt((a1 * b1 - torch.pow(c1, 2)).clamp_(0) *
-                                   (a2 * b2 - torch.pow(c2, 2)).clamp_(0)) + eps) + eps) * 0.5
-    bd = t1 + t2 + t3
-    bd = torch.clamp(bd, eps, 100.0)
-    hd = torch.sqrt(1.0 - torch.exp(-bd) + eps)
-    return 1 - hd
+    return (batch.permute(0, 2, 3, 1).contiguous() * 255).clamp(0, 255).to(torch.uint8).cpu().numpy()
 
 
-def nms_rotated(boxes, scores, threshold=0.45):
+def xywh2xyxy(x):
     """
-    NMS for obbs, powered by probiou and fast-nms.
+    Convert bounding box coordinates from (x, y, width, height) format to (x1, y1, x2, y2) format where (x1, y1) is the
+    top-left corner and (x2, y2) is the bottom-right corner.
 
     Args:
-        boxes (torch.Tensor): (N, 5), xywhr.
-        scores (torch.Tensor): (N, ).
-        threshold (float): Iou threshold.
+        x (np.ndarray | torch.Tensor): The input bounding box coordinates in (x, y, width, height) format.
 
     Returns:
+        y (np.ndarray | torch.Tensor): The bounding box coordinates in (x1, y1, x2, y2) format.
     """
-    if len(boxes) == 0:
-        return np.empty((0,), dtype=np.int8)
-    sorted_idx = torch.argsort(scores, descending=True)
-    boxes = boxes[sorted_idx]
-    ious = batch_probiou(boxes, boxes).triu_(diagonal=1)
-    pick = torch.nonzero(ious.max(dim=0)[0] < threshold).squeeze_(-1)
-    return sorted_idx[pick]
+    assert x.shape[-1] == 4, f'input shape last dimension expected 4 but input shape is {x.shape}'
+    y = torch.empty_like(x) if isinstance(x, torch.Tensor) else np.empty_like(x)  # faster than clone/copy
+    dw = x[..., 2] / 2  # half-width
+    dh = x[..., 3] / 2  # half-height
+    y[..., 0] = x[..., 0] - dw  # top left x
+    y[..., 1] = x[..., 1] - dh  # top left y
+    y[..., 2] = x[..., 0] + dw  # bottom right x
+    y[..., 3] = x[..., 1] + dh  # bottom right y
+    return y
 
 
 def non_max_suppression(
@@ -98,7 +113,6 @@ def non_max_suppression(
         max_time_img=0.05,
         max_nms=30000,
         max_wh=7680,
-        rotated=False,
 ):
     """
     Perform non-maximum suppression (NMS) on a set of boxes, with support for masks and multiple labels per box.
@@ -136,6 +150,10 @@ def non_max_suppression(
     if isinstance(prediction, (list, tuple)):  # YOLOv8 model in validation model, output = (inference_out, loss_out)
         prediction = prediction[0]  # select only inference output
 
+    device = prediction.device
+    mps = 'mps' in device.type  # Apple MPS
+    if mps:  # MPS not fully supported yet, convert tensors to CPU before NMS
+        prediction = prediction.cpu()
     bs = prediction.shape[0]  # batch size
     nc = nc or (prediction.shape[1] - 4)  # number of classes
     nm = prediction.shape[1] - nc - 4
@@ -148,9 +166,8 @@ def non_max_suppression(
     multi_label &= nc > 1  # multiple labels per box (adds 0.5ms/img)
 
     prediction = prediction.transpose(-1, -2)  # shape(1,84,6300) to shape(1,6300,84)
-    if not rotated:
-        prediction[..., :4] = xywh2xyxy(prediction[..., :4])  # xywh to xyxy
-
+    prediction[..., :4] = xywh2xyxy(prediction[..., :4])  # xywh to xyxy
+    print(prediction.reshape(-1)[:20])
     t = time.time()
     output = [torch.zeros((0, 6 + nm), device=prediction.device)] * bs
     for xi, x in enumerate(prediction):  # image index, image inference
@@ -159,7 +176,7 @@ def non_max_suppression(
         x = x[xc[xi]]  # confidence
 
         # Cat apriori labels if autolabelling
-        if labels and len(labels[xi]) and not rotated:
+        if labels and len(labels[xi]):
             lb = labels[xi]
             v = torch.zeros((len(lb), nc + nm + 4), device=x.device)
             v[:, :4] = xywh2xyxy(lb[:, 1:5])  # box
@@ -172,6 +189,7 @@ def non_max_suppression(
 
         # Detections matrix nx6 (xyxy, conf, cls)
         box, cls, mask = x.split((4, nc, nm), 1)
+        print("box: ", box.reshape(-1)[:20])
 
         if multi_label:
             i, j = torch.where(cls > conf_thres)
@@ -193,13 +211,12 @@ def non_max_suppression(
 
         # Batched NMS
         c = x[:, 5:6] * (0 if agnostic else max_wh)  # classes
-        scores = x[:, 4]  # scores
-        if rotated:
-            boxes = torch.cat((x[:, :2] + c, x[:, 2:4], x[:, -2:-1]), dim=-1)  # xywhr
-            i = nms_rotated(boxes, scores, iou_thres)
-        else:
-            boxes = x[:, :4] + c  # boxes (offset by class)
-            i = torchvision.ops.nms(boxes, scores, iou_thres)  # NMS
+        boxes, scores = x[:, :4] + c, x[:, 4]  # boxes (offset by class), scores
+        print("boxes[:20]:", boxes.reshape(-1)[:20])
+        print("scores[:20]:", scores.reshape(-1)[:20])
+        print("iou_thres:", iou_thres)
+        i = torchvision.ops.nms(boxes, scores, iou_thres)  # NMS
+        print("i:", i)
         i = i[:max_det]  # limit detections
 
         # # Experimental
@@ -215,6 +232,8 @@ def non_max_suppression(
         #         i = i[iou.sum(1) > 1]  # require redundancy
 
         output[xi] = x[i]
+        if mps:
+            output[xi] = output[xi].to(device)
         if (time.time() - t) > time_limit:
             LOGGER.warning(f'WARNING ⚠️ NMS time limit {time_limit:.3f}s exceeded')
             break  # time limit exceeded
@@ -222,54 +241,28 @@ def non_max_suppression(
     return output
 
 
-def xywh2xyxy(x):
-    """
-    Convert bounding box coordinates from (x, y, width, height) format to (x1, y1, x2, y2) format where (x1, y1) is the
-    top-left corner and (x2, y2) is the bottom-right corner.
-
-    Args:
-        x (np.ndarray | torch.Tensor): The input bounding box coordinates in (x, y, width, height) format.
-
-    Returns:
-        y (np.ndarray | torch.Tensor): The bounding box coordinates in (x1, y1, x2, y2) format.
-    """
-    assert x.shape[-1] == 4, f'input shape last dimension expected 4 but input shape is {x.shape}'
-    y = torch.empty_like(x) if isinstance(x, torch.Tensor) else np.empty_like(x)  # faster than clone/copy
-    dw = x[..., 2] / 2  # half-width
-    dh = x[..., 3] / 2  # half-height
-    y[..., 0] = x[..., 0] - dw  # top left x
-    y[..., 1] = x[..., 1] - dh  # top left y
-    y[..., 2] = x[..., 0] + dw  # bottom right x
-    y[..., 3] = x[..., 1] + dh  # bottom right y
-    return y
-
-
 def clip_boxes(boxes, shape):
     """
     Takes a list of bounding boxes and a shape (height, width) and clips the bounding boxes to the shape.
 
     Args:
-        boxes (torch.Tensor): the bounding boxes to clip
-        shape (tuple): the shape of the image
-
-    Returns:
-        (torch.Tensor | numpy.ndarray): Clipped boxes
+      boxes (torch.Tensor): the bounding boxes to clip
+      shape (tuple): the shape of the image
     """
-    if isinstance(boxes, torch.Tensor):  # faster individually (WARNING: inplace .clamp_() Apple MPS bug)
-        boxes[..., 0] = boxes[..., 0].clamp(0, shape[1])  # x1
-        boxes[..., 1] = boxes[..., 1].clamp(0, shape[0])  # y1
-        boxes[..., 2] = boxes[..., 2].clamp(0, shape[1])  # x2
-        boxes[..., 3] = boxes[..., 3].clamp(0, shape[0])  # y2
+    if isinstance(boxes, torch.Tensor):  # faster individually
+        boxes[..., 0].clamp_(0, shape[1])  # x1
+        boxes[..., 1].clamp_(0, shape[0])  # y1
+        boxes[..., 2].clamp_(0, shape[1])  # x2
+        boxes[..., 3].clamp_(0, shape[0])  # y2
     else:  # np.array (faster grouped)
         boxes[..., [0, 2]] = boxes[..., [0, 2]].clip(0, shape[1])  # x1, x2
         boxes[..., [1, 3]] = boxes[..., [1, 3]].clip(0, shape[0])  # y1, y2
-    return boxes
 
 
-def scale_boxes(img1_shape, boxes, img0_shape, ratio_pad=None, padding=True, xywh=False):
+def scale_boxes(img1_shape, boxes, img0_shape, ratio_pad=None, padding=True):
     """
-    Rescales bounding boxes (in the format of xyxy by default) from the shape of the image they were originally
-    specified in (img1_shape) to the shape of a different image (img0_shape).
+    Rescales bounding boxes (in the format of xyxy) from the shape of the image they were originally specified in
+    (img1_shape) to the shape of a different image (img0_shape).
 
     Args:
         img1_shape (tuple): The shape of the image that the bounding boxes are for, in the format of (height, width).
@@ -279,7 +272,6 @@ def scale_boxes(img1_shape, boxes, img0_shape, ratio_pad=None, padding=True, xyw
             calculated based on the size difference between the two images.
         padding (bool): If True, assuming the boxes is based on image augmented by yolo style. If False then do regular
             rescaling.
-        xywh (bool): The box format is xywh or not, default=False.
 
     Returns:
         boxes (torch.Tensor): The scaled bounding boxes, in the format of (x1, y1, x2, y2)
@@ -293,10 +285,8 @@ def scale_boxes(img1_shape, boxes, img0_shape, ratio_pad=None, padding=True, xyw
         pad = ratio_pad[1]
 
     if padding:
-        boxes[..., 0] -= pad[0]  # x padding
-        boxes[..., 1] -= pad[1]  # y padding
-        if not xywh:
-            boxes[..., 2] -= pad[0]  # x padding
-            boxes[..., 3] -= pad[1]  # y padding
+        boxes[..., [0, 2]] -= pad[0]  # x padding
+        boxes[..., [1, 3]] -= pad[1]  # y padding
     boxes[..., :4] /= gain
-    return clip_boxes(boxes, img0_shape)
+    clip_boxes(boxes, img0_shape)
+    return boxes

@@ -30,35 +30,22 @@ if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))  # add ROOT to PATH
 ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
-from general import LOGGER
-from yolov8_util import LetterBox, draw_results
-from torch_util import non_max_suppression, scale_boxes
-
-MODEL_NAMES = {0: 'person', 1: 'bicycle', 2: 'car', 3: 'motorcycle', 4: 'airplane', 5: 'bus', 6: 'train', 7: 'truck',
-               8: 'boat', 9: 'traffic light', 10: 'fire hydrant', 11: 'stop sign', 12: 'parking meter', 13: 'bench',
-               14: 'bird', 15: 'cat', 16: 'dog', 17: 'horse', 18: 'sheep', 19: 'cow', 20: 'elephant', 21: 'bear',
-               22: 'zebra', 23: 'giraffe', 24: 'backpack', 25: 'umbrella', 26: 'handbag', 27: 'tie', 28: 'suitcase',
-               29: 'frisbee', 30: 'skis', 31: 'snowboard', 32: 'sports ball', 33: 'kite', 34: 'baseball bat',
-               35: 'baseball glove', 36: 'skateboard', 37: 'surfboard', 38: 'tennis racket', 39: 'bottle',
-               40: 'wine glass', 41: 'cup', 42: 'fork', 43: 'knife', 44: 'spoon', 45: 'bowl', 46: 'banana', 47: 'apple',
-               48: 'sandwich', 49: 'orange', 50: 'broccoli', 51: 'carrot', 52: 'hot dog', 53: 'pizza', 54: 'donut',
-               55: 'cake', 56: 'chair', 57: 'couch', 58: 'potted plant', 59: 'bed', 60: 'dining table', 61: 'toilet',
-               62: 'tv', 63: 'laptop', 64: 'mouse', 65: 'remote', 66: 'keyboard', 67: 'cell phone', 68: 'microwave',
-               69: 'oven', 70: 'toaster', 71: 'sink', 72: 'refrigerator', 73: 'book', 74: 'clock', 75: 'vase',
-               76: 'scissors', 77: 'teddy bear', 78: 'hair drier', 79: 'toothbrush'}
-
-CLASSES_NAME = [item[1] for item in MODEL_NAMES.items()]
+from general import LOGGER, CLASSES_NAME
+from yolov8_util import draw_results, LetterBox
+from torch_util import check_imgsz, non_max_suppression, scale_boxes, convert_torch2numpy_batch
+from yolov8_base import pre_transform
 
 
-def pre_transform(im, imgsz=(640, 640), auto=False, stride=32):
-    letterbox = LetterBox(imgsz, auto=auto, stride=stride)
-    return [letterbox(image=x) for x in im]
+def preprocess(im, imgsz, device, stride=32, pt=False, fp16=False):
+    """
+    Prepares input image before inference.
 
-
-def preprocess(im, device=torch.device("cpu"), fp16=False):
+    Args:
+        im (torch.Tensor | List(np.ndarray)): BCHW for tensor, [(HWC) x B] for list.
+    """
     not_tensor = not isinstance(im, torch.Tensor)
     if not_tensor:
-        im = np.stack(pre_transform(im))
+        im = np.stack(pre_transform(im, imgsz, stride=stride, pt=pt))
         im = im[..., ::-1].transpose((0, 3, 1, 2))  # BGR to RGB, BHWC to BCHW, (n, 3, h, w)
         im = np.ascontiguousarray(im)  # contiguous
         im = torch.from_numpy(im)
@@ -71,20 +58,52 @@ def preprocess(im, device=torch.device("cpu"), fp16=False):
 
 
 def postprocess(preds,
-                im_shape,  # [h, w]
-                im0_shape,  # [h, w]
+                img,
+                orig_imgs,
+                # (float, optional) object confidence threshold for detection (default 0.25 predict, 0.001 val)
                 conf=0.25,
-                iou=0.45,
-                classes=None,
-                agnostic=False,
-                max_det=300, ):
-    pred = non_max_suppression(preds,
-                               conf,
-                               iou,
-                               agnostic=agnostic,
-                               max_det=max_det,
-                               classes=classes)[0]
-    boxes = scale_boxes(im_shape, pred[:, :4], im0_shape)
+                iou=0.7,  # (float) intersection over union (IoU) threshold for NMS
+                agnostic_nms=False,  # (bool) class-agnostic NMS
+                max_det=300,  # (int) maximum number of detections per image
+                classes=None,  # (int | list[int], optional) filter results by class, i.e. classes=0, or classes=[0,2,3]
+                ):
+    print("****************************************************")
+    print(f"conf= {conf}")
+    print(f"iou= {iou}")
+    print(f"agnostic_nms= {agnostic_nms}")
+    print(f"max_det= {max_det}")
+    print(f"classes= {classes}")
+    print("****************************************************")
+    """Post-processes predictions and returns a list of Results objects."""
+    preds = non_max_suppression(preds,
+                                conf_thres=conf,
+                                iou_thres=iou,
+                                agnostic=agnostic_nms,
+                                max_det=max_det,
+                                classes=classes)
+
+    if not isinstance(orig_imgs, list):  # input images are a torch.Tensor, not a list
+        orig_imgs = convert_torch2numpy_batch(orig_imgs)
+    print('#' * 20)
+    print(preds[0].reshape(-1)[:20])
+
+    # print(f"names= {self.model.names}")
+    # results = []
+    for i, pred in enumerate(preds):
+        # print(f"img_path = {self.batch[0][i]}")
+        orig_img = orig_imgs[i]
+        pred[:, :4] = scale_boxes(img.shape[2:], pred[:, :4], orig_img.shape)
+        # img_path = self.batch[0][i]
+        # results.append(Results(orig_img, path=img_path, names=self.model.names, boxes=pred))
+
+    # print(f"result len: {len(results)}")
+    # for result in results:
+    #     print(result.boxes)
+    # return results
+    # return preds
+
+    pred = preds[0]
+    boxes = pred[:, :4]
     confs = pred[:, 4:5]
     cls_ids = pred[:, 5:6]
     return boxes, confs, cls_ids
@@ -92,11 +111,15 @@ def postprocess(preds,
 
 class YOLOv8Runtime:
 
-    def __init__(self, weight: str = 'yolov8n.onnx'):
+    def __init__(self, weight: str = 'yolov8n.onnx', imgsz=640, stride=32, device=torch.device("cpu")):
         super().__init__()
         self.load_onnx(weight)
 
-        self.device = torch.device("cpu")
+        imgsz = check_imgsz(imgsz, stride=stride, min_dim=2)
+        self.imgsz = imgsz
+
+        # self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device
 
     def load_onnx(self, weight: str):
         assert os.path.isfile(weight), weight
@@ -137,12 +160,19 @@ class YOLOv8Runtime:
         return torch.tensor(x).to(self.device) if isinstance(x, np.ndarray) else x
 
     def detect(self, im0: ndarray):
-        im = preprocess([im0], device=self.device)
+        im0s = [im0]
+        im = preprocess(im0s, self.imgsz, self.device)
 
-        outputs = self.infer(im)
+        preds = self.infer(im)
+        print("*" * 20)
+        print(preds.reshape(-1)[:20])
 
-        boxes, confs, cls_ids = postprocess(outputs, im.shape[2:], im0.shape[:2], conf=0.25, iou=0.45)
+        boxes, confs, cls_ids = postprocess(preds, im, im0s)
+        # print(len(preds), preds[0].shape)
         return boxes, confs, cls_ids
+
+        # boxes, confs, cls_ids = postprocess(outputs, im.shape[2:], im0.shape[:2], conf=0.25, iou=0.45)
+        # return boxes, confs, cls_ids
 
     def predict_image(self, img_path, output_dir="output/"):
         if not os.path.exists(output_dir):
