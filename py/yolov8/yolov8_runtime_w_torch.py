@@ -17,8 +17,6 @@ Usage: Save Image/Video:
 """
 
 import os
-import cv2
-import copy
 
 import torch
 from torch import Tensor
@@ -26,10 +24,9 @@ from torch import Tensor
 import numpy as np
 from numpy import ndarray
 
-from general import LOGGER, CLASSES_NAME
-from yolov8_util import draw_results, LetterBox
-from torch_util import check_imgsz, non_max_suppression, scale_boxes, convert_torch2numpy_batch
+from general import LOGGER
 from yolov8_base import pre_transform, YOLOv8Base
+from torch_util import check_imgsz, non_max_suppression, scale_boxes, convert_torch2numpy_batch
 
 
 class YOLOv8Runtime(YOLOv8Base):

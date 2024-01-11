@@ -6,14 +6,24 @@
 @Author  : zj
 @Description:
 
-Yolov8: https://github.com/ultralytics/ultralytics
-Commit id: e58db228c2fd9856e7bff54a708bf5acde26fb29
+# Start Docker Container
+>>>docker run --gpus all -it --rm -v ${PWD}:/workdir --workdir=/workdir ultralytics/yolov5:latest bash
+# Convert onnx to engine
+>>>trtexec --onnx=yolov5s.onnx --saveEngine=yolov5s.engine
+# Install pycuda
+>>>pip3 install pycuda -i http://mirrors.aliyun.com/pypi/simple/ --trusted-host mirrors.aliyun.com
+
+Usage: Infer Image/Video using YOLOv5 with TensorRT and Pytorch:
+    $ python3 py/yolov8/yolov8_trt_w_torch.py yolov8n.engine assets/bus.jpg
+    $ python3 py/yolov8/yolov8_trt_w_torch.py yolov8n.engine assets/bus.jpg  --video
+
+Usage: Save Image/Video:
+    $ python3 py/yolov8/yolov8_trt_w_torch.py yolov8n.engine assets/bus.jpg --save
+    $ python3 py/yolov8/yolov8_trt_w_torch.py yolov8n.engine assets/vtest.avi --video --save
 
 """
 
 import os
-import cv2
-import copy
 
 import torch
 from torch import Tensor
@@ -25,76 +35,12 @@ import tensorrt as trt
 import pycuda.autoinit
 import pycuda.driver as cuda
 
-import sys
-from pathlib import Path
-
-FILE = Path(__file__).resolve()
-ROOT = FILE.parents[0]  # YOLOv5 root directory
-if str(ROOT) not in sys.path:
-    sys.path.append(str(ROOT))  # add ROOT to PATH
-ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
-
 from general import LOGGER
-from yolov8_util import LetterBox, draw_results
-from torch_util import non_max_suppression, scale_boxes
-
-MODEL_NAMES = {0: 'person', 1: 'bicycle', 2: 'car', 3: 'motorcycle', 4: 'airplane', 5: 'bus', 6: 'train', 7: 'truck',
-               8: 'boat', 9: 'traffic light', 10: 'fire hydrant', 11: 'stop sign', 12: 'parking meter', 13: 'bench',
-               14: 'bird', 15: 'cat', 16: 'dog', 17: 'horse', 18: 'sheep', 19: 'cow', 20: 'elephant', 21: 'bear',
-               22: 'zebra', 23: 'giraffe', 24: 'backpack', 25: 'umbrella', 26: 'handbag', 27: 'tie', 28: 'suitcase',
-               29: 'frisbee', 30: 'skis', 31: 'snowboard', 32: 'sports ball', 33: 'kite', 34: 'baseball bat',
-               35: 'baseball glove', 36: 'skateboard', 37: 'surfboard', 38: 'tennis racket', 39: 'bottle',
-               40: 'wine glass', 41: 'cup', 42: 'fork', 43: 'knife', 44: 'spoon', 45: 'bowl', 46: 'banana', 47: 'apple',
-               48: 'sandwich', 49: 'orange', 50: 'broccoli', 51: 'carrot', 52: 'hot dog', 53: 'pizza', 54: 'donut',
-               55: 'cake', 56: 'chair', 57: 'couch', 58: 'potted plant', 59: 'bed', 60: 'dining table', 61: 'toilet',
-               62: 'tv', 63: 'laptop', 64: 'mouse', 65: 'remote', 66: 'keyboard', 67: 'cell phone', 68: 'microwave',
-               69: 'oven', 70: 'toaster', 71: 'sink', 72: 'refrigerator', 73: 'book', 74: 'clock', 75: 'vase',
-               76: 'scissors', 77: 'teddy bear', 78: 'hair drier', 79: 'toothbrush'}
-
-CLASSES_NAME = [item[1] for item in MODEL_NAMES.items()]
+from yolov8_base import YOLOv8Base, pre_transform
+from torch_util import check_imgsz, non_max_suppression, scale_boxes, convert_torch2numpy_batch
 
 
-def pre_transform(im, imgsz=(640, 640), auto=False, stride=32):
-    letterbox = LetterBox(imgsz, auto=auto, stride=stride)
-    return [letterbox(image=x) for x in im]
-
-
-def preprocess(im, device=torch.device("cpu"), fp16=False):
-    not_tensor = not isinstance(im, torch.Tensor)
-    if not_tensor:
-        im = np.stack(pre_transform(im))
-        im = im[..., ::-1].transpose((0, 3, 1, 2))  # BGR to RGB, BHWC to BCHW, (n, 3, h, w)
-        im = np.ascontiguousarray(im)  # contiguous
-        im = torch.from_numpy(im)
-
-    im = im.to(device)
-    im = im.half() if fp16 else im.float()  # uint8 to fp16/32
-    if not_tensor:
-        im /= 255  # 0 - 255 to 0.0 - 1.0
-    return im
-
-
-def postprocess(preds,
-                im_shape,  # [h, w]
-                im0_shape,  # [h, w]
-                conf=0.25,
-                iou=0.45,
-                classes=None,
-                agnostic=False,
-                max_det=300, ):
-    pred = non_max_suppression(preds,
-                               conf,
-                               iou,
-                               agnostic=agnostic,
-                               max_det=max_det,
-                               classes=classes)[0]
-    boxes = scale_boxes(im_shape, pred[:, :4], im0_shape)
-    confs = pred[:, 4:5]
-    cls_ids = pred[:, 5:6]
-    return boxes, confs, cls_ids
-
-
-class YOLOv8TRT:
+class YOLOv8TRT(YOLOv8Base):
 
     def __init__(self, weight: str = 'yolov8n.engine'):
         super().__init__()
@@ -176,63 +122,97 @@ class YOLOv8TRT:
         """
         return torch.tensor(x).to(self.device) if isinstance(x, np.ndarray) else x
 
-    def detect(self, im0: ndarray):
-        im = preprocess([im0], device=self.device)
+    def preprocess(self, im, imgsz, stride=32, pt=False, fp16=False):
+        """
+        Prepares input image before inference.
 
-        outputs = self.infer(im)
+        Args:
+            im (torch.Tensor | List(np.ndarray)): BCHW for tensor, [(HWC) x B] for list.
+        """
+        not_tensor = not isinstance(im, torch.Tensor)
+        if not_tensor:
+            im = np.stack(pre_transform(im, imgsz, stride=stride, pt=pt))
+            im = im[..., ::-1].transpose((0, 3, 1, 2))  # BGR to RGB, BHWC to BCHW, (n, 3, h, w)
+            im = np.ascontiguousarray(im)  # contiguous
+            im = torch.from_numpy(im)
 
-        boxes, confs, cls_ids = postprocess(outputs, im.shape[2:], im0.shape[:2], conf=0.25, iou=0.45)
+        im = im.to(self.device)
+        im = im.half() if fp16 else im.float()  # uint8 to fp16/32
+        if not_tensor:
+            im /= 255  # 0 - 255 to 0.0 - 1.0
+        return im
+
+    def postprocess(self, preds,
+                    img,
+                    orig_imgs,
+                    # (float, optional) object confidence threshold for detection (default 0.25 predict, 0.001 val)
+                    conf=0.25,
+                    iou=0.7,  # (float) intersection over union (IoU) threshold for NMS
+                    agnostic_nms=False,  # (bool) class-agnostic NMS
+                    max_det=300,  # (int) maximum number of detections per image
+                    classes=None,
+                    # (int | list[int], optional) filter results by class, i.e. classes=0, or classes=[0,2,3]
+                    ):
+        print("****************************************************")
+        print(f"conf= {conf}")
+        print(f"iou= {iou}")
+        print(f"agnostic_nms= {agnostic_nms}")
+        print(f"max_det= {max_det}")
+        print(f"classes= {classes}")
+        print("****************************************************")
+        """Post-processes predictions and returns a list of Results objects."""
+        preds = non_max_suppression(preds,
+                                    conf_thres=conf,
+                                    iou_thres=iou,
+                                    agnostic=agnostic_nms,
+                                    max_det=max_det,
+                                    classes=classes)
+
+        if not isinstance(orig_imgs, list):  # input images are a torch.Tensor, not a list
+            orig_imgs = convert_torch2numpy_batch(orig_imgs)
+        print('#' * 20)
+        print(preds[0].reshape(-1)[:20])
+
+        # print(f"names= {self.model.names}")
+        # results = []
+        for i, pred in enumerate(preds):
+            # print(f"img_path = {self.batch[0][i]}")
+            orig_img = orig_imgs[i]
+            pred[:, :4] = scale_boxes(img.shape[2:], pred[:, :4], orig_img.shape)
+            # img_path = self.batch[0][i]
+            # results.append(Results(orig_img, path=img_path, names=self.model.names, boxes=pred))
+
+        # print(f"result len: {len(results)}")
+        # for result in results:
+        #     print(result.boxes)
+        # return results
+        # return preds
+
+        pred = preds[0]
+        boxes = pred[:, :4]
+        confs = pred[:, 4:5]
+        cls_ids = pred[:, 5:6]
         return boxes, confs, cls_ids
 
-    def predict_image(self, img_path, output_dir="output/"):
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
+    def detect(self, im0: ndarray):
+        # return super().detect(im0)
+        # im = preprocess([im0])
+        im0s = [im0]
+        im = self.preprocess(im0s, self.imgsz)
 
-        im0 = cv2.imread(img_path)
-        boxes, confs, cls_ids = self.detect(copy.deepcopy(im0))
-        print(f"There are {len(boxes)} objects.")
+        preds = self.infer(im)
+        print("*" * 20)
+        print(preds.reshape(-1)[:20])
 
-        overlay = draw_results(im0, boxes, confs, cls_ids, CLASSES_NAME, is_xyxy=True)
-        image_name = os.path.splitext(os.path.basename(img_path))[0]
-        img_path = os.path.join(output_dir, f"{image_name}-yolov8_trt_with_torch.jpg")
-        print(f"Save to {img_path}")
-        cv2.imwrite(img_path, overlay)
+        boxes, confs, cls_ids = self.postprocess(preds, im, im0s)
+        # boxes, confs, cls_ids = postprocess(outputs, im.shape[2:], im0.shape[:2], conf=0.25, iou=0.45)
+        return boxes, confs, cls_ids
 
-    def predict_video(self, video_file, output_dir="output/"):
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
+    def predict_image(self, img_path, output_dir="output/", suffix="yolov8_trt_w_torch", save=False):
+        super().predict_image(img_path, output_dir, suffix, save)
 
-        capture = cv2.VideoCapture(video_file)
-        frame_width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
-        frame_height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        video_fps = int(capture.get(cv2.CAP_PROP_FPS))
-        frame_count = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
-        print(
-            f"video_fps: {video_fps}, frame_count: {frame_count}, frame_width: {frame_width}, frame_height: {frame_height}")
-
-        image_name = os.path.splitext(os.path.basename(video_file))[0]
-        video_out_name = f'{image_name}-yolov8_trt_with_torch.mp4'
-        video_path = os.path.join(output_dir, video_out_name)
-        video_format = 'mp4v'
-        fourcc = cv2.VideoWriter_fourcc(*video_format)
-        writer = cv2.VideoWriter(video_path, fourcc, video_fps, (frame_width, frame_height))
-
-        frame_id = 0
-        while True:
-            ret, frame = capture.read()
-            if not ret:
-                break
-
-            boxes, confs, classes = self.detect(frame)
-            print(f"There are {len(boxes)} objects.")
-            overlay = draw_results(frame, boxes, confs, classes, CLASSES_NAME, is_xyxy=True)
-            writer.write(overlay)
-
-            frame_id += 1
-            print(f'frame_id: {frame_id}')
-
-        writer.release()
-        print(f"Save to {video_path}")
+    def predict_video(self, video_file, output_dir="output/", suffix="yolov8_trt_w_torch", save=False):
+        super().predict_video(video_file, output_dir, suffix, save)
 
 
 def parse_opt():
@@ -246,8 +226,11 @@ def parse_opt():
     parser.add_argument("--video", action="store_true", default=False,
                         help="Use video as input")
 
+    parser.add_argument("--save", action="store_true", default=False,
+                        help="Save or not.")
+
     args = parser.parse_args()
-    print(f"args: {args}")
+    LOGGER.info(f"args: {args}")
 
     return args
 
@@ -255,11 +238,10 @@ def parse_opt():
 def main(args):
     model = YOLOv8TRT(args.model)
 
-    input = args.input
     if args.video:
-        model.predict_video(input)
+        model.predict_video(args.input, save=args.save)
     else:
-        model.predict_image(input)
+        model.predict_image(args.input, save=args.save)
 
 
 if __name__ == '__main__':

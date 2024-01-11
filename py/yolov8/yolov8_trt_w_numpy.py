@@ -6,8 +6,20 @@
 @Author  : zj
 @Description:
 
-Yolov8: https://github.com/ultralytics/ultralytics
-Commit id: e58db228c2fd9856e7bff54a708bf5acde26fb29
+# Start Docker Container
+>>>docker run --gpus all -it --rm -v ${PWD}:/workdir --workdir=/workdir ultralytics/yolov5:latest bash
+# Convert onnx to engine
+>>>trtexec --onnx=yolov8n.onnx --saveEngine=yolov8n.engine
+# Install pycuda
+>>>pip3 install pycuda -i http://mirrors.aliyun.com/pypi/simple/ --trusted-host mirrors.aliyun.com
+
+Usage: Infer Image/Video using YOLOv5 with TensorRT and Numpy:
+    $ python3 py/yolov8/yolov8_trt_w_numpy.py yolov8n.engine assets/bus.jpg
+    $ python3 py/yolov8/yolov8_trt_w_numpy.py yolov8n.engine assets/bus.jpg  --video
+
+Usage: Save Image/Video:
+    $ python3 py/yolov8/yolov8_trt_w_numpy.py yolov8n.engine assets/bus.jpg --save
+    $ python3 py/yolov8/yolov8_trt_w_numpy.py yolov8n.engine assets/vtest.avi --video --save
 
 """
 from typing import List
@@ -22,67 +34,11 @@ import tensorrt as trt
 import pycuda.autoinit
 import pycuda.driver as cuda
 
-import sys
-from pathlib import Path
-
-FILE = Path(__file__).resolve()
-ROOT = FILE.parents[0]  # YOLOv5 root directory
-if str(ROOT) not in sys.path:
-    sys.path.append(str(ROOT))  # add ROOT to PATH
-ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
-
 from general import LOGGER
-from yolov8_util import LetterBox, draw_results
-from yolov8_util import det_process_box_output, scale_boxes
-
-MODEL_NAMES = {0: 'person', 1: 'bicycle', 2: 'car', 3: 'motorcycle', 4: 'airplane', 5: 'bus', 6: 'train', 7: 'truck',
-               8: 'boat', 9: 'traffic light', 10: 'fire hydrant', 11: 'stop sign', 12: 'parking meter', 13: 'bench',
-               14: 'bird', 15: 'cat', 16: 'dog', 17: 'horse', 18: 'sheep', 19: 'cow', 20: 'elephant', 21: 'bear',
-               22: 'zebra', 23: 'giraffe', 24: 'backpack', 25: 'umbrella', 26: 'handbag', 27: 'tie', 28: 'suitcase',
-               29: 'frisbee', 30: 'skis', 31: 'snowboard', 32: 'sports ball', 33: 'kite', 34: 'baseball bat',
-               35: 'baseball glove', 36: 'skateboard', 37: 'surfboard', 38: 'tennis racket', 39: 'bottle',
-               40: 'wine glass', 41: 'cup', 42: 'fork', 43: 'knife', 44: 'spoon', 45: 'bowl', 46: 'banana', 47: 'apple',
-               48: 'sandwich', 49: 'orange', 50: 'broccoli', 51: 'carrot', 52: 'hot dog', 53: 'pizza', 54: 'donut',
-               55: 'cake', 56: 'chair', 57: 'couch', 58: 'potted plant', 59: 'bed', 60: 'dining table', 61: 'toilet',
-               62: 'tv', 63: 'laptop', 64: 'mouse', 65: 'remote', 66: 'keyboard', 67: 'cell phone', 68: 'microwave',
-               69: 'oven', 70: 'toaster', 71: 'sink', 72: 'refrigerator', 73: 'book', 74: 'clock', 75: 'vase',
-               76: 'scissors', 77: 'teddy bear', 78: 'hair drier', 79: 'toothbrush'}
-
-CLASSES_NAME = [item[1] for item in MODEL_NAMES.items()]
+from yolov8_base import YOLOv8Base
 
 
-def pre_transform(im, imgsz=(640, 640), auto=False, stride=32):
-    letterbox = LetterBox(imgsz, auto=auto, stride=stride)
-    return [letterbox(image=x) for x in im]
-
-
-def preprocess(im, imgsz=(640, 640)):
-    assert isinstance(im, List) and isinstance(im[0], ndarray)
-    im = np.stack(pre_transform(im, imgsz=imgsz))
-    # BGR -> RGB and [N, H, W, C] -> [N, C, H, W]
-    im = im[..., ::-1].transpose((0, 3, 1, 2))
-
-    im = np.ascontiguousarray(im)  # contiguous
-    im = im.astype(np.float32)
-    im /= 255  # 0 - 255 to 0.0 - 1.0
-    return im
-
-
-def postprocess(preds,
-                im_shape,  # [h, w]
-                im0_shape,  # [h, w]
-                conf=0.25,
-                iou=0.45,
-                classes=None,
-                agnostic=False,
-                max_det=300, ):
-    boxes, confs, classes = det_process_box_output(preds[0], conf, iou, im_shape[0], im0_shape[1])
-
-    boxes = scale_boxes(im_shape, boxes, im0_shape)
-    return boxes, confs, classes
-
-
-class YOLOv8TRT:
+class YOLOv8TRT(YOLOv8Base):
 
     def __init__(self, weight: str = 'yolov8n.engine'):
         super().__init__()
@@ -142,65 +98,22 @@ class YOLOv8TRT:
         for output, shape in zip(outputs, self.output_shapes):
             reshaped.append(output.reshape(shape))
 
-        return reshaped
+        return reshaped[0]
+
+    def preprocess(self, im, imgsz, stride=32, pt=False, fp16=False):
+        return super().preprocess(im, imgsz, stride, pt, fp16)
+
+    def postprocess(self, preds, img, orig_imgs, conf=0.25, iou=0.7, agnostic_nms=False, max_det=300, classes=None):
+        return super().postprocess(preds, img, orig_imgs, conf, iou, agnostic_nms, max_det, classes)
 
     def detect(self, im0: ndarray):
-        im = preprocess([im0])
+        return super().detect(im0)
 
-        outputs = self.infer(im)
+    def predict_image(self, img_path, output_dir="output/", suffix="yolov8_trt_w_numpy", save=False):
+        super().predict_image(img_path, output_dir, suffix, save)
 
-        boxes, confs, cls_ids = postprocess(outputs, im.shape[2:], im0.shape[:2], conf=0.25, iou=0.45)
-        return boxes, confs, cls_ids
-
-    def predict_image(self, img_path, output_dir="output/"):
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-
-        im0 = cv2.imread(img_path)
-        boxes, confs, cls_ids = self.detect(copy.deepcopy(im0))
-        print(f"There are {len(boxes)} objects.")
-
-        overlay = draw_results(im0, boxes, confs, cls_ids, CLASSES_NAME, is_xyxy=True)
-        image_name = os.path.splitext(os.path.basename(img_path))[0]
-        img_path = os.path.join(output_dir, f"{image_name}-yolov8_trt_with_numpy.jpg")
-        print(f"Save to {img_path}")
-        cv2.imwrite(img_path, overlay)
-
-    def predict_video(self, video_file, output_dir="output/"):
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-
-        capture = cv2.VideoCapture(video_file)
-        frame_width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
-        frame_height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        video_fps = int(capture.get(cv2.CAP_PROP_FPS))
-        frame_count = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
-        print(
-            f"video_fps: {video_fps}, frame_count: {frame_count}, frame_width: {frame_width}, frame_height: {frame_height}")
-
-        image_name = os.path.splitext(os.path.basename(video_file))[0]
-        video_out_name = f'{image_name}-yolov8_trt_with_numpy.mp4'
-        video_path = os.path.join(output_dir, video_out_name)
-        video_format = 'mp4v'
-        fourcc = cv2.VideoWriter_fourcc(*video_format)
-        writer = cv2.VideoWriter(video_path, fourcc, video_fps, (frame_width, frame_height))
-
-        frame_id = 0
-        while True:
-            ret, frame = capture.read()
-            if not ret:
-                break
-
-            boxes, confs, classes = self.detect(frame)
-            print(f"There are {len(boxes)} objects.")
-            overlay = draw_results(frame, boxes, confs, classes, CLASSES_NAME, is_xyxy=True)
-            writer.write(overlay)
-
-            frame_id += 1
-            print(f'frame_id: {frame_id}')
-
-        writer.release()
-        print(f"Save to {video_path}")
+    def predict_video(self, video_file, output_dir="output/", suffix="yolov8_trt_w_numpy", save=False):
+        super().predict_video(video_file, output_dir, suffix, save)
 
 
 def parse_opt():
@@ -214,8 +127,11 @@ def parse_opt():
     parser.add_argument("--video", action="store_true", default=False,
                         help="Use video as input")
 
+    parser.add_argument("--save", action="store_true", default=False,
+                        help="Save or not.")
+
     args = parser.parse_args()
-    print(f"args: {args}")
+    LOGGER.info(f"args: {args}")
 
     return args
 
@@ -223,11 +139,10 @@ def parse_opt():
 def main(args):
     model = YOLOv8TRT(args.model)
 
-    input = args.input
     if args.video:
-        model.predict_video(input)
+        model.predict_video(args.input, save=args.save)
     else:
-        model.predict_image(input)
+        model.predict_image(args.input, save=args.save)
 
 
 if __name__ == '__main__':
