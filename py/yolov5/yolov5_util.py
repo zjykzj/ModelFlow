@@ -198,7 +198,8 @@ def non_max_suppression(
         else:  # best class only
             # conf, j = x[:, 5:mi].max(1, keepdim=True)
             conf = np.max(x[:, 5:mi], axis=1, keepdims=True)
-            j = np.argmax(x[:, 5:mi], axis=1, keepdims=True)
+            j = np.argmax(x[:, 5:mi], axis=1).reshape(conf.shape)
+            # j = np.argmax(x[:, 5:mi], axis=1, keepdims=True)
             x = np.concatenate((box, conf, j.astype(float), mask), 1)[conf.flatten() > conf_thres]
 
         # Filter by class

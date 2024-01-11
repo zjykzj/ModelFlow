@@ -317,7 +317,8 @@ def non_max_suppression(
         else:  # best class only
             # conf, j = cls.max(1, keepdim=True)
             conf = np.max(cls, axis=1, keepdims=True)
-            j = np.argmax(cls, axis=1, keepdims=True)
+            # j = np.argmax(cls, axis=1, keepdims=True)
+            j = np.argmax(cls, axis=1).reshape(conf.shape)
             # x = torch.cat((box, conf, j.float(), mask), 1)[conf.view(-1) > conf_thres]
             x = np.concatenate((box, conf, j.astype(float), mask), 1)[conf.flatten() > conf_thres]
 
