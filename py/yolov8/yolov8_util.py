@@ -278,7 +278,7 @@ def non_max_suppression(
     assert len(prediction.shape) == 3
     prediction = prediction.transpose(0, 2, 1)  # shape(1,84,6300) to shape(1,6300,84)
     prediction[..., :4] = xywh2xyxy(prediction[..., :4])  # xywh to xyxy
-    print(prediction.reshape(-1)[:20])
+    # print(prediction.reshape(-1)[:20])
 
     t = time.time()
     # output = [torch.zeros((0, 6 + nm), device=prediction.device)] * bs
@@ -307,7 +307,7 @@ def non_max_suppression(
         box = x[:, :4]
         cls = x[:, 4:(4 + nc)]
         mask = x[:, (4 + nc):(4 + nc + nm)]
-        print("box: ", box.reshape(-1)[:20])
+        # print("box: ", box.reshape(-1)[:20])
 
         if multi_label:
             # i, j = torch.where(cls > conf_thres)
@@ -338,12 +338,12 @@ def non_max_suppression(
         # Batched NMS
         c = x[:, 5:6] * (0 if agnostic else max_wh)  # classes
         boxes, scores = x[:, :4] + c, x[:, 4]  # boxes (offset by class), scores
-        print("boxes[:20]:", boxes.reshape(-1)[:20])
-        print("scores[:20]:", scores.reshape(-1)[:20])
-        print("iou_thres:", iou_thres)
+        # print("boxes[:20]:", boxes.reshape(-1)[:20])
+        # print("scores[:20]:", scores.reshape(-1)[:20])
+        # print("iou_thres:", iou_thres)
         # i = torchvision.ops.nms(boxes, scores, iou_thres)  # NMS
         i = nms(boxes, scores, iou_thres)  # NMS
-        print("i:", i)
+        # print("i:", i)
         i = i[:max_det]  # limit detections
 
         # # Experimental

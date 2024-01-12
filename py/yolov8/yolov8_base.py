@@ -46,9 +46,9 @@ def pre_transform(im, imgsz, stride=32, pt=False):
         (list): A list of transformed images.
     """
     same_shapes = all(x.shape == im[0].shape for x in im)
-    print(f"imgsz: {imgsz}")
-    print(f"auto = {same_shapes and pt}")
-    print(f"stride = {stride}")
+    # print(f"imgsz: {imgsz}")
+    # print(f"auto = {same_shapes and pt}")
+    # print(f"stride = {stride}")
     letterbox = LetterBox(imgsz, auto=same_shapes and pt, stride=stride)
     return [letterbox(image=x) for x in im]
 
@@ -97,13 +97,13 @@ class YOLOv8Base(ABC):
                     classes=None,
                     # (int | list[int], optional) filter results by class, i.e. classes=0, or classes=[0,2,3]
                     ):
-        print("****************************************************")
-        print(f"conf= {conf}")
-        print(f"iou= {iou}")
-        print(f"agnostic_nms= {agnostic_nms}")
-        print(f"max_det= {max_det}")
-        print(f"classes= {classes}")
-        print("****************************************************")
+        # print("****************************************************")
+        # print(f"conf= {conf}")
+        # print(f"iou= {iou}")
+        # print(f"agnostic_nms= {agnostic_nms}")
+        # print(f"max_det= {max_det}")
+        # print(f"classes= {classes}")
+        # print("****************************************************")
         """Post-processes predictions and returns a list of Results objects."""
         preds = non_max_suppression(preds,
                                     conf_thres=conf,
@@ -111,8 +111,8 @@ class YOLOv8Base(ABC):
                                     agnostic=agnostic_nms,
                                     max_det=max_det,
                                     classes=classes)
-        print('#' * 20)
-        print(preds[0].reshape(-1)[:20])
+        # print('#' * 20)
+        # print(preds[0].reshape(-1)[:20])
 
         # if not isinstance(orig_imgs, list):  # input images are a torch.Tensor, not a list
         #     orig_imgs = convert_torch2numpy_batch(orig_imgs)
@@ -144,8 +144,8 @@ class YOLOv8Base(ABC):
         im = self.preprocess(im0s, self.imgsz)
 
         preds = self.infer(im)
-        print("*" * 20)
-        print(preds.reshape(-1)[:20])
+        # print("*" * 20)
+        # print(preds.reshape(-1)[:20])
 
         boxes, confs, cls_ids = self.postprocess(preds, im, im0s)
         # boxes, confs, cls_ids = postprocess(outputs, im.shape[2:], im0.shape[:2], conf=0.25, iou=0.45)

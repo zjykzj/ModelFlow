@@ -64,7 +64,7 @@ class YOLOv8TRT(YOLOv8Base):
             device_mem = cuda.mem_alloc(host_mem.nbytes)
             # Append the device buffer to device bindings.
             self.bindings.append(int(device_mem))
-            print(binding, engine.get_binding_shape(binding))
+            LOGGER.info(f"{binding} {engine.get_binding_shape(binding)}")
             # Append to the appropriate list.
             if engine.binding_is_input(binding):
                 self.input_w = engine.get_binding_shape(binding)[-1]

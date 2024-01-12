@@ -68,7 +68,7 @@ class YOLOv8TRT(YOLOv8Base):
             device_mem = cuda.mem_alloc(host_mem.nbytes)
             # Append the device buffer to device bindings.
             self.bindings.append(int(device_mem))
-            print(binding, engine.get_binding_shape(binding))
+            LOGGER.info(f"{binding} {engine.get_binding_shape(binding)}")
             # Append to the appropriate list.
             if engine.binding_is_input(binding):
                 self.input_w = engine.get_binding_shape(binding)[-1]
@@ -153,13 +153,13 @@ class YOLOv8TRT(YOLOv8Base):
                     classes=None,
                     # (int | list[int], optional) filter results by class, i.e. classes=0, or classes=[0,2,3]
                     ):
-        print("****************************************************")
-        print(f"conf= {conf}")
-        print(f"iou= {iou}")
-        print(f"agnostic_nms= {agnostic_nms}")
-        print(f"max_det= {max_det}")
-        print(f"classes= {classes}")
-        print("****************************************************")
+        # print("****************************************************")
+        # print(f"conf= {conf}")
+        # print(f"iou= {iou}")
+        # print(f"agnostic_nms= {agnostic_nms}")
+        # print(f"max_det= {max_det}")
+        # print(f"classes= {classes}")
+        # print("****************************************************")
         """Post-processes predictions and returns a list of Results objects."""
         preds = non_max_suppression(preds,
                                     conf_thres=conf,
@@ -170,8 +170,8 @@ class YOLOv8TRT(YOLOv8Base):
 
         if not isinstance(orig_imgs, list):  # input images are a torch.Tensor, not a list
             orig_imgs = convert_torch2numpy_batch(orig_imgs)
-        print('#' * 20)
-        print(preds[0].reshape(-1)[:20])
+        # print('#' * 20)
+        # print(preds[0].reshape(-1)[:20])
 
         # print(f"names= {self.model.names}")
         # results = []
@@ -201,8 +201,8 @@ class YOLOv8TRT(YOLOv8Base):
         im = self.preprocess(im0s, self.imgsz)
 
         preds = self.infer(im)
-        print("*" * 20)
-        print(preds.reshape(-1)[:20])
+        # print("*" * 20)
+        # print(preds.reshape(-1)[:20])
 
         boxes, confs, cls_ids = self.postprocess(preds, im, im0s)
         # boxes, confs, cls_ids = postprocess(outputs, im.shape[2:], im0.shape[:2], conf=0.25, iou=0.45)
