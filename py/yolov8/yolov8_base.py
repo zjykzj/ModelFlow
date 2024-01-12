@@ -30,7 +30,7 @@ if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))  # add ROOT to PATH
 ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
-from general import CLASSES_NAME
+from general import CLASSES_NAME, LOGGER
 from yolov8_util import LetterBox, draw_results
 from yolov8_util import non_max_suppression, scale_boxes, check_imgsz
 
@@ -111,8 +111,6 @@ class YOLOv8Base(ABC):
                                     agnostic=agnostic_nms,
                                     max_det=max_det,
                                     classes=classes)
-        # print('#' * 20)
-        # print(preds[0].reshape(-1)[:20])
 
         # if not isinstance(orig_imgs, list):  # input images are a torch.Tensor, not a list
         #     orig_imgs = convert_torch2numpy_batch(orig_imgs)
@@ -130,7 +128,6 @@ class YOLOv8Base(ABC):
         # for result in results:
         #     print(result.boxes)
         # return results
-        # return preds
 
         pred = preds[0]
         boxes = pred[:, :4]
@@ -139,13 +136,10 @@ class YOLOv8Base(ABC):
         return boxes, confs, cls_ids
 
     def detect(self, im0: ndarray):
-        # im = preprocess([im0])
         im0s = [im0]
         im = self.preprocess(im0s, self.imgsz)
 
         preds = self.infer(im)
-        # print("*" * 20)
-        # print(preds.reshape(-1)[:20])
 
         boxes, confs, cls_ids = self.postprocess(preds, im, im0s)
         # boxes, confs, cls_ids = postprocess(outputs, im.shape[2:], im0.shape[:2], conf=0.25, iou=0.45)
@@ -157,14 +151,14 @@ class YOLOv8Base(ABC):
 
         im0 = cv2.imread(img_path)
         boxes, confs, cls_ids = self.detect(copy.deepcopy(im0))
-        print(f"There are {len(boxes)} objects.")
+        LOGGER.info(f"There are {len(boxes)} objects.")
 
         overlay = draw_results(im0, boxes, confs, cls_ids, CLASSES_NAME, is_xyxy=True)
         image_name = os.path.splitext(os.path.basename(img_path))[0]
 
         if save:
             img_path = os.path.join(output_dir, f"{image_name}-{suffix}.jpg")
-            print(f"Save to {img_path}")
+            LOGGER.info(f"Save to {img_path}")
             cv2.imwrite(img_path, overlay)
 
     def predict_video(self, video_file, output_dir="output/", suffix="yolov8", save=False):
@@ -176,7 +170,7 @@ class YOLOv8Base(ABC):
         frame_height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
         video_fps = int(capture.get(cv2.CAP_PROP_FPS))
         frame_count = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
-        print(
+        LOGGER.info(
             f"video_fps: {video_fps}, frame_count: {frame_count}, frame_width: {frame_width}, frame_height: {frame_height}")
 
         if save:
@@ -199,4 +193,4 @@ class YOLOv8Base(ABC):
 
         if save:
             writer.release()
-            print(f"Save to {video_path}")
+            LOGGER.info(f"Save to {video_path}")

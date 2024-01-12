@@ -37,16 +37,15 @@ import pycuda.driver as cuda
 
 from general import LOGGER
 from yolov8_base import YOLOv8Base, pre_transform
-from torch_util import check_imgsz, non_max_suppression, scale_boxes, convert_torch2numpy_batch
+from torch_util import non_max_suppression, scale_boxes, convert_torch2numpy_batch
 
 
 class YOLOv8TRT(YOLOv8Base):
 
-    def __init__(self, weight: str = 'yolov8n.engine'):
-        super().__init__()
+    def __init__(self, weight: str = 'yolov8n.engine', imgsz=640, stride=32, device=torch.device("cpu")):
+        super().__init__(imgsz, stride)
         self.load_engine(weight)
-
-        self.device = torch.device("cpu")
+        self.device = device
 
     def load_engine(self, weight: str):
         assert os.path.isfile(weight), weight

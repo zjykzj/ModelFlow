@@ -32,12 +32,8 @@ from torch_util import check_imgsz, non_max_suppression, scale_boxes, convert_to
 class YOLOv8Runtime(YOLOv8Base):
 
     def __init__(self, weight: str = 'yolov8n.onnx', imgsz=640, stride=32, device=torch.device("cpu")):
-        super().__init__()
+        super().__init__(imgsz, stride)
         self.load_onnx(weight)
-
-        imgsz = check_imgsz(imgsz, stride=stride, min_dim=2)
-        self.imgsz = imgsz
-
         self.device = device
 
     def load_onnx(self, weight: str):
@@ -126,8 +122,6 @@ class YOLOv8Runtime(YOLOv8Base):
 
         if not isinstance(orig_imgs, list):  # input images are a torch.Tensor, not a list
             orig_imgs = convert_torch2numpy_batch(orig_imgs)
-        # print('#' * 20)
-        # print(preds[0].reshape(-1)[:20])
 
         # print(f"names= {self.model.names}")
         # results = []
@@ -142,7 +136,6 @@ class YOLOv8Runtime(YOLOv8Base):
         # for result in results:
         #     print(result.boxes)
         # return results
-        # return preds
 
         pred = preds[0]
         boxes = pred[:, :4]
@@ -152,16 +145,12 @@ class YOLOv8Runtime(YOLOv8Base):
 
     def detect(self, im0: ndarray):
         # return super().detect(im0)
-        # im = preprocess([im0])
         im0s = [im0]
         im = self.preprocess(im0s, self.imgsz)
 
         preds = self.infer(im)
-        # print("*" * 20)
-        # print(preds.reshape(-1)[:20])
 
         boxes, confs, cls_ids = self.postprocess(preds, im, im0s)
-        # boxes, confs, cls_ids = postprocess(outputs, im.shape[2:], im0.shape[:2], conf=0.25, iou=0.45)
         return boxes, confs, cls_ids
 
     def predict_image(self, img_path, output_dir="output/", suffix="yolov8_runtime_w_torch", save=False):

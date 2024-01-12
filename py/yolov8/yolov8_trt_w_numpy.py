@@ -22,10 +22,7 @@ Usage: Save Image/Video:
     $ python3 py/yolov8/yolov8_trt_w_numpy.py yolov8n.engine assets/vtest.avi --video --save
 
 """
-from typing import List
 import os
-import cv2
-import copy
 
 import numpy as np
 from numpy import ndarray
@@ -40,8 +37,8 @@ from yolov8_base import YOLOv8Base
 
 class YOLOv8TRT(YOLOv8Base):
 
-    def __init__(self, weight: str = 'yolov8n.engine'):
-        super().__init__()
+    def __init__(self, weight: str = 'yolov8n.engine', imgsz=640, stride=32):
+        super().__init__(imgsz, stride)
         self.load_engine(weight)
 
     def load_engine(self, weight: str):
