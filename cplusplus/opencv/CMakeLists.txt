@@ -4,7 +4,7 @@ project(opencv)
 set(CMAKE_CXX_STANDARD 17)
 
 # set opencv
-get_filename_component(ABSOLUTE_OpenCV_DIR ../../3rdparty/opencv/4.4.0 ABSOLUTE)
+get_filename_component(ABSOLUTE_OpenCV_DIR ../../3rdparty/opencv ABSOLUTE)
 set(OpenCV_DIR ${ABSOLUTE_OpenCV_DIR}/lib/cmake/opencv4)
 find_package(OpenCV REQUIRED)
 
@@ -18,7 +18,7 @@ target_link_libraries(opencv ${OpenCV_LIBS})
 add_executable(RotateRectCrop rotate_rect_crop.cpp)
 target_link_libraries(RotateRectCrop ${OpenCV_LIBS})
 
-add_executable(Jpeg2Mat jpeg2mat.cpp)
+add_executable(Jpeg2Mat jpeg2mat/main.cpp jpeg2mat/jpeg2mat.cpp)
 target_link_libraries(Jpeg2Mat ${OpenCV_LIBS})
 
 add_executable(ObjectDetect object_detect.cpp)
