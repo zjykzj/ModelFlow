@@ -7,6 +7,7 @@
 @description: 
 """
 
+import json
 from PIL import Image
 
 import torch
@@ -18,8 +19,9 @@ model = models.resnet50(pretrained=True)
 model.eval()
 
 # 加载 ImageNet 类别列表
-with open('../../assets/imagenet/imagenet.names', 'r') as f:
-    class_labels = [line.strip() for line in f.readlines()]
+imagenet_path = '../../assets/imagenet/imagenet_class_index.json'
+with open(imagenet_path, 'r') as f:
+    data_dict = json.load(f)
 
 # 定义预处理步骤
 preprocess = transforms.Compose([
@@ -30,7 +32,7 @@ preprocess = transforms.Compose([
 ])
 
 # 加载图像并进行预处理
-image = Image.open("../../assets/imagenet/ILSVRC2012_val_00010244.JPEG")
+image = Image.open("../../assets/imagenet/n02113023/ILSVRC2012_val_00010244.JPEG")
 image_tensor = preprocess(image)
 image_tensor = image_tensor.unsqueeze(0)  # 添加 batch 维度
 
@@ -47,6 +49,6 @@ top5_prob, top5_indices = torch.topk(probabilities, 5)
 # 输出前五位的结果
 for i in range(5):
     idx = top5_indices[i].item()
-    label = class_labels[idx]
+    label = data_dict[str(idx)][1]
     probability = top5_prob[i].item()
     print(f"Top {i + 1}: Class index: {idx}, Class label: {label}, Probability: {probability}")
