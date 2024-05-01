@@ -19,8 +19,7 @@ void demo_mat2jpeg() {
 
     std::ofstream jpeg_file;
     jpeg_file.open("mat2jpeg.jpg", std::ios::out | std::ios::binary);
-    jpeg_file.write(reinterpret_cast<const char *>(jpeg_buff.data()),
-                    jpeg_buff.size());
+    jpeg_file.write(reinterpret_cast<const char *>(jpeg_buff.data()), jpeg_buff.size());
     jpeg_file.flush();
     jpeg_file.close();
 }

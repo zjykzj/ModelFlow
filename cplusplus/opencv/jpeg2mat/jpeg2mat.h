@@ -12,4 +12,4 @@ int Mat2Jpeg(const cv::Mat &mat_data, std::vector<unsigned char> &jpeg_buff);
 
 int Jpeg2Mat(const std::vector<unsigned char> &jpeg_buff, cv::Mat &mat_data);
 
-#endif//OPENCV_JPEG2MAT_JPET2MAT_H_
+#endif  // OPENCV_JPEG2MAT_JPET2MAT_H_

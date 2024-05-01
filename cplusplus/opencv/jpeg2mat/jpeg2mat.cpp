@@ -2,14 +2,12 @@
 // Created by zj on 24-5-1.
 //
 
-
-
 #include "jpeg2mat.h"
 
 int Mat2Jpeg(const cv::Mat &mat_data, std::vector<unsigned char> &jpeg_buff) {
     std::vector<int> param;
     param.push_back(cv::IMWRITE_JPEG_QUALITY);
-    param.push_back(95);// default(95) 0-100
+    param.push_back(95);  // default(95) 0-100
     cv::imencode(".jpg", mat_data, jpeg_buff, param);
 
     return 0;
