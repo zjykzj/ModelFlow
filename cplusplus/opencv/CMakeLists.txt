@@ -23,3 +23,6 @@ target_link_libraries(Jpeg2Mat ${OpenCV_LIBS})
 
 add_executable(CVDetect detect/cv_detect.cpp)
 target_link_libraries(CVDetect ${OpenCV_LIBS})
+
+add_executable(CVClassify classify/main.cpp)
+target_link_libraries(CVClassify ${OpenCV_LIBS})

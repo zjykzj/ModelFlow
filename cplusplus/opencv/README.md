@@ -1,8 +1,9 @@
-
 # OPENCV
 
-* Jpeg file exchange with Mat data: [jpeg2mat.cpp](./jpeg2mat.cpp)
+* Jpeg file exchange with Mat data: [jpeg2mat.cpp](./jpeg2mat/main.cpp)
 * Irregular rectangular box clipping: [rotate_rect_crop.cpp](./rotate_rect_crop.cpp)
-* Object detection based on digital image processing: [object_detect.cpp](./object_detect.cpp)
+* Object detection based on digital image processing: [cv_detect.cpp](detect/cv_detect.cpp)
 * Object detection based on deep learning:
-  * YOLOv5 + OpenCV: [yolov5-opencv](./yolov5-opencv)
+    * YOLOv5 + ONNX + OpenCV: [yolov5-opencv](./cv_yolov5)
+* Object Classify using ONNX:
+    * ResNet + ONNX + OpenCV: [classify](./classify/main.cpp)
