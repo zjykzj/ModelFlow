@@ -1244,3 +1244,4 @@ FodyWeavers.xsd
 # JetBrains Rider
 *.sln.iml
 
+/resnet18_pytorch.onnx
