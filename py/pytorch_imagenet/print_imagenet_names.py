@@ -12,7 +12,7 @@ import json
 import numpy as np
 
 if __name__ == '__main__':
-    imagenet_path = '../../assets/imagenet_class_index.json'
+    imagenet_path = '../../assets/imagenet/imagenet_class_index.json'
     with open(imagenet_path, 'r') as f:
         data_dict = json.load(f)
 
@@ -25,5 +25,5 @@ if __name__ == '__main__':
         cls_names.append(data_dict[str(key)][1])
 
     print(cls_names)
-    np.savetxt('../../assets/imagenet.names', cls_names, fmt='%s', delimiter=' ')
+    np.savetxt('./imagenet.names', cls_names, fmt='%s', delimiter=' ')
     print('done')
