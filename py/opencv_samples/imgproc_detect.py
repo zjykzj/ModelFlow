@@ -103,7 +103,7 @@ def detect(img, verbose=False, version='v1'):
 
 
 if __name__ == '__main__':
-    img_path = './asset/demo.jpg'
+    img_path = '../../cplusplus/opencv/detect/demo.jpg'
     src_img = cv2.imread(img_path)
 
     start = time.time()
