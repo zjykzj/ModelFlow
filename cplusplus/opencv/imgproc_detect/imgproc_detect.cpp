@@ -76,7 +76,7 @@ cv::Rect DetectImg(cv::Mat &bgr) {
 }
 
 int main(int argc, char *argv[]) {
-    std::string img_path = "../detect/demo.jpg";
+    std::string img_path = "../imgproc_detect/demo.jpg";
     cv::Mat bgr = cv::imread(img_path, cv::IMREAD_COLOR);
     if (bgr.empty()) {
         std::cerr << "Imread ERROR" << std::endl;

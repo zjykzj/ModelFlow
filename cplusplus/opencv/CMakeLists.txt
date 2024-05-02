@@ -21,8 +21,16 @@ target_link_libraries(RotateRectCrop ${OpenCV_LIBS})
 add_executable(Jpeg2Mat jpeg2mat/main.cpp jpeg2mat/jpeg2mat.cpp)
 target_link_libraries(Jpeg2Mat ${OpenCV_LIBS})
 
-add_executable(CVDetect detect/cv_detect.cpp)
-target_link_libraries(CVDetect ${OpenCV_LIBS})
+add_executable(ImgProcDetect imgproc_detect/imgproc_detect.cpp)
+target_link_libraries(ImgProcDetect ${OpenCV_LIBS})
 
+# Classify
 add_executable(CVClassify classify/main.cpp)
 target_link_libraries(CVClassify ${OpenCV_LIBS})
+
+# YOLOv5
+add_executable(yolo-image cv_yolov5/yolo-image.cpp cv_yolov5/src/yolodetector.cpp)
+target_link_libraries(yolo-image ${OpenCV_LIBS})
+
+add_executable(yolo-video cv_yolov5/yolo-video.cpp cv_yolov5/src/yolodetector.cpp)
+target_link_libraries(yolo-video ${OpenCV_LIBS})
