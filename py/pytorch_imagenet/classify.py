@@ -39,6 +39,7 @@ image_tensor = image_tensor.unsqueeze(0)  # 添加 batch 维度
 # 执行推理
 with torch.no_grad():
     outputs = model(image_tensor)
+    print(outputs[0, :10])
 
 # 计算分类概率
 probabilities = torch.nn.functional.softmax(outputs[0], dim=0)
