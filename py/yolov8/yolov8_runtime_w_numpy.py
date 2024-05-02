@@ -8,7 +8,7 @@
 
 Usage: Infer Image/Video using YOLOv8 with ONNXRuntime and Numpy:
     $ python3 py/yolov8/yolov8_runtime_w_numpy.py yolov8n.onnx assets/bus.jpg
-    $ python3 py/yolov8/yolov8_runtime_w_numpy.py yolov8n.onnx assets/bus.jpg  --video
+    $ python3 py/yolov8/yolov8_runtime_w_numpy.py yolov8n.onnx assets/vtest.avi --video
 
 Usage: Save Image/Video:
     $ python3 py/yolov8/yolov8_runtime_w_numpy.py yolov8n.onnx assets/bus.jpg --save

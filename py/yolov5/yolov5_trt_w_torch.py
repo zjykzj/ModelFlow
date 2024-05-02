@@ -15,7 +15,7 @@
 
 Usage: Infer Image/Video using YOLOv5 with TensorRT and Pytorch:
     $ python3 py/yolov5/yolov5_trt_w_torch.py yolov5s.engine assets/bus.jpg
-    $ python3 py/yolov5/yolov5_trt_w_torch.py yolov5s.engine assets/bus.jpg  --video
+    $ python3 py/yolov5/yolov5_trt_w_torch.py yolov5s.engine assets/vtest.avi --video
 
 Usage: Save Image/Video:
     $ python3 py/yolov5/yolov5_trt_w_torch.py yolov5s.engine assets/bus.jpg --save

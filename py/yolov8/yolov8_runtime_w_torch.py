@@ -8,7 +8,7 @@
 
 Usage: Infer Image/Video using YOLOv8 with ONNXRuntime and Pytorch:
     $ python3 py/yolov8/yolov8_runtime_w_torch.py yolov8n.onnx assets/bus.jpg
-    $ python3 py/yolov8/yolov8_runtime_w_torch.py yolov8n.onnx assets/bus.jpg  --video
+    $ python3 py/yolov8/yolov8_runtime_w_torch.py yolov8n.onnx assets/vtest.avi --video
 
 Usage: Save Image/Video:
     $ python3 py/yolov8/yolov8_runtime_w_torch.py yolov8n.onnx assets/bus.jpg --save
