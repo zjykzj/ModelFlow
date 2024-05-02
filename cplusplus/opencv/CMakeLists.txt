@@ -25,8 +25,8 @@ add_executable(ImgProcDetect imgproc_detect/imgproc_detect.cpp)
 target_link_libraries(ImgProcDetect ${OpenCV_LIBS})
 
 # Classify
-add_executable(CVClassify classify/main.cpp)
-target_link_libraries(CVClassify ${OpenCV_LIBS})
+add_executable(DNNClassify dnn_classify/main.cpp)
+target_link_libraries(DNNClassify ${OpenCV_LIBS})
 
 # YOLOv5
 add_executable(yolo-image cv_yolov5/yolo-image.cpp cv_yolov5/src/yolodetector.cpp)

@@ -5,9 +5,42 @@
 #include <opencv2/dnn.hpp>
 #include <opencv2/opencv.hpp>
 
+cv::Mat preprocess_image(const cv::Mat &image) {
+    // 获取图像的尺寸
+    int h = image.rows;
+    int w = image.cols;
+
+    // 计算缩放比例
+    int new_h, new_w;
+    if (h < w) {
+        new_h = 256;
+        new_w = static_cast<int>(w * 256 / h);
+    } else {
+        new_h = static_cast<int>(h * 256 / w);
+        new_w = 256;
+    }
+
+    // 缩放图像
+    cv::Mat resized_image;
+    cv::resize(image, resized_image, cv::Size(new_w, new_h));
+
+    // 计算中心裁剪区域
+    int top = (new_h - 224) / 2;
+    int left = (new_w - 224) / 2;
+    int bottom = top + 224;
+    int right = left + 224;
+
+    // 中心裁剪图像
+    cv::Rect roi(left, top, 224, 224);
+    cv::Mat cropped_image = resized_image(roi);
+
+    std::cout << "cropped_image.shape: " << cropped_image.size() << " - dtype: " << cropped_image.type() << std::endl;
+    return cropped_image;
+}
+
 int main() {
     // 加载 ONNX 模型
-    cv::dnn::Net net = cv::dnn::readNetFromONNX("../resnet18_pytorch.onnx");
+    cv::dnn::Net net = cv::dnn::readNetFromONNX("../../../export/resnet50_pytorch.onnx");
     // 检查模型是否成功加载
     if (net.empty()) {
         std::cerr << "Failed to load ONNX model." << std::endl;
@@ -15,17 +48,19 @@ int main() {
     }
 
     // 加载图像
-    cv::Mat image = cv::imread("../../../assets/imagenet/ILSVRC2012_val_00010244.JPEG");
+    cv::Mat image = cv::imread("../../../assets/imagenet/n02113023/ILSVRC2012_val_00010244.JPEG");
     // 检查图像是否成功加载
     if (image.empty()) {
         std::cerr << "Failed to load image." << std::endl;
         return -1;
     }
+    cv::cvtColor(image, image, cv::COLOR_BGR2RGB);
 
     // 缩放图像
-    cv::Size inputSize(224, 224);  // 模型所需的输入尺寸
-    cv::Mat resizedImage;
-    cv::resize(image, resizedImage, inputSize);
+    //    cv::Size inputSize(224, 224);  // 模型所需的输入尺寸
+    //    cv::Mat resizedImage;
+    //    cv::resize(image, resizedImage, inputSize);
+    cv::Mat resizedImage = preprocess_image(image);
 
     // 均值归一化
     cv::Scalar mean(0.485, 0.456, 0.406);            // RGB 均值
@@ -36,6 +71,7 @@ int main() {
     cv::divide(resizedImage, stdDev, resizedImage);  // 除以标准差
 
     // 准备输入数据
+    //    cv::Mat blob = cv::dnn::blobFromImage(resizedImage, 1.0, inputSize, 0., true);
     cv::Mat blob = cv::dnn::blobFromImage(resizedImage);
 
     // 设置输入数据
@@ -44,6 +80,11 @@ int main() {
     cv::Mat prob = net.forward();
     // 解析输出结果
     cv::Mat probMat = prob.reshape(1, 1);  // 将结果转换为一维矩阵
+    for (int i = 0; i < 10; ++i) {
+        float outputValue = probMat.at<float>(0, i);
+        std::cout << " " << outputValue;
+    }
+    std::cout << std::endl;
 
     // 计算分类概率
     cv::Mat softmaxProb;
