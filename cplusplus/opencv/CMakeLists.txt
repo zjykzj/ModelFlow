@@ -29,8 +29,9 @@ add_executable(DNNClassify dnn_classify/main.cpp)
 target_link_libraries(DNNClassify ${OpenCV_LIBS})
 
 # YOLOv5
-add_executable(yolo-image cv_yolov5/yolo-image.cpp cv_yolov5/src/yolodetector.cpp)
+add_executable(yolo-image dnn_yolov5/yolo-image.cpp dnn_yolov5/src/yolodetector.cpp)
 target_link_libraries(yolo-image ${OpenCV_LIBS})
 
-add_executable(yolo-video cv_yolov5/yolo-video.cpp cv_yolov5/src/yolodetector.cpp)
+add_executable(yolo-video dnn_yolov5/yolo-video.cpp dnn_yolov5/src/yolodetector.cpp)
 target_link_libraries(yolo-video ${OpenCV_LIBS})
+

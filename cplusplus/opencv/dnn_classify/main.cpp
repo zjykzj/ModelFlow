@@ -5,7 +5,7 @@
 #include <opencv2/dnn.hpp>
 #include <opencv2/opencv.hpp>
 
-cv::Mat preprocess_image(const cv::Mat &image) {
+cv::Mat resize_and_crop(const cv::Mat &image) {
     // 获取图像的尺寸
     int h = image.rows;
     int w = image.cols;
@@ -38,29 +38,11 @@ cv::Mat preprocess_image(const cv::Mat &image) {
     return cropped_image;
 }
 
-int main() {
-    // 加载 ONNX 模型
-    cv::dnn::Net net = cv::dnn::readNetFromONNX("../../../export/resnet50_pytorch.onnx");
-    // 检查模型是否成功加载
-    if (net.empty()) {
-        std::cerr << "Failed to load ONNX model." << std::endl;
-        return -1;
-    }
-
-    // 加载图像
-    cv::Mat image = cv::imread("../../../assets/imagenet/n02113023/ILSVRC2012_val_00010244.JPEG");
-    // 检查图像是否成功加载
-    if (image.empty()) {
-        std::cerr << "Failed to load image." << std::endl;
-        return -1;
-    }
+cv::Mat preprocess_image(const cv::Mat &image) {
     cv::cvtColor(image, image, cv::COLOR_BGR2RGB);
 
     // 缩放图像
-    //    cv::Size inputSize(224, 224);  // 模型所需的输入尺寸
-    //    cv::Mat resizedImage;
-    //    cv::resize(image, resizedImage, inputSize);
-    cv::Mat resizedImage = preprocess_image(image);
+    cv::Mat resizedImage = resize_and_crop(image);
 
     // 均值归一化
     cv::Scalar mean(0.485, 0.456, 0.406);            // RGB 均值
@@ -71,8 +53,52 @@ int main() {
     cv::divide(resizedImage, stdDev, resizedImage);  // 除以标准差
 
     // 准备输入数据
-    //    cv::Mat blob = cv::dnn::blobFromImage(resizedImage, 1.0, inputSize, 0., true);
     cv::Mat blob = cv::dnn::blobFromImage(resizedImage);
+
+    return blob;
+}
+
+cv::Mat preprocess_image2(const cv::Mat &image) {
+    cv::cvtColor(image, image, cv::COLOR_BGR2RGB);
+
+    // 缩放图像
+    cv::Mat resizedImage = resize_and_crop(image);
+
+    // 均值归一化
+    cv::Scalar mean(0.485, 0.456, 0.406);    // RGB 均值
+    cv::Scalar stdDev(0.229, 0.224, 0.225);  // RGB 标准差
+
+    // 准备输入数据
+    cv::Mat blob = cv::dnn::blobFromImage(resizedImage, 1 / 255.0, cv::Size(224, 224), mean * 255, false);
+    // Check std values.
+    if (stdDev.val[0] != 0.0 && stdDev.val[1] != 0.0 && stdDev.val[2] != 0.0) {
+        cv::divide(blob, stdDev, blob);  // 除以标准差
+    }
+
+    return blob;
+}
+
+int main() {
+    // 加载 ONNX 模型
+    cv::dnn::Net net = cv::dnn::readNetFromONNX("../../../export/resnet50_pytorch.onnx");
+    // 检查模型是否成功加载
+    if (net.empty()) {
+        std::cerr << "Failed to load ONNX model." << std::endl;
+        return -1;
+    }
+    net.setPreferableBackend(cv::dnn::DNN_BACKEND_OPENCV);
+    net.setPreferableTarget(cv::dnn::DNN_TARGET_CPU);
+
+    // 加载图像
+    cv::Mat image = cv::imread("../../../assets/imagenet/n02113023/ILSVRC2012_val_00010244.JPEG");
+    // 检查图像是否成功加载
+    if (image.empty()) {
+        std::cerr << "Failed to load image." << std::endl;
+        return -1;
+    }
+
+    cv::Mat blob = preprocess_image(image);
+    //    cv::Mat blob = preprocess_image2(image);
 
     // 设置输入数据
     net.setInput(blob);
