@@ -160,3 +160,9 @@ cython_debug/
 /py/tensorrt_samples/output.jpg
 /py/tensorrt_samples/output.ppm
 /py/tensorrt_samples/yolov8_trt_out.jpg
+/py/common/imagenet.names
+
+*.onnx
+*.engine
+*.avi
+/py/yolov5/images/
