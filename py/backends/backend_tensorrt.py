@@ -15,6 +15,8 @@
 # Install pycuda
 >>>pip3 install pycuda==2023.1 -i https://pypi.tuna.tsinghua.edu.cn/simple
 
+Note: The yolov5-v7.0 models may experience inference errors in TensorRT-v7.x.x.x
+
 """
 
 import os
