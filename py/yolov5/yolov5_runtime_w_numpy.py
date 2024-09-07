@@ -16,10 +16,9 @@ Usage: Save Image/Video:
 
 """
 
-import os
-
-import numpy as np
 from numpy import ndarray
+
+from py.backends.backend_runtime import BackendRuntime
 
 from yolov5_base import YOLOv5Base
 from general import LOGGER
@@ -29,28 +28,11 @@ class YOLOv5Runtime(YOLOv5Base):
 
     def __init__(self, weight: str = 'yolov5s.onnx'):
         super().__init__()
-        self.load_onnx(weight)
 
-    def load_onnx(self, weight: str):
-        assert os.path.isfile(weight), weight
-
-        LOGGER.info(f'Loading {weight} for ONNX Runtime inference...')
-        import onnxruntime
-        providers = ['CPUExecutionProvider']
-        session = onnxruntime.InferenceSession(weight, providers=providers)
-        output_names = [x.name for x in session.get_outputs()]
-        metadata = session.get_modelmeta().custom_metadata_map  # metadata
-        LOGGER.info(f"metadata: {metadata}")
-
-        self.session = session
-        self.output_names = output_names
-        self.dtype = np.float32
-        LOGGER.info(f"Init Done. Work with {self.dtype}")
+        self.session = BackendRuntime(weight)
 
     def infer(self, im: ndarray):
-        im = im.astype(self.dtype)
-        preds = self.session.run(self.output_names, {self.session.get_inputs()[0].name: im})
-        return preds
+        return self.session(im)
 
     def preprocess(self, im0, img_size=640, stride=32, auto=False):
         return super().preprocess(im0, img_size, stride, auto)

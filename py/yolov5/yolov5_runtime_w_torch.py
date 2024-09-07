@@ -16,18 +16,18 @@ Usage: Save Image/Video:
 
 """
 
-import os
-
 import torch
 from torch import Tensor
 
 import numpy as np
 from numpy import ndarray
 
-from general import LOGGER
-from yolov5_util import draw_results, letterbox
-from torch_util import non_max_suppression, scale_boxes
 from yolov5_base import YOLOv5Base
+
+from general import LOGGER
+from yolov5_util import letterbox
+from torch_util import non_max_suppression, scale_boxes
+from py.backends.backend_runtime import BackendRuntime
 
 
 class YOLOv5Runtime(YOLOv5Base):
@@ -44,28 +44,13 @@ class YOLOv5Runtime(YOLOv5Base):
             providers = ['CPUExecutionProvider']
             device = torch.device('cpu')
 
-        self.load_onnx(weight, providers)
+        self.session = BackendRuntime(weight, providers)
         self.device = device
-
-    def load_onnx(self, weight: str, providers):
-        assert os.path.isfile(weight), weight
-
-        LOGGER.info(f'Loading {weight} for ONNX Runtime inference...')
-        import onnxruntime
-        session = onnxruntime.InferenceSession(weight, providers=providers)
-        output_names = [x.name for x in session.get_outputs()]
-        metadata = session.get_modelmeta().custom_metadata_map  # metadata
-        LOGGER.info(f"metadata: {metadata}")
-
-        self.session = session
-        self.output_names = output_names
-        self.dtype = np.float32
-        LOGGER.info(f"Init Done. Work with {self.dtype}")
 
     def infer(self, im: Tensor):
         im = im.cpu().numpy()  # torch to numpy
 
-        y = self.session.run(self.output_names, {self.session.get_inputs()[0].name: im})
+        y = self.session(im)
 
         if isinstance(y, (list, tuple)):
             return self.from_numpy(y[0]) if len(y) == 1 else [self.from_numpy(x) for x in y]
