@@ -27,6 +27,7 @@ from yolov5_base import YOLOv5Base
 from general import LOGGER
 from yolov5_util import letterbox
 from torch_util import non_max_suppression, scale_boxes
+from py.backends.backend_tensorrt import BackendTensorRT
 
 
 class YOLOv5TRT(YOLOv5Base):
@@ -106,8 +107,6 @@ def parse_opt():
 
     parser.add_argument("--save", action="store_true", default=False,
                         help="Save or not.")
-    parser.add_argument("--v7", action='store_true', default=False,
-                        help="Use TensorRT_v8.x.x.x or TensorRT_v7.x.x.x. Defaults to TensorRT_v8.x.x.x")
 
     args = parser.parse_args()
     LOGGER.info(f"args: {args}")
@@ -125,11 +124,4 @@ def main(args):
 
 if __name__ == '__main__':
     args = parse_opt()
-    if args.v7:
-        print(f"Use TensorRT 7.x.x.x")
-        from py.backends.backend_tensorrt_7x import BackendTensorRT_7x as BackendTensorRT
-    else:
-        print(f"Use TensorRT 8.x.x.x")
-        from py.backends.backend_tensorrt_8x import BackendTensorRT_8x as BackendTensorRT
-
     main(args)

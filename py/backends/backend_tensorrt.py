@@ -8,6 +8,7 @@
 
 # Start Docker Container
 >>>docker run -it --runtime nvidia --gpus=all --shm-size=16g -v /etc/localtime:/etc/localtime -v $(pwd):/workdir --workdir=/workdir --name tensorrt-v7.x nvcr.io/nvidia/pytorch:20.12-py3
+>>>docker run -it --runtime nvidia --gpus=all --shm-size=16g -v /etc/localtime:/etc/localtime -v $(pwd):/workdir --workdir=/workdir --name tensorrt-v8.x ultralytics/yolov5:v7.0
 # Convert onnx to engine
 >>>trtexec --onnx=yolov5s.onnx --saveEngine=yolov5s_fp16.engine  --explicitBatch --inputIOFormats=fp16:chw --outputIOFormats=fp16:chw --fp16
 # Install pycuda
@@ -25,7 +26,7 @@ import pycuda.autoinit
 import pycuda.driver as cuda
 
 
-class BackendTensorRT_7x:
+class BackendTensorRT:
 
     def __init__(self, weight: str = 'yolov5s.engine'):
         super().__init__()
