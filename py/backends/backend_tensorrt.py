@@ -10,7 +10,8 @@
 >>>docker run -it --runtime nvidia --gpus=all --shm-size=16g -v /etc/localtime:/etc/localtime -v $(pwd):/workdir --workdir=/workdir --name tensorrt-v7.x nvcr.io/nvidia/pytorch:20.12-py3
 >>>docker run -it --runtime nvidia --gpus=all --shm-size=16g -v /etc/localtime:/etc/localtime -v $(pwd):/workdir --workdir=/workdir --name tensorrt-v8.x ultralytics/yolov5:v7.0
 # Convert onnx to engine
->>>trtexec --onnx=yolov5s.onnx --saveEngine=yolov5s_fp16.engine  --explicitBatch --inputIOFormats=fp16:chw --outputIOFormats=fp16:chw --fp16
+>>>trtexec --onnx=yolov5s.onnx --saveEngine=yolov5s_fp16.engine --explicitBatch --inputIOFormats=fp16:chw --outputIOFormats=fp16:chw --fp16
+>>>trtexec --onnx=yolov8n.onnx --saveEngine=yolov8n_fp16.engine --explicitBatch --inputIOFormats=fp16:chw --outputIOFormats=fp16:chw --fp16
 # Install pycuda
 >>>pip3 install pycuda==2023.1 -i https://pypi.tuna.tsinghua.edu.cn/simple
 
