@@ -30,6 +30,12 @@ if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))  # add ROOT to PATH
 ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
+# 获取当前工作目录
+CURRENT_DIR = Path.cwd()
+# 将当前工作目录添加到sys.path
+if str(CURRENT_DIR) not in sys.path:
+    sys.path.insert(0, str(CURRENT_DIR))
+
 from general import CLASSES_NAME, LOGGER
 from yolov8_util import LetterBox, draw_results
 from yolov8_util import non_max_suppression, scale_boxes, check_imgsz

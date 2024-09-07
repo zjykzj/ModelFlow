@@ -24,38 +24,24 @@ from torch import Tensor
 import numpy as np
 from numpy import ndarray
 
-from general import LOGGER
 from yolov8_base import pre_transform, YOLOv8Base
+
+from general import LOGGER
 from torch_util import check_imgsz, non_max_suppression, scale_boxes, convert_torch2numpy_batch
+from py.backends.backend_runtime import BackendRuntime
 
 
 class YOLOv8Runtime(YOLOv8Base):
 
     def __init__(self, weight: str = 'yolov8n.onnx', imgsz=640, stride=32, device=torch.device("cpu")):
         super().__init__(imgsz, stride)
-        self.load_onnx(weight)
+        self.session = BackendRuntime(weight)
         self.device = device
-
-    def load_onnx(self, weight: str):
-        assert os.path.isfile(weight), weight
-
-        LOGGER.info(f'Loading {weight} for ONNX Runtime inference...')
-        import onnxruntime
-        providers = ['CPUExecutionProvider']
-        session = onnxruntime.InferenceSession(weight, providers=providers)
-        output_names = [x.name for x in session.get_outputs()]
-        metadata = session.get_modelmeta().custom_metadata_map  # metadata
-        LOGGER.info(f"metadata: {metadata}")
-
-        self.session = session
-        self.output_names = output_names
-        self.dtype = np.float32
-        LOGGER.info(f"Init Done. Work with {self.dtype}")
 
     def infer(self, im: Tensor):
         im = im.cpu().numpy()  # torch to numpy
 
-        y = self.session.run(self.output_names, {self.session.get_inputs()[0].name: im})
+        y = self.session(im)
 
         if isinstance(y, (list, tuple)):
             return self.from_numpy(y[0]) if len(y) == 1 else [self.from_numpy(x) for x in y]

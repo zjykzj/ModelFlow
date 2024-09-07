@@ -20,35 +20,20 @@ import os
 import numpy as np
 from numpy import ndarray
 
-from general import LOGGER
 from yolov8_base import YOLOv8Base
+
+from general import LOGGER
+from py.backends.backend_runtime import BackendRuntime
 
 
 class YOLOv8Runtime(YOLOv8Base):
 
     def __init__(self, weight: str = 'yolov8n.onnx', imgsz=640, stride=32):
         super().__init__(imgsz, stride)
-        self.load_onnx(weight)
-
-    def load_onnx(self, weight: str):
-        assert os.path.isfile(weight), weight
-
-        LOGGER.info(f'Loading {weight} for ONNX Runtime inference...')
-        import onnxruntime
-        providers = ['CPUExecutionProvider']
-        session = onnxruntime.InferenceSession(weight, providers=providers)
-        output_names = [x.name for x in session.get_outputs()]
-        metadata = session.get_modelmeta().custom_metadata_map  # metadata
-        LOGGER.info(f"metadata: {metadata}")
-
-        self.session = session
-        self.output_names = output_names
-        self.dtype = np.float32
-        LOGGER.info(f"Init Done. Work with {self.dtype}")
+        self.session = BackendRuntime(weight)
 
     def infer(self, im: ndarray):
-        y = self.session.run(self.output_names, {self.session.get_inputs()[0].name: im})
-        return y[0]
+        return self.session(im)
 
     def preprocess(self, im, imgsz, stride=32, pt=False, fp16=False):
         return super().preprocess(im, imgsz, stride, pt, fp16)
