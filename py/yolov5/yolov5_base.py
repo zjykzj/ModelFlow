@@ -29,7 +29,12 @@ FILE = Path(__file__).resolve()
 ROOT = FILE.parents[0]  # YOLOv5 root directory
 if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))  # add ROOT to PATH
-ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
+
+# 获取当前工作目录
+CURRENT_DIR = Path.cwd()
+# 将当前工作目录添加到sys.path
+if str(CURRENT_DIR) not in sys.path:
+    sys.path.insert(0, str(CURRENT_DIR))
 
 from general import CLASSES_NAME
 from yolov5_util import draw_results, letterbox, non_max_suppression, scale_boxes
@@ -131,5 +136,3 @@ class YOLOv5Base(ABC):
         if save:
             writer.release()
             print(f"Save to {video_path}")
-
-
