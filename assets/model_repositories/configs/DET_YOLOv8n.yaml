@@ -1,0 +1,4 @@
+MODEL_NAME: "DET_YOLOv8n"
+INPUT_NAME: "images"
+OUTPUT_NAME: "output0"
+FP16: False
