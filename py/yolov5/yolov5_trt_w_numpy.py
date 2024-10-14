@@ -6,13 +6,9 @@
 @Author  : zj
 @Description:
 
-Usage: Infer Image/Video using YOLOv5 with TensorRT and Numpy:
+Usage - Infer Image/Video using YOLOv5 with TensorRT and Numpy:
     $ python3 py/yolov5/yolov5_trt_w_numpy.py yolov5s.engine assets/bus.jpg
     $ python3 py/yolov5/yolov5_trt_w_numpy.py yolov5s.engine assets/vtest.avi --video
-
-Usage: Save Image/Video:
-    $ python3 py/yolov5/yolov5_trt_w_numpy.py yolov5s.engine assets/bus.jpg --save
-    $ python3 py/yolov5/yolov5_trt_w_numpy.py yolov5s.engine assets/vtest.avi --video --save
 
 """
 

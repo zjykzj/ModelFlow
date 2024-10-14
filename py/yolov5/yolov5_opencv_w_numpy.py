@@ -6,13 +6,9 @@
 @Author  : zj
 @Description:
 
-Usage: Infer Image/Video using YOLOv5 with OpenCV and Numpy:
+Usage - Infer Image/Video using YOLOv5 with OpenCV and Numpy:
     $ python3 py/yolov5/yolov5_opencv_w_numpy.py yolov5s.onnx assets/bus.jpg
     $ python3 py/yolov5/yolov5_opencv_w_numpy.py yolov5s.onnx assets/vtest.avi  --video
-
-Usage: Save Image/Video:
-    $ python3 py/yolov5/yolov5_opencv_w_numpy.py yolov5s.onnx assets/bus.jpg --save
-    $ python3 py/yolov5/yolov5_opencv_w_numpy.py yolov5s.onnx assets/vtest.avi --video --save
 
 """
 
