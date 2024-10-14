@@ -10,7 +10,7 @@ Usage - Launch Triton Server by Docker in CPU mode:
     1. docker run -it --rm -p 8000:8000 -p 8001:8001 -p 8002:8002 -v $(pwd):/workdir --workdir=/workdir nvcr.io/nvidia/tritonserver:23.10-py3
     2. /opt/tritonserver/bin/tritonserver --model-repository=./assets/model_repositories/triton_onnxruntime/ --model-control-mode=explicit
 
-Usage - Infer Image/Video using YOLOv5 with Triton and Numpy:
+Usage - Infer Image/Video using YOLOv5 with Triton and Pytorch:
     $ python3 py/yolov5/yolov5_triton_w_torch.py assets/model_repositories/configs/DET_YOLOv5n.yaml assets/bus.jpg
     $ python3 py/yolov5/yolov5_triton_w_torch.py assets/model_repositories/configs/DET_YOLOv5n.yaml assets/vtest.avi --video
 
