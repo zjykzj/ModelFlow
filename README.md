@@ -4,7 +4,7 @@
   <a title="Chinese" href="./README.zh-CN.md">🇨🇳</a>
 </div> -->
 
- <div align="center"><a title="" href="git@github.com:zjykzj/onnx.git"><img align="center" src="./assets/logos/deploy.svg"></a></div>
+ <div align="center"><a title="" href="git@github.com:zjykzj/onnx.git"><img align="center" src="./assets/logos/ModelFlow.svg"></a></div>
 
 <p align="center">
   Pytorch -> ONNX -> ONNXRuntime/OpenCV/MNN/TensorRT/OpenVINO
