@@ -88,13 +88,13 @@ class TRTClassifier:
 
     def predict(self, input_data: np.ndarray) -> np.ndarray:
         """
-        Run inference on the input data.
+        Run inference on the input data and return output with consistent shape.
 
         Args:
             input_data (np.ndarray): Input tensor as a NumPy array.
 
         Returns:
-            np.ndarray: Model output.
+            np.ndarray: Model output with batch dimension retained.
         """
         # Copy input data to GPU
         np.copyto(self.inputs[0].host, input_data.ravel())
@@ -107,4 +107,12 @@ class TRTClassifier:
         [cuda.memcpy_dtoh_async(out.host, out.device, self.stream) for out in self.outputs]
         self.stream.synchronize()
 
-        return self.outputs[0].host.copy()
+        # Reshape output to expected shape
+        output_shape = self.engine.get_binding_shape(self.engine.get_binding_name(1))
+        output_host = self.outputs[0].host
+
+        # 如果输出维度为 1D 并且实际应为 2D（如 [1, C]），则增加 batch 维度
+        if len(output_shape) == 2 and output_shape[0] == 1:
+            output_host = output_host.reshape(1, -1)
+
+        return output_host.copy()
