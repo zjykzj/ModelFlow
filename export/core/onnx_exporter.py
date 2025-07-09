@@ -72,8 +72,8 @@ def load_model(
     # Step 1: Toy classifier for testing
     if model_name == "toy":
         print("Using ToyClassifier for testing")
-        from models.toy_classifier import ToyClassifier
-        model = ToyClassifier(num_classes=num_classes)
+        from models.toy_net import ToyNet
+        model = ToyNet(num_classes=num_classes)
 
     # Step 2: Load model from torchvision
     elif model_name in SUPPORTED_MODELS:

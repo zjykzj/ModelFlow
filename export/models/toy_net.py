@@ -18,7 +18,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class ToyClassifier(nn.Module):
+class ToyNet(nn.Module):
     """
     A small CNN inspired by LeNet-5 architecture,
     designed for flexible input sizes and channel counts.
@@ -29,7 +29,7 @@ class ToyClassifier(nn.Module):
     """
 
     def __init__(self, num_classes: int = 10, in_channels: int = 1):
-        super(ToyClassifier, self).__init__()
+        super(ToyNet, self).__init__()
         self.num_classes = num_classes
         self.in_channels = in_channels
 
