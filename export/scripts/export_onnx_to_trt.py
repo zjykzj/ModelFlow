@@ -4,7 +4,11 @@
 @Time    : 2025/7/9 16:45
 @File    : export_onnx_to_trt.py
 @Author  : zj
-@Description: 
+@Description:
+
+# Install pycuda
+>>>pip3 install pycuda==2023.1 -i https://pypi.tuna.tsinghua.edu.cn/simple
+
 """
 
 import os
