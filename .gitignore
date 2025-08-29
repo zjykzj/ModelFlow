@@ -145,24 +145,7 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
-/py/yolov8/output/
-/export/bus.jpg
-/export/yolov8n.onnx
-/export/yolov8n.pt
-/output/
-/outputs.npy
-/yolov5s.onnx
-/assets/resnet50.tar.gz
-/assets/deeplab1.png
-/assets/resnet50/
-/py/tensorrt_samples/fcn-resnet101.onnx
-/py/tensorrt_samples/input.ppm
-/py/tensorrt_samples/output.jpg
-/py/tensorrt_samples/output.ppm
-/py/tensorrt_samples/yolov8_trt_out.jpg
-/py/common/imagenet.names
 
 *.onnx
 *.engine
 *.avi
-/py/yolov5/images/
