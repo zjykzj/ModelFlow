@@ -4,10 +4,10 @@
   <a title="Chinese" href="./README.zh-CN.md">🇨🇳</a>
 </div> -->
 
- <div align="center"><a title="" href="git@github.com:zjykzj/onnx.git"><img align="center" src="./assets/logos/ModelFlow.svg"></a></div>
+ <div align="center"><a title="" href="git@github.com:zjykzj/ModelFlow.git"><img align="center" src="./assets/logos/ModelFlow.svg"></a></div>
 
 <p align="center">
-  Pytorch -> ONNX -> ONNXRuntime/OpenCV/MNN/TensorRT/OpenVINO
+  Model Export & Model Infer
 <br>
 <br>
   <a href="https://github.com/RichardLitt/standard-readme"><img src="https://img.shields.io/badge/standard--readme-OK-green.svg?style=flat-square"></a>
@@ -26,60 +26,29 @@
 
 ## Background
 
-As a computer vision engineer, how to better apply image algorithms to landing scenes is crucial. In practice, C++ can provide a faster reasoning speed and a more practical deployment platform; In addition, Python can provide more convenient simulation and processing.
+<!-- 本仓库的目的是为了更好的部署计算机视觉算法，特别是目标分类、目标检测以及实例分割算法的实现。
 
-## Requirements
+最开始我想要设计统一的架构，通过模块化范式来适配不同的前后处理、不同的网络模块实现以及不同的推理引擎，类似于常用的热门仓库。但是这种方式很难推进下去，每次想要加入新的算法，我需要经常反复的思考如何将该算法按照目前架构进行拆分，如何适配每个模块的输入输出。这些问题让我心力憔悴，有一段时间甚至对仓库优化都丧失了热情。
 
-* [2.4.0 NNAPI后端/CUDA后端支持量化模型](https://github.com/alibaba/MNN/releases/tag/2.4.0)
-* [ONNX Runtime v1.14.1](https://github.com/microsoft/onnxruntime/releases/tag/v1.14.1)
-* [OpenCV 4.7.0](https://github.com/opencv/opencv/releases/tag/4.7.0)
-* [ultralytics/yolov5 v7.0 - YOLOv5 SOTA Realtime Instance Segmentation](https://github.com/ultralytics/yolov5/releases/tag/v7.0)
+我思考了很久，确认我应该是陷入了某种开发困境，为了追求设计上的完美无限增大了工程开发的复杂度，在意识到过度设计的问题后，我打算重新开始。在新的开发中，我会尽可能的聚焦于这个仓库的目标：模型转换以及模型推理，尽量减少架构设计的内容。把主要精力集中在算法部署上。
 
-## Troubleshooting
+注：之前的实现备份在[v0.1.0](https://github.com/zjykzj/ModelFlow/tree/v0.1.0)。 -->
 
-```text
-[ERROR:0@2.663] global onnx_importer.cpp:1051 handleNode DNN/ONNX: ERROR during processing node with 2 inputs and 3 outputs: [Split]:(onnx_node!/model.24/Split) from domain='ai.onnx'
-```
+The purpose of this repository is to better deploy computer vision algorithms, especially the implementation of object classification, object detection, and instance segmentation algorithms.
 
-* [global onnx_importer.cpp:1051 handleNode DNN/ONNX](https://github.com/opencv/opencv/issues/23227)
-* [OPENCV部署ONNX模型报错 ERROR during processing node with 1 inputs and 1 outputs](https://ask.csdn.net/questions/7795689)
+At first, I wanted to design a unified architecture that would adapt to different pre-processing and post-processing, network module implementations, and inference engines through a modular paradigm, similar to commonly used popular repositories. But this approach is difficult to push forward. Every time I want to add a new algorithm, I need to repeatedly think about how to split the algorithm according to the current architecture and how to adapt the input and output of each module. These issues have left me exhausted and even lost my passion for warehouse optimization for a period of time.
 
->In short, OpenCV 4.7.0 only supports ONNX models with fixed input sizes, and this issue will be resolved after the 5. X. X series
+I have thought for a long time and confirmed that I may have fallen into some kind of development dilemma. In order to pursue design perfection, the complexity of engineering development has been infinitely increased. After realizing the problem of Over-Engineering, I plan to start over. In the new development, I will focus as much as possible on the goals of this repository: model transformation and model inference, and minimize the content of architecture design. Focus the main energy on algorithm deployment.
+
+Note: The previous implementation was in [v0.1.0](https://github.com/zjykzj/ModelFlow/tree/v0.1.0).
 
 ## Maintainers
 
 * zhujian - *Initial work* - [zjykzj](https://github.com/zjykzj)
 
-## Thanks
-
-* [Open Neural Network Exchange](https://onnx.ai/)
-* [pytorch/pytorch](https://github.com/pytorch/pytorch)
-* [pytorch/vision](https://github.com/pytorch/vision)
-* [alibaba/MNN](https://github.com/alibaba/MNN)
-* [microsoft/onnxruntime](https://github.com/microsoft/onnxruntime)
-* [rockchip-linux/rknn-toolkit2](https://github.com/rockchip-linux/rknn-toolkit2)
-* [libjpeg-turbo/libjpeg-turbo](https://github.com/libjpeg-turbo/libjpeg-turbo)
-* [opencv/opencv](https://github.com/search?q=opencv)
-* [opencv/opencv-python](https://github.com/opencv/opencv-python)
-* [ermig1979/Simd](https://github.com/ermig1979/Simd)
-* [nothings/stb](https://github.com/nothings/stb)
-* [gabime/spdlog](https://github.com/gabime/spdlog)
-* [facebookresearch/faiss](https://github.com/facebookresearch/faiss)
-* [NVIDIA/TensorRT](https://github.com/NVIDIA/TensorRT/tree/release/8.6/quickstart)
-* [NVIDIA Deep Learning TensorRT Documentation](https://docs.nvidia.com/deeplearning/tensorrt/quick-start-guide/index.html#install)
-
-
 ## Contributing
 
-Anyone's participation is welcome! Open an [issue](https://github.com/zjykzj/onnx/issues) or submit PRs.
-
-Small note:
-
-* Git submission specifications should be complied
-  with [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0-beta.4/)
-* If versioned, please conform to the [Semantic Versioning 2.0.0](https://semver.org) specification
-* If editing the README, please conform to the [standard-readme](https://github.com/RichardLitt/standard-readme)
-  specification.
+Anyone's participation is welcome! Open an [issue](https://github.com/zjykzj/ModelFlow/issues) or submit PRs.
 
 ## License
 
