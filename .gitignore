@@ -146,6 +146,10 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
+################################################ CUSTOM
+
 *.onnx
 *.engine
 *.avi
+
+output/
