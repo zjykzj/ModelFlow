@@ -13,6 +13,7 @@ Refer: https://zhuanlan.zhihu.com/p/622053825
 
 import cv2
 import time
+import logging
 
 import numpy as np
 
@@ -235,7 +236,7 @@ def non_max_suppression(
 
         output[xi] = x[i]
         if (time.time() - t) > time_limit:
-            print(f'WARNING ⚠️ NMS time limit {time_limit:.3f}s exceeded')
+            logging.warning(f'WARNING ⚠️ NMS time limit {time_limit:.3f}s exceeded')
             break  # time limit exceeded
 
     return output

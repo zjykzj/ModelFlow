@@ -1,169 +1,344 @@
 # -*- coding: utf-8 -*-
 
 """
-@Time    : 2025/8/29 16:47
+@Time    : 2025/8/29 17:38
 @File    : yolov5_runtime_w_numpy.py
 @Author  : zj
-@Description:
+@Description: 
 """
 
-import os
 import cv2
-import copy
-
-from tqdm import tqdm
+import time
+import sys
+import logging
 
 import numpy as np
 from numpy import ndarray
-import logging
 
-import sys
+from tqdm import tqdm
 from pathlib import Path
+from typing import Union, Tuple, Optional
+
+# ----------------------------
+# 配置日志（必须放在最前面）
+# ----------------------------
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)s: %(message)s',
+    datefmt='%H:%M:%S'
+)
+
+# ----------------------------
+# 项目路径设置
+# ----------------------------
 
 FILE = Path(__file__).resolve()
 ROOT = FILE.parents[0]  # YOLOv5 root directory
 if str(ROOT) not in sys.path:
-    sys.path.append(str(ROOT))  # add ROOT to PATH
+    sys.path.append(str(ROOT))
 
-# 获取当前工作目录
 CURRENT_DIR = Path.cwd()
-# 将当前工作目录添加到sys.path
 if str(CURRENT_DIR) not in sys.path:
     sys.path.insert(0, str(CURRENT_DIR))
+
+# ----------------------------
+# 导入模块
+# ----------------------------
 
 from core.backends.backend_runtime import BackendRuntime
 from general import CLASSES_NAME, draw_results
 from numpy_util import letterbox, non_max_suppression, scale_boxes
 
 
-class YOLOv5Runtime:
+# ----------------------------
+# 预处理与后处理函数
+# ----------------------------
 
+def preprocess(im0: ndarray, img_size: Union[int, Tuple] = 640, stride: int = 32, auto: bool = False) -> ndarray:
+    """
+    图像预处理：缩放、转格式、归一化、添加 batch 维度。
+    """
+    im = letterbox(im0, img_size, stride=stride, auto=auto)[0]  # padded resize
+    im = im.transpose((2, 0, 1))[::-1]  # HWC to CHW, BGR to RGB
+    im = np.ascontiguousarray(im)
+    im = im.astype(np.float32)
+    im /= 255.0  # 0-255 to 0.0-1.0
+    if im.ndim == 3:
+        im = im[None]  # expand for batch dim
+    return im
+
+
+def postprocess(
+        preds: ndarray,
+        im_shape: tuple,  # (h, w) of input to model
+        im0_shape: tuple,  # (h, w) of original image
+        conf: float = 0.25,
+        iou: float = 0.45,
+        classes: Optional[list] = None,
+        agnostic: bool = False,
+        max_det: int = 300,
+) -> tuple:
+    """
+    后处理：NMS + 坐标缩放。
+    Returns:
+        boxes, confs, cls_ids
+    """
+    pred = non_max_suppression(preds, conf, iou, classes, agnostic, max_det=max_det)[0]
+    boxes = scale_boxes(im_shape, pred[:, :4], im0_shape)
+    confs = pred[:, 4:5]
+    cls_ids = pred[:, 5:6]
+    return boxes, confs, cls_ids
+
+
+# ----------------------------
+# YOLOv5 Runtime 类（保持结构不变）
+# ----------------------------
+
+class YOLOv5Runtime:
     def __init__(self, weight: str = 'yolov5s.onnx'):
         super().__init__()
-
         self.session = BackendRuntime(weight)
+        self.session.load()
 
-    def infer(self, im: ndarray):
-        return self.session(im)
+        input_name = self.session.get_input_names()[0]
+        self.net_h, self.net_w = self.session.get_input_shapes()[input_name][2:]
 
-    def preprocess(self, im0, img_size=640, stride=32, auto=False):
-        im = letterbox(im0, img_size, stride=stride, auto=auto)[0]  # padded resize
-        im = im.transpose((2, 0, 1))[::-1]  # HWC to CHW, BGR to RGB
-        im = np.ascontiguousarray(im)  # contiguous
+    def infer(self, im: ndarray) -> ndarray:
+        input_name = self.session.input_names[0]
+        output_dict = self.session.infer({input_name: im})
+        output_name = self.session.output_names[0]
+        return output_dict[output_name]
 
-        im = im.astype(float)  # uint8 to fp16/32
-        im /= 255  # 0 - 255 to 0.0 - 1.0
-        if len(im.shape) == 3:
-            im = im[None]  # expand for batch dim
+    def detect(self, im0: ndarray, conf: float = 0.25, iou: float = 0.45) -> tuple:
+        """
+        检测图像中的目标，并统计各阶段耗时。
+        Returns:
+            boxes, confs, cls_ids
+        """
+        # 记录开始时间
+        t0 = time.perf_counter()
 
-        return im
+        # --- 预处理 ---
+        t_pre_start = time.perf_counter()
+        im = preprocess(im0, (self.net_h, self.net_w))
+        t_pre_end = time.perf_counter()
 
-    def postprocess(self,
-                    preds,
-                    im_shape,  # [h, w]
-                    im0_shape,  # [h, w]
-                    conf=0.25,
-                    iou=0.45,
-                    classes=None,
-                    agnostic=False,
-                    max_det=300, ):
-        # print("********* NMS START ***********")
-        pred = non_max_suppression(preds[0], conf, iou, classes, agnostic, max_det=max_det)[0]
-        # print("********* NMS END *************")
-
-        boxes = scale_boxes(im_shape, pred[:, :4], im0_shape)
-        confs = pred[:, 4:5]
-        cls_ids = pred[:, 5:6]
-        return boxes, confs, cls_ids
-
-    def detect(self, im0: ndarray, conf=0.25, iou=0.45):
-        im = self.preprocess(im0)
-
+        # --- 推理 ---
+        t_inf_start = time.perf_counter()
         outputs = self.infer(im)
+        t_inf_end = time.perf_counter()
 
-        boxes, confs, cls_ids = self.postprocess(outputs, im.shape[2:], im0.shape[:2], conf=conf, iou=iou)
+        # --- 后处理 ---
+        t_post_start = time.perf_counter()
+        boxes, confs, cls_ids = postprocess(
+            outputs,
+            im.shape[2:],  # 模型输入尺寸 (h, w)
+            im0.shape[:2],  # 原图尺寸 (h, w)
+            conf=conf,
+            iou=iou
+        )
+        t_post_end = time.perf_counter()
+
+        # --- 耗时统计 ---
+        pre_time = (t_pre_end - t_pre_start) * 1000  # ms
+        inf_time = (t_inf_end - t_inf_start) * 1000
+        post_time = (t_post_end - t_post_start) * 1000
+        total_time = (t_post_end - t0) * 1000
+
+        logging.info(
+            f"Detect time - Pre: {pre_time:.2f}ms | "
+            f"Infer: {inf_time:.2f}ms | "
+            f"Post: {post_time:.2f}ms | "
+            f"Total: {total_time:.2f}ms"
+        )
+
         return boxes, confs, cls_ids
 
-    def predict_image(self, img_path, output_dir="output/", suffix="yolov5", save=False):
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
 
-        im0 = cv2.imread(img_path)
-        boxes, confs, cls_ids = self.detect(copy.deepcopy(im0))
-        logging.info(f"There are {len(boxes)} objects.")
+# ----------------------------
+# 独立的推理函数（增强：支持耗时统计）
+# ----------------------------
 
-        overlay = draw_results(im0, boxes, confs, cls_ids, CLASSES_NAME, is_xyxy=True)
-        image_name = os.path.splitext(os.path.basename(img_path))[0]
+def predict_image(
+        model: YOLOv5Runtime,
+        img_path: Union[str, Path],
+        output_dir: Union[str, Path] = "output",
+        suffix: str = "yolov5",
+        save: bool = False
+):
+    """
+    预测单张图像，并打印端到端耗时。
+    """
+    img_path = Path(img_path)
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
 
-        if save:
-            img_path = os.path.join(output_dir, f"{image_name}-{suffix}.jpg")
-            logging.info(f"Save to {img_path}")
-            cv2.imwrite(img_path, overlay)
+    im0 = cv2.imread(str(img_path))
+    if im0 is None:
+        raise ValueError(f"无法读取图像: {img_path}")
 
-    def predict_video(self, video_file, output_dir="output/", suffix="yolov5", save=False):
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
+    logging.info(f"正在处理图像: {img_path.name}")
 
-        capture = cv2.VideoCapture(video_file)
-        frame_width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
-        frame_height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        video_fps = int(capture.get(cv2.CAP_PROP_FPS))
-        frame_count = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
-        logging.info(
-            f"video_fps: {video_fps}, frame_count: {frame_count}, frame_width: {frame_width}, frame_height: {frame_height}")
+    # 端到端耗时（包含读图 + 推理 + 绘图）
+    t_start = time.time()
 
-        if save:
-            image_name = os.path.splitext(os.path.basename(video_file))[0]
-            video_out_name = f'{image_name}-{suffix}.mp4'
-            video_path = os.path.join(output_dir, video_out_name)
-            video_format = 'mp4v'
-            fourcc = cv2.VideoWriter_fourcc(*video_format)
-            writer = cv2.VideoWriter(video_path, fourcc, video_fps, (frame_width, frame_height))
+    boxes, confs, cls_ids = model.detect(im0)
+    overlay = draw_results(im0, boxes, confs, cls_ids, CLASSES_NAME, is_xyxy=True)
 
-        for _ in tqdm(range(frame_count)):
-            ret, frame = capture.read()
+    t_end = time.time()
+    total_time = (t_end - t_start) * 1000  # ms
+    fps = 1000 / total_time if total_time > 0 else 0
+
+    logging.info(f"检测到 {len(boxes)} 个目标 | 耗时: {total_time:.2f}ms | FPS: {fps:.1f}")
+
+    if save:
+        save_path = output_dir / f"{img_path.stem}-{suffix}.jpg"
+        cv2.imwrite(str(save_path), overlay)
+        logging.info(f"结果已保存至: {save_path}")
+
+
+def predict_video(
+        model: YOLOv5Runtime,
+        video_file: Union[str, Path],
+        output_dir: Union[str, Path] = "output",
+        suffix: str = "yolov5",
+        save: bool = False
+):
+    """
+    预测视频，支持保存，打印平均 FPS。
+    """
+    video_path = Path(video_file)
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    cap = cv2.VideoCapture(str(video_path))
+    if not cap.isOpened():
+        raise ValueError(f"无法打开视频文件: {video_path}")
+
+    frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+    logging.info(f"视频信息: {video_path.name} | {fps:.1f} FPS | {total_frames} 帧 | {frame_width}x{frame_height}")
+
+    writer = None
+    if save:
+        save_path = output_dir / f"{video_path.stem}-{suffix}.mp4"
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        writer = cv2.VideoWriter(str(save_path), fourcc, fps, (frame_width, frame_height))
+
+    # 统计总耗时
+    total_infer_time = 0.0
+    processed_frames = 0
+
+    try:
+        for _ in tqdm(range(total_frames), desc="处理视频"):
+            ret, frame = cap.read()
             if not ret:
                 break
 
-            boxes, confs, classes = self.detect(frame)
-            overlay = draw_results(frame, boxes, confs, classes, CLASSES_NAME, is_xyxy=True)
-            if save:
+            t_start = time.time()
+            boxes, confs, cls_ids = model.detect(frame)
+            overlay = draw_results(frame, boxes, confs, cls_ids, CLASSES_NAME, is_xyxy=True)
+            t_end = time.time()
+
+            frame_time = (t_end - t_start) * 1000
+            total_infer_time += frame_time
+            processed_frames += 1
+
+            if save and writer:
                 writer.write(overlay)
 
-        if save:
+    finally:
+        cap.release()
+        if writer:
             writer.release()
-            logging.info(f"Save to {video_path}")
 
+    # 打印平均性能
+    avg_time = total_infer_time / processed_frames if processed_frames > 0 else 0
+    avg_fps = 1000 / avg_time if avg_time > 0 else 0
+    logging.info(f"平均耗时: {avg_time:.2f}ms/帧 | 平均 FPS: {avg_fps:.1f}")
+
+    if save:
+        logging.info(f"视频已保存至: {save_path}")
+
+
+# ----------------------------
+# 命令行参数解析（智能识别输入类型）
+# ----------------------------
 
 def parse_opt():
     import argparse
 
-    parser = argparse.ArgumentParser(description="YOLOv5Runtime Infer")
-    parser.add_argument("model", metavar="MODEL", type=str, default='yolov5s.onnx',
-                        help="Path of ONNX Runtime model")
-    parser.add_argument("input", metavar="INPUT", type=str, default="assets/bus.jpg",
-                        help="Path of input, default to image")
-    parser.add_argument("--video", action="store_true", default=False,
-                        help="Use video as input")
-
-    parser.add_argument("--save", action="store_true", default=False,
-                        help="Save or not.")
+    parser = argparse.ArgumentParser(
+        description="YOLOv5 ONNX Runtime 推理工具",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument(
+        "model",
+        type=str,
+        help="ONNX 模型路径 (e.g., yolov5s.onnx)"
+    )
+    parser.add_argument(
+        "input",
+        type=str,
+        help="输入图像或视频路径"
+    )
+    parser.add_argument(
+        "--save",
+        action="store_true",
+        help="保存结果到输出目录"
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default="output",
+        help="输出目录"
+    )
+    parser.add_argument(
+        "--suffix",
+        type=str,
+        default="yolov5",
+        help="输出文件名后缀"
+    )
 
     args = parser.parse_args()
-    logging.info(f"args: {args}")
 
+    # 自动判断是图像还是视频（避免手动加 --video）
+    input_path = Path(args.input)
+    if not input_path.exists():
+        parser.error(f"输入文件不存在: {args.input}")
+
+    # 常见图像/视频扩展名
+    image_exts = {'.jpg', '.jpeg', '.png', '.bmp', '.webp'}
+    video_exts = {'.mp4', '.avi', '.mov', '.mkv', '.flv', '.wmv'}
+
+    if input_path.suffix.lower() in image_exts:
+        args.mode = 'image'
+    elif input_path.suffix.lower() in video_exts:
+        args.mode = 'video'
+    else:
+        parser.error(f"不支持的文件格式: {input_path.suffix}")
+
+    logging.info(f"解析参数: {args}")
     return args
 
 
-def main(args):
+# ----------------------------
+# 主函数
+# ----------------------------
+
+def main():
+    args = parse_opt()
     model = YOLOv5Runtime(args.model)
 
-    if args.video:
-        model.predict_video(args.input, save=args.save)
+    if args.mode == 'image':
+        predict_image(model, args.input, args.output_dir, args.suffix, args.save)
     else:
-        model.predict_image(args.input, save=args.save)
+        predict_video(model, args.input, args.output_dir, args.suffix, args.save)
 
 
 if __name__ == '__main__':
-    args = parse_opt()
-    main(args)
+    main()
