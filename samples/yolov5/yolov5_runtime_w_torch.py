@@ -13,8 +13,9 @@ import sys
 import logging
 
 import numpy as np
-import torch
 from numpy import ndarray
+
+import torch
 from torch import Tensor
 
 from tqdm import tqdm
