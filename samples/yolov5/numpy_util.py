@@ -15,6 +15,49 @@ import time
 import logging
 
 import numpy as np
+from numpy import ndarray
+
+from typing import Union, Tuple, Optional
+
+
+# ----------------------------
+# 预处理与后处理函数
+# ----------------------------
+
+def preprocess(im0: ndarray, img_size: Union[int, Tuple] = 640, stride: int = 32, auto: bool = False) -> ndarray:
+    """
+    图像预处理：缩放、转格式、归一化、添加 batch 维度。
+    """
+    im = letterbox(im0, img_size, stride=stride, auto=auto)[0]  # padded resize
+    im = im.transpose((2, 0, 1))[::-1]  # HWC to CHW, BGR to RGB
+    im = np.ascontiguousarray(im)
+    im = im.astype(np.float32)
+    im /= 255.0  # 0-255 to 0.0-1.0
+    if im.ndim == 3:
+        im = im[None]  # expand for batch dim
+    return im
+
+
+def postprocess(
+        preds: ndarray,
+        im_shape: tuple,  # (h, w) of input to model
+        im0_shape: tuple,  # (h, w) of original image
+        conf: float = 0.25,
+        iou: float = 0.45,
+        classes: Optional[list] = None,
+        agnostic: bool = False,
+        max_det: int = 300,
+) -> tuple:
+    """
+    后处理：NMS + 坐标缩放。
+    Returns:
+        boxes, confs, cls_ids
+    """
+    pred = non_max_suppression(preds, conf, iou, classes, agnostic, max_det=max_det)[0]
+    boxes = scale_boxes(im_shape, pred[:, :4], im0_shape)
+    confs = pred[:, 4:5]
+    cls_ids = pred[:, 5:6]
+    return boxes, confs, cls_ids
 
 
 # --------------------------------------------------------------------------------------- Preprocess
