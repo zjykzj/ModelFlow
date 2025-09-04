@@ -163,6 +163,21 @@ def parse_opt():
         type=str,
         help="输入图像或视频路径"
     )
+
+    parser.add_argument(
+        "--backend",
+        type=str,
+        default="onnxruntime",
+        choices=["onnxruntime", "tensorrt", "triton"],
+        help="使用哪种推理引擎进行推理"
+    )
+    parser.add_argument(
+        "--torch",
+        action="store_true",
+        default=False,
+        help="是否使用pytorch进行前后处理计算，默认使用numpy"
+    )
+
     parser.add_argument(
         "--save",
         action="store_true",
@@ -210,8 +225,14 @@ def parse_opt():
 def main():
     args = parse_opt()
 
-    from yolov5_runtime_w_numpy import YOLOv5Runtime
-    model = YOLOv5Runtime(args.model)
+    if args.backend == "onnxruntime":
+        if args.torch:
+            from yolov5_runtime_w_torch import YOLOv5Runtime
+        else:
+            from yolov5_runtime_w_numpy import YOLOv5Runtime
+        model = YOLOv5Runtime(args.model)
+    else:
+        raise ValueError(f"backend={args.backend} is not supported.")
 
     if args.mode == 'image':
         predict_image(model, args.input, args.output_dir, args.suffix, args.save)
