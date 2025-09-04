@@ -16,10 +16,6 @@ from tqdm import tqdm
 from typing import Union
 from pathlib import Path
 
-# ----------------------------
-# 项目路径设置
-# ----------------------------
-
 FILE = Path(__file__).resolve()
 ROOT = FILE.parents[0]  # YOLOv5 root directory
 if str(ROOT) not in sys.path:
@@ -32,10 +28,6 @@ if str(CURRENT_DIR) not in sys.path:
 from general import CLASSES_NAME, draw_results
 from yolov5_runtime_w_numpy import YOLOv5Runtime
 
-
-# ----------------------------
-# 独立的推理函数（增强：支持耗时统计）
-# ----------------------------
 
 def predict_image(
         model: YOLOv5Runtime,
@@ -142,10 +134,6 @@ def predict_video(
         logging.info(f"视频已保存至: {save_path}")
 
 
-# ----------------------------
-# 命令行参数解析（智能识别输入类型）
-# ----------------------------
-
 def parse_opt():
     import argparse
 
@@ -217,10 +205,6 @@ def parse_opt():
     logging.info(f"解析参数: {args}")
     return args
 
-
-# ----------------------------
-# 主函数
-# ----------------------------
 
 def main():
     args = parse_opt()
