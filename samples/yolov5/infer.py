@@ -172,7 +172,7 @@ def parse_opt():
         help="保存结果到输出目录"
     )
     parser.add_argument(
-        "--output-dir",
+        "--output",
         type=str,
         default="output",
         help="输出目录"
