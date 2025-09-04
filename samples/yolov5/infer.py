@@ -4,20 +4,35 @@
 @Time    : 2025/9/3 20:38
 @File    : main.py
 @Author  : zj
-@Description: 
+@Description:
+
+# Use NumPy for preprocessing
+python infer.py yolov5s.onnx test.jpg --backend onnxruntime --preprocessor numpy --save
+
+# Use PyTorch for preprocessing
+python infer.py yolov5s.onnx test.mp4 --backend onnxruntime --preprocessor torch --save --suffix torch
+
+# No save
+python infer.py yolov5s.onnx test.png --preprocessor numpy
+
 """
 
 import cv2
 import sys
 import time
 import logging
-
-from tqdm import tqdm
-from typing import Union
+import argparse
 from pathlib import Path
+from typing import Union, Dict, Any
 
+import numpy as np
+
+# Setup logging
+logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
+
+# Resolve paths
 FILE = Path(__file__).resolve()
-ROOT = FILE.parents[0]  # YOLOv5 root directory
+ROOT = FILE.parents[0]
 if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))
 
@@ -25,57 +40,65 @@ CURRENT_DIR = Path.cwd()
 if str(CURRENT_DIR) not in sys.path:
     sys.path.insert(0, str(CURRENT_DIR))
 
+# Import local modules
 from general import CLASSES_NAME, draw_results
-from yolov5_runtime_w_numpy import YOLOv5Runtime
+from yolov5_runtime_w_numpy import YOLOv5Runtime as YOLOv5Numpy
+
+try:
+    from yolov5_runtime_w_torch import YOLOv5Runtime as YOLOv5Torch
+except ImportError:
+    YOLOv5Torch = None
+    logging.warning("PyTorch backend not available. Install torch to enable it.")
+
+# Supported file extensions
+IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.bmp', '.webp'}
+VIDEO_EXTS = {'.mp4', '.avi', '.mov', '.mkv', '.flv', '.wmv'}
 
 
 def predict_image(
-        model: YOLOv5Runtime,
-        img_path: Union[str, Path],
-        output_dir: Union[str, Path] = "output",
+        model: Any,
+        img_path: Union[Path, str],
+        output_dir: Union[Path, str] = "output",
         suffix: str = "yolov5",
         save: bool = False
 ):
     """
-    预测单张图像，并打印端到端耗时。
+    Predict on a single image and log end-to-end latency.
     """
     img_path = Path(img_path)
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    im0 = cv2.imread(str(img_path))
-    if im0 is None:
-        raise ValueError(f"无法读取图像: {img_path}")
+    image = cv2.imread(str(img_path))
+    if image is None:
+        raise ValueError(f"Failed to load image: {img_path}")
 
-    logging.info(f"正在处理图像: {img_path.name}")
+    logging.info(f"Processing image: {img_path.name}")
 
-    # 端到端耗时（包含读图 + 推理 + 绘图）
-    t_start = time.time()
+    # End-to-end time (load + inference + draw)
+    start_time = time.time()
+    boxes, confs, cls_ids = model.detect(image)
+    overlay = draw_results(image, boxes, confs, cls_ids, CLASSES_NAME, is_xyxy=True)
+    total_time_ms = (time.time() - start_time) * 1000
+    fps = 1000 / total_time_ms if total_time_ms > 0 else 0
 
-    boxes, confs, cls_ids = model.detect(im0)
-    overlay = draw_results(im0, boxes, confs, cls_ids, CLASSES_NAME, is_xyxy=True)
-
-    t_end = time.time()
-    total_time = (t_end - t_start) * 1000  # ms
-    fps = 1000 / total_time if total_time > 0 else 0
-
-    logging.info(f"检测到 {len(boxes)} 个目标 | 耗时: {total_time:.2f}ms | FPS: {fps:.1f}")
+    logging.info(f"Detected {len(boxes)} objects | Latency: {total_time_ms:.2f}ms | FPS: {fps:.1f}")
 
     if save:
         save_path = output_dir / f"{img_path.stem}-{suffix}.jpg"
         cv2.imwrite(str(save_path), overlay)
-        logging.info(f"结果已保存至: {save_path}")
+        logging.info(f"Result saved to: {save_path}")
 
 
 def predict_video(
-        model: YOLOv5Runtime,
-        video_file: Union[str, Path],
-        output_dir: Union[str, Path] = "output",
+        model: Any,
+        video_file: Union[Path, str],
+        output_dir: Union[Path, str] = "output",
         suffix: str = "yolov5",
         save: bool = False
 ):
     """
-    预测视频，支持保存，打印平均 FPS。
+    Process a video file frame by frame and compute average FPS.
     """
     video_path = Path(video_file)
     output_dir = Path(output_dir)
@@ -83,14 +106,15 @@ def predict_video(
 
     cap = cv2.VideoCapture(str(video_path))
     if not cap.isOpened():
-        raise ValueError(f"无法打开视频文件: {video_path}")
+        raise ValueError(f"Cannot open video file: {video_path}")
 
     frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = cap.get(cv2.CAP_PROP_FPS)
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-    logging.info(f"视频信息: {video_path.name} | {fps:.1f} FPS | {total_frames} 帧 | {frame_width}x{frame_height}")
+    logging.info(
+        f"Video info: {video_path.name} | {fps:.1f} FPS | {total_frames} frames | {frame_width}x{frame_height}")
 
     writer = None
     if save:
@@ -98,58 +122,63 @@ def predict_video(
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         writer = cv2.VideoWriter(str(save_path), fourcc, fps, (frame_width, frame_height))
 
-    # 统计总耗时
-    total_infer_time = 0.0
+    total_inference_time = 0.0
     processed_frames = 0
 
     try:
-        for _ in tqdm(range(total_frames), desc="处理视频"):
+        pbar = tqdm(total=total_frames, desc="Processing Video", unit="frame")
+        while True:
             ret, frame = cap.read()
             if not ret:
                 break
 
-            t_start = time.time()
+            start_time = time.time()
             boxes, confs, cls_ids = model.detect(frame)
             overlay = draw_results(frame, boxes, confs, cls_ids, CLASSES_NAME, is_xyxy=True)
-            t_end = time.time()
+            frame_time_ms = (time.time() - start_time) * 1000
 
-            frame_time = (t_end - t_start) * 1000
-            total_infer_time += frame_time
+            total_inference_time += frame_time_ms
             processed_frames += 1
+            pbar.update(1)
 
             if save and writer:
                 writer.write(overlay)
 
+        pbar.close()
+    except Exception as e:
+        logging.error(f"Error during video processing: {e}")
     finally:
         cap.release()
         if writer:
             writer.release()
 
-    # 打印平均性能
-    avg_time = total_infer_time / processed_frames if processed_frames > 0 else 0
+    # Compute average performance
+    avg_time = total_inference_time / processed_frames if processed_frames > 0 else 0
     avg_fps = 1000 / avg_time if avg_time > 0 else 0
-    logging.info(f"平均耗时: {avg_time:.2f}ms/帧 | 平均 FPS: {avg_fps:.1f}")
+    logging.info(f"Average latency: {avg_time:.2f}ms/frame | Average FPS: {avg_fps:.1f}")
 
     if save:
-        logging.info(f"视频已保存至: {save_path}")
+        logging.info(f"Video saved to: {save_path}")
 
 
-def parse_opt():
-    import argparse
-
+def parse_opt() -> argparse.Namespace:
+    """
+    Parse command-line arguments.
+    """
     parser = argparse.ArgumentParser(
-        description="YOLOv5 Infer",
+        description="YOLOv5 Inference with ONNX Runtime",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
+
     parser.add_argument(
         "model",
         type=str,
-        help="ONNX 模型路径 (e.g., yolov5s.onnx)"
+        help="Path to ONNX model file (e.g., yolov5s.onnx)"
     )
     parser.add_argument(
         "input",
         type=str,
-        help="输入图像或视频路径"
+        help="Path to input image or video"
     )
 
     parser.add_argument(
@@ -157,72 +186,86 @@ def parse_opt():
         type=str,
         default="onnxruntime",
         choices=["onnxruntime", "tensorrt", "triton"],
-        help="使用哪种推理引擎进行推理"
+        help="Inference backend to use"
     )
+
     parser.add_argument(
-        "--torch",
-        action="store_true",
-        default=False,
-        help="是否使用pytorch进行前后处理计算，默认使用numpy"
+        "--preprocessor",
+        type=str,
+        default="numpy",
+        choices=["numpy", "torch"],
+        help="Pre/Post-processing backend: use NumPy or PyTorch"
     )
 
     parser.add_argument(
         "--save",
         action="store_true",
-        help="保存结果到输出目录"
+        help="Save output results"
     )
+
     parser.add_argument(
         "--output",
         type=str,
         default="output",
-        help="输出目录"
+        help="Output directory for results"
     )
+
     parser.add_argument(
         "--suffix",
         type=str,
         default="yolov5",
-        help="输出文件名后缀"
+        help="Suffix for output filenames"
     )
 
     args = parser.parse_args()
 
-    # 自动判断是图像还是视频（避免手动加 --video）
+    # Validate input path
     input_path = Path(args.input)
     if not input_path.exists():
-        parser.error(f"输入文件不存在: {args.input}")
+        parser.error(f"Input file does not exist: {args.input}")
 
-    # 常见图像/视频扩展名
-    image_exts = {'.jpg', '.jpeg', '.png', '.bmp', '.webp'}
-    video_exts = {'.mp4', '.avi', '.mov', '.mkv', '.flv', '.wmv'}
-
-    if input_path.suffix.lower() in image_exts:
-        args.mode = 'image'
-    elif input_path.suffix.lower() in video_exts:
-        args.mode = 'video'
+    # Detect mode (image or video)
+    ext = input_path.suffix.lower()
+    if ext in IMAGE_EXTS:
+        args.mode = "image"
+    elif ext in VIDEO_EXTS:
+        args.mode = "video"
     else:
-        parser.error(f"不支持的文件格式: {input_path.suffix}")
+        parser.error(f"Unsupported file extension: {ext}. Supported: {IMAGE_EXTS | VIDEO_EXTS}")
 
-    logging.info(f"解析参数: {args}")
+    # Validate preprocessor and backend compatibility
+    if args.preprocessor == "torch" and YOLOv5Torch is None:
+        parser.error("PyTorch preprocessor selected, but torch is not available.")
+
+    logging.info(f"Parsed arguments: {args}")
     return args
 
 
 def main():
     args = parse_opt()
 
-    if args.backend == "onnxruntime":
-        if args.torch:
-            from yolov5_runtime_w_torch import YOLOv5Runtime
-        else:
-            from yolov5_runtime_w_numpy import YOLOv5Runtime
-        model = YOLOv5Runtime(args.model)
+    # Select model class based on preprocessor
+    if args.preprocessor == "torch":
+        if YOLOv5Torch is None:
+            raise ImportError("PyTorch backend is not available. Please install torch.")
+        ModelClass = YOLOv5Torch
     else:
-        raise ValueError(f"backend={args.backend} is not supported.")
+        ModelClass = YOLOv5Numpy
 
-    if args.mode == 'image':
-        predict_image(model, args.input, args.output_dir, args.suffix, args.save)
+    # Currently only ONNX Runtime is implemented
+    if args.backend != "onnxruntime":
+        raise ValueError(f"Backend '{args.backend}' is not supported yet.")
+
+    # Load model
+    model = ModelClass(args.model)
+    logging.info(f"Model loaded: {args.model} | Preprocessor: {args.preprocessor} | Backend: {args.backend}")
+
+    # Run inference
+    if args.mode == "image":
+        predict_image(model, args.input, args.output, args.suffix, args.save)
     else:
-        predict_video(model, args.input, args.output_dir, args.suffix, args.save)
+        predict_video(model, args.input, args.output, args.suffix, args.save)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
