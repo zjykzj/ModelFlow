@@ -7,6 +7,10 @@
 @Description: 
 """
 
+# Supported file extensions
+IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.bmp', '.webp'}
+VIDEO_EXTS = {'.mp4', '.avi', '.mov', '.mkv', '.flv', '.wmv'}
+
 LOGGING_NAME = "yolov5"
 
 MODEL_NAMES = {0: 'person', 1: 'bicycle', 2: 'car', 3: 'motorcycle', 4: 'airplane', 5: 'bus', 6: 'train', 7: 'truck',

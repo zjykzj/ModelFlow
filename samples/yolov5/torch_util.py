@@ -12,9 +12,32 @@ import logging
 import numpy as np
 
 import torch
+from torch import Tensor
 import torchvision
 
+from typing import Optional
 
+
+def postprocess(
+        preds: Tensor,
+        im_shape: tuple,  # (h, w) of input to model
+        im0_shape: tuple,  # (h, w) of original image
+        conf: float = 0.25,
+        iou: float = 0.45,
+        classes: Optional[list] = None,
+        agnostic: bool = False,
+        max_det: int = 300,
+) -> tuple:
+    """
+    后处理：NMS + 坐标缩放。
+    Returns:
+        boxes, confs, cls_ids
+    """
+    pred = non_max_suppression(preds, conf, iou, classes, agnostic, max_det=max_det)[0]
+    boxes = scale_boxes(im_shape, pred[:, :4], im0_shape)
+    confs = pred[:, 4:5]
+    cls_ids = pred[:, 5:6]
+    return boxes, confs, cls_ids
 
 
 def xywh2xyxy(x):

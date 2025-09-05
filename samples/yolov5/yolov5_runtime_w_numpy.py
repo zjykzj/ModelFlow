@@ -33,35 +33,35 @@ class YOLOv5Runtime:
 
     def detect(self, im0: ndarray, conf: float = 0.25, iou: float = 0.45) -> tuple:
         """
-        检测图像中的目标，并统计各阶段耗时。
+        Detect objects in the image and measure time consumption for each stage.
         Returns:
             boxes, confs, cls_ids
         """
-        # 记录开始时间
+        # Record start time
         t0 = time.perf_counter()
 
-        # --- 预处理 ---
+        # --- Preprocessing ---
         t_pre_start = time.perf_counter()
         im = preprocess(im0, (self.net_h, self.net_w))
         t_pre_end = time.perf_counter()
 
-        # --- 推理 ---
+        # --- Inference ---
         t_inf_start = time.perf_counter()
         outputs = self.infer(im)
         t_inf_end = time.perf_counter()
 
-        # --- 后处理 ---
+        # --- Postprocessing ---
         t_post_start = time.perf_counter()
         boxes, confs, cls_ids = postprocess(
             outputs,
-            im.shape[2:],  # 模型输入尺寸 (h, w)
-            im0.shape[:2],  # 原图尺寸 (h, w)
+            im.shape[2:],  # Model input shape (h, w)
+            im0.shape[:2],  # Original image shape (h, w)
             conf=conf,
             iou=iou
         )
         t_post_end = time.perf_counter()
 
-        # --- 耗时统计 ---
+        # --- Timing statistics ---
         pre_time = (t_pre_end - t_pre_start) * 1000  # ms
         inf_time = (t_inf_end - t_inf_start) * 1000
         post_time = (t_post_end - t_post_start) * 1000

@@ -20,9 +20,8 @@ from numpy import ndarray
 from typing import Union, Tuple, Optional
 
 
-# ----------------------------
-# 预处理与后处理函数
-# ----------------------------
+# --------------------------------------------------------------------------------------- Preprocess
+
 
 def preprocess(im0: ndarray, img_size: Union[int, Tuple] = 640, stride: int = 32, auto: bool = False) -> ndarray:
     """
@@ -36,31 +35,6 @@ def preprocess(im0: ndarray, img_size: Union[int, Tuple] = 640, stride: int = 32
     if im.ndim == 3:
         im = im[None]  # expand for batch dim
     return im
-
-
-def postprocess(
-        preds: ndarray,
-        im_shape: tuple,  # (h, w) of input to model
-        im0_shape: tuple,  # (h, w) of original image
-        conf: float = 0.25,
-        iou: float = 0.45,
-        classes: Optional[list] = None,
-        agnostic: bool = False,
-        max_det: int = 300,
-) -> tuple:
-    """
-    后处理：NMS + 坐标缩放。
-    Returns:
-        boxes, confs, cls_ids
-    """
-    pred = non_max_suppression(preds, conf, iou, classes, agnostic, max_det=max_det)[0]
-    boxes = scale_boxes(im_shape, pred[:, :4], im0_shape)
-    confs = pred[:, 4:5]
-    cls_ids = pred[:, 5:6]
-    return boxes, confs, cls_ids
-
-
-# --------------------------------------------------------------------------------------- Preprocess
 
 
 def letterbox(im, new_shape=(640, 640), color=(114, 114, 114), auto=True, scaleFill=False, scaleup=True, stride=32):
@@ -108,6 +82,28 @@ def letterbox(im, new_shape=(640, 640), color=(114, 114, 114), auto=True, scaleF
 
 
 # --------------------------------------------------------------------------------------- Postprocess
+
+
+def postprocess(
+        preds: ndarray,
+        im_shape: tuple,  # (h, w) of input to model
+        im0_shape: tuple,  # (h, w) of original image
+        conf: float = 0.25,
+        iou: float = 0.45,
+        classes: Optional[list] = None,
+        agnostic: bool = False,
+        max_det: int = 300,
+) -> tuple:
+    """
+    后处理：NMS + 坐标缩放。
+    Returns:
+        boxes, confs, cls_ids
+    """
+    pred = non_max_suppression(preds, conf, iou, classes, agnostic, max_det=max_det)[0]
+    boxes = scale_boxes(im_shape, pred[:, :4], im0_shape)
+    confs = pred[:, 4:5]
+    cls_ids = pred[:, 5:6]
+    return boxes, confs, cls_ids
 
 
 def xywh2xyxy(x):

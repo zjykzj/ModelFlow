@@ -5,29 +5,21 @@
 @File    : main.py
 @Author  : zj
 @Description:
-
-# Use NumPy for preprocessing
-python infer.py yolov5s.onnx test.jpg --backend onnxruntime --preprocessor numpy --save
-
-# Use PyTorch for preprocessing
-python infer.py yolov5s.onnx test.mp4 --backend onnxruntime --preprocessor torch --save --suffix torch
-
-# No save
-python infer.py yolov5s.onnx test.png --preprocessor numpy
-
 """
 
 import cv2
 import sys
 import time
-import logging
 import argparse
+
 from pathlib import Path
 from typing import Union, Dict, Any
-
 import numpy as np
+from tqdm import tqdm
 
 # Setup logging
+import logging
+
 logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
 
 # Resolve paths
@@ -41,26 +33,17 @@ if str(CURRENT_DIR) not in sys.path:
     sys.path.insert(0, str(CURRENT_DIR))
 
 # Import local modules
-from general import CLASSES_NAME, draw_results
-from yolov5_runtime_w_numpy import YOLOv5Runtime as YOLOv5Numpy
-
-try:
-    from yolov5_runtime_w_torch import YOLOv5Runtime as YOLOv5Torch
-except ImportError:
-    YOLOv5Torch = None
-    logging.warning("PyTorch backend not available. Install torch to enable it.")
-
-# Supported file extensions
-IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.bmp', '.webp'}
-VIDEO_EXTS = {'.mp4', '.avi', '.mov', '.mkv', '.flv', '.wmv'}
+from core.utils.general import CLASSES_NAME, draw_results, IMAGE_EXTS, VIDEO_EXTS
 
 
 def predict_image(
         model: Any,
         img_path: Union[Path, str],
         output_dir: Union[Path, str] = "output",
-        suffix: str = "yolov5",
-        save: bool = False
+        suffix: str = "",
+        save: bool = False,
+        conf: float = 0.25,
+        iou: float = 0.45,
 ):
     """
     Predict on a single image and log end-to-end latency.
@@ -77,7 +60,7 @@ def predict_image(
 
     # End-to-end time (load + inference + draw)
     start_time = time.time()
-    boxes, confs, cls_ids = model.detect(image)
+    boxes, confs, cls_ids = model.detect(image, conf, iou)
     overlay = draw_results(image, boxes, confs, cls_ids, CLASSES_NAME, is_xyxy=True)
     total_time_ms = (time.time() - start_time) * 1000
     fps = 1000 / total_time_ms if total_time_ms > 0 else 0
@@ -85,7 +68,9 @@ def predict_image(
     logging.info(f"Detected {len(boxes)} objects | Latency: {total_time_ms:.2f}ms | FPS: {fps:.1f}")
 
     if save:
-        save_path = output_dir / f"{img_path.stem}-{suffix}.jpg"
+        if suffix != "":
+            suffix = '_' + suffix
+        save_path = output_dir / f"{img_path.stem}{suffix}.jpg"
         cv2.imwrite(str(save_path), overlay)
         logging.info(f"Result saved to: {save_path}")
 
@@ -94,8 +79,10 @@ def predict_video(
         model: Any,
         video_file: Union[Path, str],
         output_dir: Union[Path, str] = "output",
-        suffix: str = "yolov5",
-        save: bool = False
+        suffix: str = "",
+        save: bool = False,
+        conf: float = 0.25,
+        iou: float = 0.45,
 ):
     """
     Process a video file frame by frame and compute average FPS.
@@ -118,7 +105,9 @@ def predict_video(
 
     writer = None
     if save:
-        save_path = output_dir / f"{video_path.stem}-{suffix}.mp4"
+        if suffix != "":
+            suffix = '_' + suffix
+        save_path = output_dir / f"{video_path.stem}{suffix}.mp4"
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         writer = cv2.VideoWriter(str(save_path), fourcc, fps, (frame_width, frame_height))
 
@@ -133,7 +122,7 @@ def predict_video(
                 break
 
             start_time = time.time()
-            boxes, confs, cls_ids = model.detect(frame)
+            boxes, confs, cls_ids = model.detect(frame, conf, iou)
             overlay = draw_results(frame, boxes, confs, cls_ids, CLASSES_NAME, is_xyxy=True)
             frame_time_ms = (time.time() - start_time) * 1000
 
@@ -166,14 +155,14 @@ def parse_opt() -> argparse.Namespace:
     Parse command-line arguments.
     """
     parser = argparse.ArgumentParser(
-        description="YOLOv5 Inference with ONNX Runtime",
+        description="YOLOv5 Inference",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
 
     parser.add_argument(
         "model",
         type=str,
-        help="Path to ONNX model file (e.g., yolov5s.onnx)"
+        help="Path to model file (e.g., yolov5s.onnx)"
     )
     parser.add_argument(
         "input",
@@ -188,19 +177,26 @@ def parse_opt() -> argparse.Namespace:
         choices=["onnxruntime", "tensorrt", "triton"],
         help="Inference backend to use"
     )
-
     parser.add_argument(
-        "--preprocessor",
+        "--processor",
         type=str,
         default="numpy",
         choices=["numpy", "torch"],
         help="Pre/Post-processing backend: use NumPy or PyTorch"
     )
 
+    # Add confidence and IOU (NMS) threshold arguments
     parser.add_argument(
-        "--save",
-        action="store_true",
-        help="Save output results"
+        "--conf",
+        type=float,
+        default=0.25,
+        help="Confidence threshold for object detection"
+    )
+    parser.add_argument(
+        "--iou",
+        type=float,
+        default=0.45,
+        help="IOU threshold for Non-Max Suppression (NMS)"
     )
 
     parser.add_argument(
@@ -208,13 +204,6 @@ def parse_opt() -> argparse.Namespace:
         type=str,
         default="output",
         help="Output directory for results"
-    )
-
-    parser.add_argument(
-        "--suffix",
-        type=str,
-        default="yolov5",
-        help="Suffix for output filenames"
     )
 
     args = parser.parse_args()
@@ -233,10 +222,6 @@ def parse_opt() -> argparse.Namespace:
     else:
         parser.error(f"Unsupported file extension: {ext}. Supported: {IMAGE_EXTS | VIDEO_EXTS}")
 
-    # Validate preprocessor and backend compatibility
-    if args.preprocessor == "torch" and YOLOv5Torch is None:
-        parser.error("PyTorch preprocessor selected, but torch is not available.")
-
     logging.info(f"Parsed arguments: {args}")
     return args
 
@@ -244,27 +229,31 @@ def parse_opt() -> argparse.Namespace:
 def main():
     args = parse_opt()
 
-    # Select model class based on preprocessor
-    if args.preprocessor == "torch":
-        if YOLOv5Torch is None:
-            raise ImportError("PyTorch backend is not available. Please install torch.")
-        ModelClass = YOLOv5Torch
-    else:
-        ModelClass = YOLOv5Numpy
+    if args.backend == "onnxruntime":
+        if args.processor == "torch":
+            try:
+                from yolov5_runtime_w_torch import YOLOv5Runtime
+            except ImportError:
+                raise ImportError(f"PyTorch processor selected, but YOLOv5Runtime is not available.")
+        else:
+            try:
+                from yolov5_runtime_w_numpy import YOLOv5Runtime
+            except ImportError:
+                raise ImportError(f"Numpy processor selected, but YOLOv5Runtime is not available.")
 
-    # Currently only ONNX Runtime is implemented
-    if args.backend != "onnxruntime":
+        ModelClass = YOLOv5Runtime
+    elif args.backend == "tensorrt":
         raise ValueError(f"Backend '{args.backend}' is not supported yet.")
+    else:
+        raise ValueError(f"Unsupported backend type: {args.backend}")
 
     # Load model
     model = ModelClass(args.model)
-    logging.info(f"Model loaded: {args.model} | Preprocessor: {args.preprocessor} | Backend: {args.backend}")
+    logging.info(f"Model loaded: {args.model} | Processor: {args.processor} | Backend: {args.backend}")
 
     # Run inference
-    if args.mode == "image":
-        predict_image(model, args.input, args.output, args.suffix, args.save)
-    else:
-        predict_video(model, args.input, args.output, args.suffix, args.save)
+    predict = predict_image if args.mode == "image" else predict_video
+    predict(model, args.input, args.output, save=True, conf=args.conf, iou=args.iou)
 
 
 if __name__ == "__main__":
