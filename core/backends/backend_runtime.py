@@ -198,11 +198,11 @@ class BackendRuntime(BackendBase):
             raise RuntimeError("Model not loaded. Cannot get metadata.")
         return self.metadata.copy()
 
-    def cleanup(self):
-        """清理资源。ONNX Runtime 会话通常在销毁时自动清理，但显式调用更安全。"""
-        if hasattr(self, 'session') and self.session is not None:
-            # ONNX Runtime 没有显式的 session.close()，但可以尝试删除引用
-            del self.session
-            self.session = None
-        self._is_loaded = False
-        print(f"ONNX Runtime backend for {self.model_path} cleaned up.")
+    # def cleanup(self):
+    #     """清理资源。ONNX Runtime 会话通常在销毁时自动清理，但显式调用更安全。"""
+    #     if hasattr(self, 'session') and self.session is not None:
+    #         # ONNX Runtime 没有显式的 session.close()，但可以尝试删除引用
+    #         del self.session
+    #         self.session = None
+    #     self._is_loaded = False
+    #     print(f"ONNX Runtime backend for {self.model_path} cleaned up.")

@@ -148,20 +148,20 @@ class BackendBase(ABC):
             self.load()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """确保资源被清理。"""
-        self.cleanup()
-
-    @abstractmethod
-    def cleanup(self):
-        """清理资源 (如 GPU 内存、会话、线程)。子类必须实现。"""
-        self._is_loaded = False
-
-    def __del__(self):
-        """作为 __exit__ 的后备，确保对象销毁时资源被释放。"""
-        if self._is_loaded:
-            print(f"Warning: Backend for {self.model_path} was not properly cleaned up. Calling cleanup().")
-            self.cleanup()
+    # def __exit__(self, exc_type, exc_val, exc_tb):
+    #     """确保资源被清理。"""
+    #     self.cleanup()
+    #
+    # @abstractmethod
+    # def cleanup(self):
+    #     """清理资源 (如 GPU 内存、会话、线程)。子类必须实现。"""
+    #     self._is_loaded = False
+    #
+    # def __del__(self):
+    #     """作为 __exit__ 的后备，确保对象销毁时资源被释放。"""
+    #     if self._is_loaded:
+    #         print(f"Warning: Backend for {self.model_path} was not properly cleaned up. Calling cleanup().")
+    #         self.cleanup()
 
     # --- 可选的便捷方法 ---
     def get_input_shape(self, name: str) -> List[int]:
