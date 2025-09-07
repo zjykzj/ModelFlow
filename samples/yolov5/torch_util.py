@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-@Time    : 2025/8/29 17:59
+@Time    : 2025/8/31 17:59
 @File    : torch_util.py
 @Author  : zj
 @Description: 
@@ -177,17 +177,9 @@ def clip_boxes(boxes, shape):
 
 
 def scale_boxes(img1_shape, boxes, img0_shape, ratio_pad=None):
-    """
-    将预测边界框坐标从输入图像映射到原始图像。
-
-    如果经过了填充，那么需要考虑到
-    """
     # Rescale boxes (xyxy) from img1_shape to img0_shape
     if ratio_pad is None:  # calculate from img0_shape
-        # 默认情况下，预处理阶段执行《等比缩放+较短边填充》
-        # 所以计算最小比率（原图最长边）
         gain = min(img1_shape[0] / img0_shape[0], img1_shape[1] / img0_shape[1])  # gain  = old / new
-        # pad_w = (w1 - w0 * gain) / 2
         pad = (img1_shape[1] - img0_shape[1] * gain) / 2, (img1_shape[0] - img0_shape[0] * gain) / 2  # wh padding
     else:
         gain = ratio_pad[0][0]

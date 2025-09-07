@@ -7,6 +7,9 @@
 @Description: 
 """
 
+import time
+import contextlib
+
 # Supported file extensions
 IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.bmp', '.webp'}
 VIDEO_EXTS = {'.mp4', '.avi', '.mov', '.mkv', '.flv', '.wmv'}
@@ -27,6 +30,26 @@ MODEL_NAMES = {0: 'person', 1: 'bicycle', 2: 'car', 3: 'motorcycle', 4: 'airplan
                76: 'scissors', 77: 'teddy bear', 78: 'hair drier', 79: 'toothbrush'}
 
 CLASSES_NAME = [item[1] for item in MODEL_NAMES.items()]
+
+
+class Profile(contextlib.ContextDecorator):
+    """
+    Sourced from https://github.com/ultralytics/yolov5/blob/915bbf294bb74c859f0b41f1c23bc395014ea679/utils/general.py#L163
+    """
+    def __init__(self, t=0.0):
+        self.t = t
+
+    def __enter__(self):
+        self.start = self.time()
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.dt = self.time() - self.start  # delta-time
+        self.t += self.dt  # accumulate dt
+
+    def time(self):
+        return time.time()
+
 
 # --------------------------------------------------------------------------------------- Draw
 

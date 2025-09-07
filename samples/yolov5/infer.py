@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-@Time    : 2025/9/3 20:38
+@Time    : 2025/9/6 20:38
 @File    : main.py
 @Author  : zj
 @Description:
@@ -14,7 +14,6 @@ import argparse
 
 from pathlib import Path
 from typing import Union, Dict, Any
-import numpy as np
 from tqdm import tqdm
 
 # Setup logging
@@ -202,7 +201,7 @@ def parse_opt() -> argparse.Namespace:
     parser.add_argument(
         "--output",
         type=str,
-        default="output",
+        default="output/yolov5",
         help="Output directory for results"
     )
 
