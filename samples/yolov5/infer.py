@@ -245,7 +245,13 @@ def main():
 
         ModelClass = YOLOv5Runtime
     elif args.backend == "tensorrt":
-        raise ValueError(f"Backend '{args.backend}' is not supported yet.")
+        try:
+            from yolov5_tensorrt_w_numpy import YOLOv5TensorRT
+            logging.info(f"Using YOLOv5TensorRT with Numpy")
+        except ImportError:
+            raise ImportError(f"Numpy processor selected, but YOLOv5TensorRT is not available.")
+
+        ModelClass = YOLOv5TensorRT
     else:
         raise ValueError(f"Unsupported backend type: {args.backend}")
 
@@ -253,7 +259,7 @@ def main():
     model = ModelClass(args.model)
     logging.info(f"Model loaded: {args.model} | Processor: {args.processor} | Backend: {args.backend}")
 
-    model_name = os.path.basename(args.model)
+    model_name = os.path.basename(args.model).split('.')[0]
     output_dir = os.path.join(args.output, model_name)
 
     # Run inference
