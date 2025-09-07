@@ -6,6 +6,7 @@
 @Author  : zj
 @Description:
 """
+import os.path
 
 import cv2
 import sys
@@ -201,7 +202,7 @@ def parse_opt() -> argparse.Namespace:
     parser.add_argument(
         "--output",
         type=str,
-        default="output/yolov5",
+        default="output/",
         help="Output directory for results"
     )
 
@@ -232,11 +233,13 @@ def main():
         if args.processor == "torch":
             try:
                 from yolov5_runtime_w_torch import YOLOv5Runtime
+                logging.info("Using YOLOv5Runtime with PyTorch")
             except ImportError:
                 raise ImportError(f"PyTorch processor selected, but YOLOv5Runtime is not available.")
         else:
             try:
                 from yolov5_runtime_w_numpy import YOLOv5Runtime
+                logging.info("Using YOLOv5Runtime with Numpy")
             except ImportError:
                 raise ImportError(f"Numpy processor selected, but YOLOv5Runtime is not available.")
 
@@ -250,9 +253,12 @@ def main():
     model = ModelClass(args.model)
     logging.info(f"Model loaded: {args.model} | Processor: {args.processor} | Backend: {args.backend}")
 
+    model_name = os.path.basename(args.model)
+    output_dir = os.path.join(args.output, model_name)
+
     # Run inference
     predict = predict_image if args.mode == "image" else predict_video
-    predict(model, args.input, args.output, save=True, conf=args.conf, iou=args.iou)
+    predict(model, args.input, output_dir, save=True, conf=args.conf, iou=args.iou)
 
 
 if __name__ == "__main__":
