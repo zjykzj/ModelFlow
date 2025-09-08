@@ -41,8 +41,8 @@ def predict_source(
         source: str,
         save_dir: str = "output",
         save: bool = False,
-        conf: float = 0.25,
-        iou: float = 0.45,
+        conf_thresh: float = 0.25,
+        iou_thresh: float = 0.45,
         vid_stride: int = 1,  # video frame-rate stride
         line_thickness: int = 3,  # bounding box thickness (pixels)
 ):
@@ -53,7 +53,7 @@ def predict_source(
     vid_path, vid_writer = None, None
 
     for path, im0, vid_cap, s in dataset:
-        boxes, confs, cls_ids, dt = model.detect(im0, conf, iou)
+        boxes, confs, cls_ids, dt = model.detect(im0, conf_thresh, iou_thresh)
         # Print time (inference-only)
         logging.info(f"{s}{'' if len(boxes) else '(no detections), '}{dt[1].dt * 1E3:.1f}ms")
 
@@ -204,7 +204,7 @@ def main():
     save_dir = os.path.join(args.save_dir, model_name)
 
     # Run inference
-    predict_source(model, args.source, save_dir=save_dir, save=True, conf=args.conf, iou=args.iou)
+    predict_source(model, args.source, save_dir=save_dir, save=True, conf_thresh=args.conf, iou_thresh=args.iou)
 
 
 if __name__ == "__main__":
