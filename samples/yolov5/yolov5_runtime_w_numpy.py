@@ -20,7 +20,7 @@ from core.utils.postprocessor import non_max_suppression, scale_boxes
 
 
 def preprocess(im0: ndarray, img_size: Union[int, Tuple] = 640, stride: int = 32, auto: bool = False,
-               fp16: bool = False) -> tuple[ndarray, Any, tuple[Any, Any]]:
+               fp16: bool = False) -> Tuple:
     """
     Preprocess the input image: resize with padding, convert format from HWC to CHW and BGR to RGB,
     normalize values from range 0-255 to 0.0-1.0, and add a batch dimension.
@@ -51,14 +51,14 @@ def preprocess(im0: ndarray, img_size: Union[int, Tuple] = 640, stride: int = 32
 
 def postprocess(
         pred: List[ndarray],
-        im_shape: tuple,  # (h, w) of input to model
-        im0_shape: tuple,  # (h, w) of original image
+        im_shape: Tuple,  # (h, w) of input to model
+        im0_shape: Tuple,  # (h, w) of original image
         conf: float = 0.25,
         iou: float = 0.45,
         classes: Optional[list] = None,
         agnostic: bool = False,
         max_det: int = 300,
-) -> tuple:
+) -> Tuple:
     """
      Postprocessing: NMS + coordinate scaling.
      Returns:
@@ -86,7 +86,7 @@ class YOLOv5Runtime:
         self.net_h, self.net_w = self.session.get_input_shapes()[self.input_name][2:]
         self.output_names = self.session.output_names
 
-    def infer(self, im: ndarray) -> list[Any]:
+    def infer(self, im: ndarray) -> List[Any]:
         output_dict = self.session.infer({self.input_name: im})
 
         pred = []
@@ -94,11 +94,11 @@ class YOLOv5Runtime:
             pred.append(output_dict[output_name])
         return pred
 
-    def detect(self, im0: ndarray, conf: float = 0.25, iou: float = 0.45) -> tuple:
+    def detect(self, im0: ndarray, conf: float = 0.25, iou: float = 0.45) -> Tuple:
         """
         Detect objects in the image and measure time consumption for each stage.
         Returns:
-            boxes, confs, cls_ids
+            boxes, confs, cls_ids, dt
         """
         # Record start time
         dt = (Profile(), Profile(), Profile())
@@ -121,17 +121,4 @@ class YOLOv5Runtime:
                 iou=iou
             )
 
-        # --- Timing statistics ---
-        pre_time = dt[0].t * 1000  # ms
-        inf_time = dt[1].t * 1000
-        post_time = dt[2].t * 1000
-        total_time = sum([t.t for t in dt]) * 1000
-
-        logging.info(
-            f"Detect time - Pre: {pre_time:.2f}ms | "
-            f"Infer: {inf_time:.2f}ms | "
-            f"Post: {post_time:.2f}ms | "
-            f"Total: {total_time:.2f}ms"
-        )
-
-        return boxes, confs, cls_ids
+        return boxes, confs, cls_ids, dt

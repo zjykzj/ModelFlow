@@ -7,13 +7,11 @@
 @Description: 
 """
 
-import logging
 from typing import Optional, Union, Tuple, Any, List
 
 import numpy as np
-from numpy import ndarray
-
 import torch
+from numpy import ndarray
 from torch import Tensor
 
 from core.backends.backend_runtime import BackendRuntime
@@ -23,7 +21,7 @@ from torch_util import non_max_suppression, scale_boxes
 
 
 def preprocess(im0: ndarray, img_size: Union[int, Tuple] = 640, stride: int = 32, auto: bool = False,
-               fp16: bool = False) -> tuple[Tensor, Any, tuple[Any, Any]]:
+               fp16: bool = False) -> Tuple:
     """
     Sourced from
 
@@ -45,14 +43,14 @@ def preprocess(im0: ndarray, img_size: Union[int, Tuple] = 640, stride: int = 32
 
 def postprocess(
         pred: List[Tensor],
-        im_shape: tuple,  # (h, w) of input to model
-        im0_shape: tuple,  # (h, w) of original image
+        im_shape: Tuple,  # (h, w) of input to model
+        im0_shape: Tuple,  # (h, w) of original image
         conf: float = 0.25,
         iou: float = 0.45,
         classes: Optional[list] = None,
         agnostic: bool = False,
         max_det: int = 300,
-) -> tuple:
+) -> Tuple:
     """
      Postprocessing: NMS + coordinate scaling.
      Returns:
@@ -97,7 +95,7 @@ class YOLOv5Runtime:
         """
         return torch.tensor(x).to(self.device) if isinstance(x, np.ndarray) else x
 
-    def infer(self, im: ndarray) -> list[Any]:
+    def infer(self, im: ndarray) -> List[Any]:
         output_dict = self.session.infer({self.input_name: im})
 
         pred = []
@@ -105,7 +103,7 @@ class YOLOv5Runtime:
             pred.append(self.from_numpy(output_dict[output_name]))
         return pred
 
-    def detect(self, im0: ndarray, conf: float = 0.25, iou: float = 0.45) -> tuple:
+    def detect(self, im0: ndarray, conf: float = 0.25, iou: float = 0.45) -> Tuple:
         """
         Detect objects in the image and measure time consumption for each stage.
         Returns:
@@ -132,17 +130,4 @@ class YOLOv5Runtime:
                 iou=iou
             )
 
-        # --- Timing statistics ---
-        pre_time = dt[0].t * 1000  # ms
-        inf_time = dt[1].t * 1000
-        post_time = dt[2].t * 1000
-        total_time = sum([t.t for t in dt]) * 1000
-
-        logging.info(
-            f"Detect time - Pre: {pre_time:.2f}ms | "
-            f"Infer: {inf_time:.2f}ms | "
-            f"Post: {post_time:.2f}ms | "
-            f"Total: {total_time:.2f}ms"
-        )
-
-        return boxes, confs, cls_ids
+        return boxes, confs, cls_ids, dt
