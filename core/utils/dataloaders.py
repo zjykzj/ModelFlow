@@ -59,12 +59,17 @@ class LoadImages:
         if self.video_flag[self.count]:
             # Read video
             self.mode = 'video'
-            for _ in range(self.vid_stride):
-                self.cap.grab()
-            ret_val, im0 = self.cap.retrieve()
+
+            # 尝试读取下一帧
+            # for _ in range(self.vid_stride):
+            #     self.cap.grab()
+            # ret_val, im0 = self.cap.retrieve()
+            ret_val, im0 = self.cap.read()
+
+            # 如果读取失败，说明视频结束或出错
             while not ret_val:
-                self.count += 1
                 self.cap.release()
+                self.count += 1
                 if self.count == self.nf:  # last video
                     raise StopIteration
                 path = self.files[self.count]

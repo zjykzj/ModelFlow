@@ -31,7 +31,7 @@ if str(CURRENT_DIR) not in sys.path:
     sys.path.insert(0, str(CURRENT_DIR))
 
 # Import local modules
-from core.utils.general import CLASSES_NAME, draw_results, IMAGE_EXTS, VIDEO_EXTS
+from core.utils.general import CLASSES_NAME
 from core.utils.dataloaders import LoadImages
 from core.utils.plots import Annotator, colors
 
@@ -50,6 +50,8 @@ def predict_source(
     Predict on a single image and log end-to-end latency.
     """
     dataset = LoadImages(source, vid_stride)
+    vid_path, vid_writer = None, None
+
     for path, im0, vid_cap, s in dataset:
         boxes, confs, cls_ids, dt = model.detect(im0, conf, iou)
         # Print time (inference-only)
@@ -70,10 +72,10 @@ def predict_source(
 
         annotator = Annotator(im0, line_width=line_thickness)
         if len(boxes):
-            for id in reversed(range(len(boxes))):
-                xyxy = boxes[id]
-                conf = confs[id]
-                cls_id = int(cls_ids[id])
+            for i in reversed(range(len(boxes))):
+                xyxy = boxes[i]
+                conf = confs[i]
+                cls_id = int(cls_ids[i])
 
                 label = CLASSES_NAME[cls_id]
                 annotator.box_label(xyxy, label, color=colors(cls_id, True))
@@ -86,8 +88,23 @@ def predict_source(
             p = Path(path)  # to Path
             save_path = str(save_dir / p.name)  # im.jpg
 
-            cv2.imwrite(str(save_path), im0)
-            logging.info(f"Result saved to: {save_path}")
+            if dataset.mode == 'image':
+                cv2.imwrite(save_path, im0)
+                logging.info(f"Result saved to: {save_path}")
+            else:  # 'video' or 'stream'
+                if vid_path != save_path:  # new video
+                    vid_path = save_path
+                    if isinstance(vid_writer, cv2.VideoWriter):
+                        vid_writer.release()  # release previous video writer
+                    if vid_cap:  # video
+                        fps = vid_cap.get(cv2.CAP_PROP_FPS)
+                        w = int(vid_cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                        h = int(vid_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                    else:  # stream
+                        fps, w, h = 30, im0.shape[1], im0.shape[0]
+                    save_path = str(Path(save_path).with_suffix('.mp4'))  # force *.mp4 suffix on results videos
+                    vid_writer = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
+                vid_writer.write(im0)
 
 
 def parse_opt() -> argparse.Namespace:
