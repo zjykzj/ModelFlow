@@ -14,7 +14,7 @@ import torch
 from numpy import ndarray
 from torch import Tensor
 
-from core.utils.preprocessor import letterbox
+from core.utils.v5.preprocessor import letterbox
 from core.utils.general import Profile
 from core.backends.backend_runtime import BackendRuntime
 from torch_util import non_max_suppression, scale_boxes

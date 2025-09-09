@@ -9,7 +9,7 @@
 
 import cv2
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 
 FONT = 'Arial.ttf'  # https://ultralytics.com/assets/Arial.ttf
 
