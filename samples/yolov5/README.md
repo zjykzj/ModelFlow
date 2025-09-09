@@ -14,11 +14,11 @@ Date:   Tue Nov 22 16:23:47 2022 +0100
 
 ```shell
 # Use NumPy for Pre/Post-processing
-python3 samples/yolov5/infer.py models/yolov5s.onnx assets/bus.jpg --data core/cfgs/coco.yaml
+python3 samples/yolov5/infer.py models/yolov5s.onnx assets/bus.jpg core/cfgs/coco.yaml
 
 # Use PyTorch for Pre/Post-processing
-python3 samples/yolov5/infer.py models/yolov5s.onnx assets/bus.jpg --data core/cfgs/coco.yaml --processor torch
+python3 samples/yolov5/infer.py models/yolov5s.onnx assets/bus.jpg core/cfgs/coco.yaml --processor torch
 
 # Use TensorRT for infer
-python3 samples/yolov5/infer.py models/yolov5s_fp16.engine assets --data core/cfgs/coco.yaml --backend tensorrt
+python3 samples/yolov5/infer.py models/yolov5s_fp16.engine assets core/cfgs/coco.yaml --backend tensorrt
 ```

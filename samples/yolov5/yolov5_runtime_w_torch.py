@@ -69,8 +69,11 @@ def postprocess(
 
 class YOLOv5RuntimeTorch:
 
-    def __init__(self, weight: str = 'yolov5s.onnx', providers=None):
+    def __init__(self, classes, weight: str = 'yolov5s.onnx', providers: List[str] = None):
         super().__init__()
+        self.classes = classes
+        self.nc = len(classes)
+
         if providers is None:
             providers = ['CPUExecutionProvider']
         self.session = BackendRuntime(weight, providers=providers)

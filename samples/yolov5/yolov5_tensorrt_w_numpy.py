@@ -17,8 +17,11 @@ from yolov5_runtime_w_numpy import preprocess, postprocess
 
 class YOLOv5TensorRT:
 
-    def __init__(self, weight: str = 'yolov5s_fp16.engine'):
+    def __init__(self, classes, weight: str = 'yolov5s_fp16.engine'):
         super().__init__()
+        self.classes = classes
+        self.nc = len(classes)
+
         self.session = BackendTensorRT(weight)
         self.session.load()
 
