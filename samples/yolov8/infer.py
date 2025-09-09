@@ -188,7 +188,12 @@ def main():
                 raise ImportError(f"Numpy processor selected, but YOLOv8RuntimeNumpy is not available.")
 
     elif args.backend == "tensorrt":
-        pass
+        try:
+            from yolov8_tensorrt_w_numpy import YOLOv8TensorRT
+            logging.info(f"Using YOLOv8TensorRT with Numpy")
+            ModelClass = YOLOv8TensorRT
+        except ImportError:
+            raise ImportError(f"Numpy processor selected, but YOLOv8TensorRT is not available.")
     else:
         raise ValueError(f"Unsupported backend type: {args.backend}")
 
