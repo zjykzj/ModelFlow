@@ -8,13 +8,12 @@
 """
 
 import time
+import yaml
 import contextlib
 
 # Supported file extensions
 IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.bmp', '.webp'}
 VIDEO_EXTS = {'.mp4', '.avi', '.mov', '.mkv', '.flv', '.wmv'}
-
-LOGGING_NAME = "yolov5"
 
 MODEL_NAMES = {0: 'person', 1: 'bicycle', 2: 'car', 3: 'motorcycle', 4: 'airplane', 5: 'bus', 6: 'train', 7: 'truck',
                8: 'boat', 9: 'traffic light', 10: 'fire hydrant', 11: 'stop sign', 12: 'parking meter', 13: 'bench',
@@ -32,10 +31,17 @@ MODEL_NAMES = {0: 'person', 1: 'bicycle', 2: 'car', 3: 'motorcycle', 4: 'airplan
 CLASSES_NAME = [item[1] for item in MODEL_NAMES.items()]
 
 
+def yaml_load(file='data.yaml'):
+    # Single-line safe yaml loading
+    with open(file, errors='ignore') as f:
+        return yaml.safe_load(f)
+
+
 class Profile(contextlib.ContextDecorator):
     """
     Sourced from https://github.com/ultralytics/yolov5/blob/915bbf294bb74c859f0b41f1c23bc395014ea679/utils/general.py#L163
     """
+
     def __init__(self, t=0.0):
         self.t = t
 
@@ -49,56 +55,3 @@ class Profile(contextlib.ContextDecorator):
 
     def time(self):
         return time.time()
-
-
-# --------------------------------------------------------------------------------------- Draw
-
-
-import cv2
-import random
-import colorsys
-
-
-def gen_colors(classes):
-    """
-        generate unique hues for each class and convert to bgr
-        classes -- list -- class names (80 for coco dataset)
-        -> list
-    """
-    hsvs = []
-    for x in range(len(classes)):
-        hsvs.append([float(x) / len(classes), 1., 0.7])
-    random.seed(1234)
-    random.shuffle(hsvs)
-    rgbs = []
-    for hsv in hsvs:
-        h, s, v = hsv
-        rgb = colorsys.hsv_to_rgb(h, s, v)
-        rgbs.append(rgb)
-    bgrs = []
-    for rgb in rgbs:
-        bgr = (int(rgb[2] * 255), int(rgb[1] * 255), int(rgb[0] * 255))
-        bgrs.append(bgr)
-    return bgrs
-
-
-def draw_results(img, boxes, confs, cls_ids, CLASSES_NAME, is_xyxy=True):
-    CLASSES_COLOR = gen_colors(CLASSES_NAME)
-
-    overlay = img.copy()
-    if len(boxes) != 0:
-        for box, conf, cls in zip(boxes, confs, cls_ids):
-            if is_xyxy:
-                x1, y1, x2, y2 = int(box[0]), int(box[1]), int(box[2]), int(box[3])
-            else:
-                # xywh
-                x1, y1, box_w, box_h = int(box[0]), int(box[1]), int(box[2]), int(box[3])
-                x2 = x1 + box_w
-                y2 = y1 + box_h
-            cls_name = CLASSES_NAME[int(cls)]
-            color = CLASSES_COLOR[int(cls)]
-            cv2.rectangle(overlay, (x1, y1), (x2, y2), color, thickness=2, lineType=cv2.LINE_AA)
-            cv2.putText(overlay, '%s %.3f' % (cls_name, conf), org=(x1, int(y1 - 10)),
-                        fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                        fontScale=1, color=color)
-    return overlay

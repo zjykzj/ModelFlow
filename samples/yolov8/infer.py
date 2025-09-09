@@ -14,7 +14,7 @@ import sys
 import argparse
 
 from pathlib import Path
-from typing import Union, Dict, Any
+from typing import Union, Dict, Any, List
 
 # Setup logging
 import logging
@@ -32,18 +32,19 @@ if str(CURRENT_DIR) not in sys.path:
     sys.path.insert(0, str(CURRENT_DIR))
 
 # Import local modules
-from core.utils.general import CLASSES_NAME
+from core.utils.general import yaml_load
 from core.utils.dataloaders import LoadImages
 from core.utils.plots import Annotator, colors
 
 
 def predict_source(
         model: Any,
+        names: List[str],
         source: str,
         save_dir: str = "output",
         save: bool = False,
         conf_thresh: float = 0.25,
-        iou_thresh: float = 0.7,
+        iou_thresh: float = 0.45,
         vid_stride: int = 1,  # video frame-rate stride
         line_thickness: int = 3,  # bounding box thickness (pixels)
 ):
@@ -75,10 +76,10 @@ def predict_source(
         if len(boxes):
             for i in reversed(range(len(boxes))):
                 xyxy = boxes[i]
-                conf = confs[i]
+                conf = float(confs[i])
                 cls_id = int(cls_ids[i])
 
-                label = CLASSES_NAME[cls_id]
+                label = f'{names[cls_id]} {conf:.2f}'
                 annotator.box_label(xyxy, label, color=colors(cls_id, True))
         im0 = annotator.result()
 
@@ -141,6 +142,12 @@ def parse_opt() -> argparse.Namespace:
         help="Pre/Post-processing backend: use NumPy or PyTorch"
     )
 
+    parser.add_argument(
+        '--data',
+        type=str,
+        default=None,
+        help='(optional) dataset.yaml path'
+    )
     # Add confidence and IOU (NMS) threshold arguments
     parser.add_argument(
         "--conf",
@@ -202,10 +209,13 @@ def main():
     logging.info(f"Model loaded: {args.weight} | Processor: {args.processor} | Backend: {args.backend}")
 
     model_name = os.path.basename(args.weight).split('.')[0]
-    save_dir = os.path.join(args.save_dir, model_name)
+    save_dir = os.path.join(str(args.save_dir), str(model_name))
+
+    # Load names
+    names = yaml_load(args.data)['names'] if args.data else {i: f'class{i}' for i in range(999)}
 
     # Run inference
-    predict_source(model, args.source, save_dir=save_dir, save=True, conf_thresh=args.conf, iou_thresh=args.iou)
+    predict_source(model, names, args.source, save_dir=save_dir, save=True, conf_thresh=args.conf, iou_thresh=args.iou)
 
 
 if __name__ == "__main__":
