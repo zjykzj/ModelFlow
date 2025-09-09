@@ -7,6 +7,9 @@
 @Description: 
 """
 
+import cv2
+import numpy as np
+
 import torch
 import torch.nn.functional as F
 
@@ -61,3 +64,28 @@ def process_mask(protos, masks_in, bboxes, shape, upsample=False):
     if upsample:
         masks = F.interpolate(masks[None], shape, mode="bilinear", align_corners=False)[0]  # CHW
     return masks.gt_(0.0)
+
+
+def masks2segments(masks, strategy="largest"):
+    """
+    It takes a list of masks(n,h,w) and returns a list of segments(n,xy).
+
+    Args:
+        masks (torch.Tensor): the output of the model, which is a tensor of shape (batch_size, 160, 160)
+        strategy (str): 'concat' or 'largest'. Defaults to largest
+
+    Returns:
+        segments (List): list of segment masks
+    """
+    segments = []
+    for x in masks.int().cpu().numpy().astype("uint8"):
+        c = cv2.findContours(x, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
+        if c:
+            if strategy == "concat":  # concatenate all segments
+                c = np.concatenate([x.reshape(-1, 2) for x in c])
+            elif strategy == "largest":  # select largest segment
+                c = np.array(c[np.array([len(x) for x in c]).argmax()]).reshape(-1, 2)
+        else:
+            c = np.zeros((0, 2))  # no segments found
+        segments.append(c.astype("float32"))
+    return segments

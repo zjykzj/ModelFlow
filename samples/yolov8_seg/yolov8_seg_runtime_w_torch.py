@@ -9,7 +9,6 @@
 
 from typing import Union, Tuple, Optional, Any, List
 
-import cv2
 import numpy as np
 from numpy import ndarray
 
@@ -97,31 +96,6 @@ def preprocess(im: ndarray, imgsz: Union[int, Tuple] = 640, stride: int = 32, au
     return im.numpy()
 
 
-def masks2segments(masks, strategy="largest"):
-    """
-    It takes a list of masks(n,h,w) and returns a list of segments(n,xy).
-
-    Args:
-        masks (torch.Tensor): the output of the model, which is a tensor of shape (batch_size, 160, 160)
-        strategy (str): 'concat' or 'largest'. Defaults to largest
-
-    Returns:
-        segments (List): list of segment masks
-    """
-    segments = []
-    for x in masks.int().cpu().numpy().astype("uint8"):
-        c = cv2.findContours(x, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
-        if c:
-            if strategy == "concat":  # concatenate all segments
-                c = np.concatenate([x.reshape(-1, 2) for x in c])
-            elif strategy == "largest":  # select largest segment
-                c = np.array(c[np.array([len(x) for x in c]).argmax()]).reshape(-1, 2)
-        else:
-            c = np.zeros((0, 2))  # no segments found
-        segments.append(c.astype("float32"))
-    return segments
-
-
 def postprocess(
         pred: Union[Tensor, List[Tensor]],
         im_shape: Tuple,  # (h, w) of input to model
@@ -160,9 +134,6 @@ def postprocess(
     proto = pred[1][-1] if isinstance(pred[1], tuple) else pred[1]  # tuple if PyTorch model or array if exported
     proto = proto[0]  # [1, 32, 160, 160] -> [32, 160, 160]
 
-    for item in pred:
-        print(f"item shape: {item.shape}")
-    print(f"*" * 100)
     pred = non_max_suppression(
         pred[0],
         conf,
@@ -172,14 +143,9 @@ def postprocess(
         max_det=max_det,
         nc=nc,
     )
-
-    for item in pred:
-        print(f"item shape: {item.shape}")
     pred = pred[0]  # [1, 300, 6] -> [300, 6]
 
     masks = process_mask(proto, pred[:, 6:], pred[:, :4], im_shape, upsample=True)  # HWC
-    print(f"masks shape: {masks.shape}")
-
     if len(pred) > 0:
         boxes = scale_boxes(im_shape, pred[:, :4], im0_shape)
         confs = pred[:, 4:5]
