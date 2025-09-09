@@ -7,15 +7,14 @@
 @Description: 
 """
 
+import os.path
+
 import cv2
 import sys
-import time
 import argparse
 
 from pathlib import Path
 from typing import Union, Dict, Any
-import numpy as np
-from tqdm import tqdm
 
 # Setup logging
 import logging
@@ -33,141 +32,98 @@ if str(CURRENT_DIR) not in sys.path:
     sys.path.insert(0, str(CURRENT_DIR))
 
 # Import local modules
-from core.utils.general import CLASSES_NAME, draw_results, IMAGE_EXTS, VIDEO_EXTS
+from core.utils.general import CLASSES_NAME
+from core.utils.dataloaders import LoadImages
+from core.utils.plots import Annotator, colors
 
 
-def predict_image(
+def predict_source(
         model: Any,
-        img_path: Union[Path, str],
-        output_dir: Union[Path, str] = "output",
-        suffix: str = "",
+        source: str,
+        save_dir: str = "output",
         save: bool = False,
-        conf: float = 0.25,
-        iou: float = 0.45,
+        conf_thresh: float = 0.25,
+        iou_thresh: float = 0.7,
+        vid_stride: int = 1,  # video frame-rate stride
+        line_thickness: int = 3,  # bounding box thickness (pixels)
 ):
     """
     Predict on a single image and log end-to-end latency.
     """
-    img_path = Path(img_path)
-    output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    dataset = LoadImages(source, vid_stride)
+    vid_path, vid_writer = None, None
 
-    image = cv2.imread(str(img_path))
-    if image is None:
-        raise ValueError(f"Failed to load image: {img_path}")
+    for path, im0, vid_cap, s in dataset:
+        boxes, confs, cls_ids, dt = model.detect(im0, conf_thresh, iou_thresh)
+        # Print time (inference-only)
+        logging.info(f"{s}{'' if len(boxes) else '(no detections), '}{dt[1].dt * 1E3:.1f}ms")
 
-    logging.info(f"Processing image: {img_path.name}")
+        # --- Timing statistics ---
+        pre_time = dt[0].t * 1000  # ms
+        inf_time = dt[1].t * 1000
+        post_time = dt[2].t * 1000
+        total_time = sum([t.t for t in dt]) * 1000
 
-    # End-to-end time (load + inference + draw)
-    start_time = time.time()
-    boxes, confs, cls_ids = model.detect(image, conf, iou)
-    overlay = draw_results(image, boxes, confs, cls_ids, CLASSES_NAME, is_xyxy=True)
-    total_time_ms = (time.time() - start_time) * 1000
-    fps = 1000 / total_time_ms if total_time_ms > 0 else 0
+        logging.info(
+            f"Detect time - Pre: {pre_time:.2f}ms | "
+            f"Infer: {inf_time:.2f}ms | "
+            f"Post: {post_time:.2f}ms | "
+            f"Total: {total_time:.2f}ms"
+        )
 
-    logging.info(f"Detected {len(boxes)} objects | Latency: {total_time_ms:.2f}ms | FPS: {fps:.1f}")
+        annotator = Annotator(im0, line_width=line_thickness)
+        if len(boxes):
+            for i in reversed(range(len(boxes))):
+                xyxy = boxes[i]
+                conf = confs[i]
+                cls_id = int(cls_ids[i])
 
-    if save:
-        if suffix != "":
-            suffix = '_' + suffix
-        save_path = output_dir / f"{img_path.stem}{suffix}.jpg"
-        cv2.imwrite(str(save_path), overlay)
-        logging.info(f"Result saved to: {save_path}")
+                label = CLASSES_NAME[cls_id]
+                annotator.box_label(xyxy, label, color=colors(cls_id, True))
+        im0 = annotator.result()
 
+        if save:
+            save_dir = Path(save_dir)
+            save_dir.mkdir(parents=True, exist_ok=True)
 
-def predict_video(
-        model: Any,
-        video_file: Union[Path, str],
-        output_dir: Union[Path, str] = "output",
-        suffix: str = "",
-        save: bool = False,
-        conf: float = 0.25,
-        iou: float = 0.45,
-):
-    """
-    Process a video file frame by frame and compute average FPS.
-    """
-    video_path = Path(video_file)
-    output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
+            p = Path(path)  # to Path
+            save_path = str(save_dir / p.name)  # im.jpg
 
-    cap = cv2.VideoCapture(str(video_path))
-    if not cap.isOpened():
-        raise ValueError(f"Cannot open video file: {video_path}")
-
-    frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-
-    logging.info(
-        f"Video info: {video_path.name} | {fps:.1f} FPS | {total_frames} frames | {frame_width}x{frame_height}")
-
-    writer = None
-    if save:
-        if suffix != "":
-            suffix = '_' + suffix
-        save_path = output_dir / f"{video_path.stem}{suffix}.mp4"
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        writer = cv2.VideoWriter(str(save_path), fourcc, fps, (frame_width, frame_height))
-
-    total_inference_time = 0.0
-    processed_frames = 0
-
-    try:
-        pbar = tqdm(total=total_frames, desc="Processing Video", unit="frame")
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
-
-            start_time = time.time()
-            boxes, confs, cls_ids = model.detect(frame, conf, iou)
-            overlay = draw_results(frame, boxes, confs, cls_ids, CLASSES_NAME, is_xyxy=True)
-            frame_time_ms = (time.time() - start_time) * 1000
-
-            total_inference_time += frame_time_ms
-            processed_frames += 1
-            pbar.update(1)
-
-            if save and writer:
-                writer.write(overlay)
-
-        pbar.close()
-    except Exception as e:
-        logging.error(f"Error during video processing: {e}")
-    finally:
-        cap.release()
-        if writer:
-            writer.release()
-
-    # Compute average performance
-    avg_time = total_inference_time / processed_frames if processed_frames > 0 else 0
-    avg_fps = 1000 / avg_time if avg_time > 0 else 0
-    logging.info(f"Average latency: {avg_time:.2f}ms/frame | Average FPS: {avg_fps:.1f}")
-
-    if save:
-        logging.info(f"Video saved to: {save_path}")
+            if dataset.mode == 'image':
+                cv2.imwrite(save_path, im0)
+                logging.info(f"Result saved to: {save_path}")
+            else:  # 'video' or 'stream'
+                if vid_path != save_path:  # new video
+                    vid_path = save_path
+                    if isinstance(vid_writer, cv2.VideoWriter):
+                        vid_writer.release()  # release previous video writer
+                    if vid_cap:  # video
+                        fps = vid_cap.get(cv2.CAP_PROP_FPS)
+                        w = int(vid_cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                        h = int(vid_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                    else:  # stream
+                        fps, w, h = 30, im0.shape[1], im0.shape[0]
+                    save_path = str(Path(save_path).with_suffix('.mp4'))  # force *.mp4 suffix on results videos
+                    vid_writer = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
+                vid_writer.write(im0)
 
 
 def parse_opt() -> argparse.Namespace:
     """
     Parse command-line arguments.
     """
-    parser = argparse.ArgumentParser(
-        description="YOLOv8 Inference",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
+    parser = argparse.ArgumentParser(description="YOLOv8 Inference",
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     parser.add_argument(
-        "model",
+        'weight',
         type=str,
-        help="Path to model file (e.g., yolov8s.onnx)"
+        help='Path to model file (e.g., yolov8s.onnx)'
     )
     parser.add_argument(
-        "input",
+        'source',
         type=str,
-        help="Path to input image or video"
+        help='Path to input image or video'
     )
 
     parser.add_argument(
@@ -189,38 +145,24 @@ def parse_opt() -> argparse.Namespace:
     parser.add_argument(
         "--conf",
         type=float,
-        default=0.25,
+        default=0.25,  # (float, optional) object confidence threshold for detection (default 0.25 predict, 0.001 val)
         help="Confidence threshold for object detection"
     )
     parser.add_argument(
         "--iou",
         type=float,
-        default=0.45,
+        default=0.7,  # (float) intersection over union (IoU) threshold for NMS
         help="IOU threshold for Non-Max Suppression (NMS)"
     )
 
     parser.add_argument(
-        "--output",
+        "--save_dir",
         type=str,
         default="output",
         help="Output directory for results"
     )
 
     args = parser.parse_args()
-
-    # Validate input path
-    input_path = Path(args.input)
-    if not input_path.exists():
-        parser.error(f"Input file does not exist: {args.input}")
-
-    # Detect mode (image or video)
-    ext = input_path.suffix.lower()
-    if ext in IMAGE_EXTS:
-        args.mode = "image"
-    elif ext in VIDEO_EXTS:
-        args.mode = "video"
-    else:
-        parser.error(f"Unsupported file extension: {ext}. Supported: {IMAGE_EXTS | VIDEO_EXTS}")
 
     logging.info(f"Parsed arguments: {args}")
     return args
@@ -232,28 +174,33 @@ def main():
     if args.backend == "onnxruntime":
         if args.processor == "torch":
             try:
-                from yolov8_runtime_w_torch import YOLOv8Runtime
+                from yolov8_runtime_w_torch import YOLOv8RuntimeTorch
+                logging.info("Using YOLOv8RuntimeTorch")
+                ModelClass = YOLOv8RuntimeTorch
             except ImportError:
-                raise ImportError(f"PyTorch processor selected, but YOLOv8Runtime is not available.")
+                raise ImportError(f"PyTorch processor selected, but YOLOv8RuntimeTorch is not available.")
         else:
             try:
-                from yolov8_runtime_w_numpy import YOLOv8Runtime
+                from yolov8_runtime_w_numpy import YOLOv8RuntimeNumpy
+                logging.info("Using YOLOv8RuntimeNumpy")
+                ModelClass = YOLOv8RuntimeNumpy
             except ImportError:
-                raise ImportError(f"Numpy processor selected, but YOLOv8Runtime is not available.")
+                raise ImportError(f"Numpy processor selected, but YOLOv8RuntimeNumpy is not available.")
 
-        ModelClass = YOLOv8Runtime
     elif args.backend == "tensorrt":
-        raise ValueError(f"Backend '{args.backend}' is not supported yet.")
+        pass
     else:
         raise ValueError(f"Unsupported backend type: {args.backend}")
 
     # Load model
-    model = ModelClass(args.model)
-    logging.info(f"Model loaded: {args.model} | Processor: {args.processor} | Backend: {args.backend}")
+    model = ModelClass(args.weight)
+    logging.info(f"Model loaded: {args.weight} | Processor: {args.processor} | Backend: {args.backend}")
+
+    model_name = os.path.basename(args.weight).split('.')[0]
+    save_dir = os.path.join(args.save_dir, model_name)
 
     # Run inference
-    predict = predict_image if args.mode == "image" else predict_video
-    predict(model, args.input, args.output, save=True, conf=args.conf, iou=args.iou)
+    predict_source(model, args.source, save_dir=save_dir, save=True, conf_thresh=args.conf, iou_thresh=args.iou)
 
 
 if __name__ == "__main__":

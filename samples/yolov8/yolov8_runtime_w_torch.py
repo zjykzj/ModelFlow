@@ -7,9 +7,7 @@
 @Description: 
 """
 
-import time
-import logging
-from typing import Union, Tuple, Optional
+from typing import Union, Tuple, Optional, Any, List
 
 import numpy as np
 from numpy import ndarray
@@ -18,60 +16,150 @@ import torch
 from torch import Tensor
 
 from core.backends.backend_runtime import BackendRuntime
-from numpy_util import letterbox
+from core.utils.general import Profile
+from core.utils.v8.preprocess import LetterBox
 from torch_util import non_max_suppression, scale_boxes
 
 
-def preprocess(im0: ndarray, img_size: Union[int, Tuple] = 640, stride: int = 32, auto: bool = False) -> ndarray:
+def pre_transform(im, imgsz: Union[int, Tuple] = 640, stride: int = 32, auto: bool = False):
     """
-    图像预处理：缩放、转格式、归一化、添加 batch 维度。
+    Apply preprocessing transformation (e.g., letterbox resizing) to a list of input images before model inference.
+
+    This function ensures all images are resized to the target size while preserving aspect ratio,
+    padding with gray values if necessary (letterboxing). It's typically used when inputs are raw images.
+
+    Args:
+        im (List[np.ndarray]): List of input images. Each image is in HWC (height, width, channels) format, BGR color space.
+                               Shape: [(H, W, 3)] * N, where N is the number of images.
+        imgsz (Union[int, Tuple]): Target input size for the model. If int, a square image (imgsz x imgsz) is assumed.
+                                   Can be a tuple (h, w) for rectangular input.
+        stride (int): Model's stride (e.g., 32 for YOLOv8). Output shape must be divisible by stride.
+                      Used to adjust padding in letterbox.
+        auto (bool): If True, enables dynamic padding based on image shape. When combined with `same_shapes=True`,
+                     disables padding entirely (i.e., uses simple resize).
+
+    Returns:
+        (list): A list of preprocessed NumPy arrays (in HWC format), resized and padded as needed.
+                Each element has shape (resized_h, resized_w, 3).
     """
-    im = letterbox(im0, img_size, stride=stride, auto=auto)[0]  # padded resize
-    im = im.transpose((2, 0, 1))[::-1]  # HWC to CHW, BGR to RGB
-    im = np.ascontiguousarray(im)
-    im = im.astype(np.float32)
-    im /= 255.0  # 0-255 to 0.0-1.0
-    if im.ndim == 3:
-        im = im[None]  # expand for batch dim
-    return im
+    same_shapes = len({x.shape for x in im}) == 1
+    letterbox = LetterBox(imgsz, auto=same_shapes and auto, stride=stride)
+    return [letterbox(image=x) for x in im]
+
+
+def preprocess(im: ndarray, imgsz: Union[int, Tuple] = 640, stride: int = 32, auto: bool = False,
+               fp16: bool = False) -> Any:
+    """
+      Sourced from https://github.com/ultralytics/ultralytics/blob/25307552100e4c03c8fec7b0f7286b4244018e15/ultralytics/engine/predictor.py#L115
+
+      Preprocess input image(s) for inference with the YOLOv8 model.
+
+      This function handles both NumPy arrays and PyTorch tensors. For NumPy inputs, it performs:
+      - Batch dimension expansion (if missing)
+      - Letterbox resizing
+      - Color space conversion (BGR -> RGB)
+      - Channel ordering (HWC -> CHW)
+      - Contiguity enforcement
+      - Normalization (0-255 -> 0.0-1.0)
+      - Data type conversion (uint8 -> float32 or float16)
+
+      For tensor inputs, only normalization and type conversion are applied.
+
+      Args:
+          im (torch.Tensor | List[np.ndarray]): Input image(s).
+              - If tensor: Expected in BCHW format (batch, channels, height, width), uint8.
+              - If list of arrays: List of HWC images (BGR), no batch dim; will be stacked.
+          imgsz (Union[int, Tuple]): Target size for resizing (used only if input is list/array).
+          stride (int): Downsample stride of the model (used in letterbox padding alignment).
+          auto (bool): Whether to enable auto-padding based on image shape (see `LetterBox`).
+          fp16 (bool): If True, convert image tensor to half precision (float16). Otherwise, float32.
+
+      Returns:
+          (np.ndarray): Preprocessed image as a NumPy array in BCHW format, normalized to [0, 1],
+                        with dtype float16 (if fp16=True) or float32.
+                        Shape: (N, 3, resized_h, resized_w)
+      """
+    not_tensor = not isinstance(im, torch.Tensor)
+    if not_tensor:
+        if len(im.shape) == 3:
+            im = im[None]  # expand for batch dim
+        im = np.stack(pre_transform(im, imgsz, stride=stride, auto=auto))
+        im = im[..., ::-1].transpose((0, 3, 1, 2))  # BGR to RGB, BHWC to BCHW, (n, 3, h, w)
+        im = np.ascontiguousarray(im)  # contiguous
+        im = torch.from_numpy(im)
+
+    im = im
+    im = im.half() if fp16 else im.float()  # uint8 to fp16/32
+    if not_tensor:
+        im /= 255  # 0 - 255 to 0.0 - 1.0
+    return im.numpy()
 
 
 def postprocess(
-        preds: ndarray,
-        im_shape: tuple,  # (h, w) of input to model
-        im0_shape: tuple,  # (h, w) of original image
+        pred: Union[Tensor, List[Tensor]],
+        im_shape: Tuple,  # (h, w) of input to model
+        im0_shape: Tuple,  # (h, w) of original image
         conf: float = 0.25,
         iou: float = 0.45,
         classes: Optional[list] = None,
         agnostic: bool = False,
         max_det: int = 300,
-) -> tuple:
+) -> Tuple:
     """
-    后处理：NMS + 坐标缩放。
+    Post-process model predictions (detections) after inference.
+
+    Applies Non-Max Suppression (NMS) to filter overlapping bounding boxes,
+    scales detection boxes back to original image coordinates, and separates outputs.
+
+    Args:
+        pred (Union[Tensor, List[Tensor]]): Raw model output detections. Shape: (batch, num_boxes, 4 + 1 + num_classes)
+        im_shape (Tuple): Shape of the image fed into the model (after preprocessing), as (height, width).
+        im0_shape (Tuple): Original shape of the input image (before any preprocessing), as (height, width).
+        conf (float): Confidence threshold for filtering detections.
+        iou (float): IoU threshold for NMS.
+        classes (Optional[list]): List of class indices to keep. If None, keep all classes.
+        agnostic (bool): If True, perform NMS across all classes (class-agnostic).
+        max_det (int): Maximum number of detections to keep per image.
+
     Returns:
-        boxes, confs, cls_ids
+        (Tuple): A tuple containing:
+            - boxes (np.ndarray or []): Scaled bounding boxes in xyxy format, shape (N, 4), relative to original image.
+            - confs (np.ndarray or []): Confidence scores for each kept detection, shape (N, 1).
+            - cls_ids (np.ndarray or []): Predicted class IDs, shape (N, 1).
+            If no detections, returns empty lists.
     """
-    pred = non_max_suppression(preds, conf, iou, classes, agnostic, max_det=max_det)[0]
-    boxes = scale_boxes(im_shape, pred[:, :4], im0_shape)
-    confs = pred[:, 4:5]
-    cls_ids = pred[:, 5:6]
+    pred = non_max_suppression(
+        pred,
+        conf,
+        iou,
+        classes,
+        agnostic,
+        max_det=max_det,
+    )[0]
+
+    if len(pred) > 0:
+        boxes = scale_boxes(im_shape, pred[:, :4], im0_shape)
+        confs = pred[:, 4:5]
+        cls_ids = pred[:, 5:6]
+    else:
+        boxes, confs, cls_ids = [], [], []
     return boxes, confs, cls_ids
 
 
-class YOLOv8Runtime:
+class YOLOv8RuntimeTorch:
 
-    def __init__(self, weight: str = 'yolov8s.onnx'):
+    def __init__(self, weight: str = 'yolov8s.onnx', providers=None):
         super().__init__()
-        self.session = BackendRuntime(weight)
+        if providers is None:
+            providers = ['CPUExecutionProvider']
+        self.session = BackendRuntime(weight, providers=providers)
         self.session.load()
 
-        input_name = self.session.get_input_names()[0]
-        self.net_h, self.net_w = self.session.get_input_shapes()[input_name][2:]
+        self.input_name = self.session.get_input_names()[0]
+        self.net_h, self.net_w = self.session.get_input_shapes()[self.input_name][2:]
+        self.output_names = self.session.output_names
 
-        if self.session.providers[0] == 'CUDAExecutionProvider':
-            self.device = torch.device('cuda')
-        else:
-            self.device = torch.device('cpu')
+        self.device = torch.device('cpu')
 
     def from_numpy(self, x):
         """
@@ -85,53 +173,41 @@ class YOLOv8Runtime:
         """
         return torch.tensor(x).to(self.device) if isinstance(x, np.ndarray) else x
 
-    def infer(self, im: ndarray) -> Tensor:
-        input_name = self.session.input_names[0]
-        output_dict = self.session.infer({input_name: im})
-        output_name = self.session.output_names[0]
-        return self.from_numpy(output_dict[output_name])
+    def infer(self, im: ndarray) -> List[Any]:
+        output_dict = self.session.infer({self.input_name: im})
 
-    def detect(self, im0: ndarray, conf: float = 0.25, iou: float = 0.45) -> tuple:
+        pred = []
+        for output_name in self.output_names:
+            pred.append(self.from_numpy(output_dict[output_name]))
+        return pred
+
+    def detect(self, im0: ndarray, conf: float = 0.25, iou: float = 0.45) -> Tuple:
         """
         Detect objects in the image and measure time consumption for each stage.
         Returns:
-            boxes, confs, cls_ids
+            boxes, confs, cls_ids, dt
         """
         # Record start time
-        t0 = time.perf_counter()
+        dt = (Profile(), Profile(), Profile())
 
         # --- Preprocessing ---
-        t_pre_start = time.perf_counter()
-        im = preprocess(im0, (self.net_h, self.net_w))
-        t_pre_end = time.perf_counter()
+        with dt[0]:
+            im = preprocess(im0, (self.net_h, self.net_w))
+            im_shape = im.shape[2:]  # Model input shape (h, w)
+            im0_shape = im0.shape[:2]  # Original image shape (h, w)
 
         # --- Inference ---
-        t_inf_start = time.perf_counter()
-        outputs = self.infer(im)
-        t_inf_end = time.perf_counter()
+        with dt[1]:
+            pred = self.infer(im)
 
         # --- Postprocessing ---
-        t_post_start = time.perf_counter()
-        boxes, confs, cls_ids = postprocess(
-            outputs,
-            im.shape[2:],  # Model input shape (h, w)
-            im0.shape[:2],  # Original image shape (h, w)
-            conf=conf,
-            iou=iou
-        )
-        t_post_end = time.perf_counter()
+        with dt[2]:
+            boxes, confs, cls_ids = postprocess(
+                pred,
+                im_shape,
+                im0_shape,
+                conf=conf,
+                iou=iou
+            )
 
-        # --- Timing statistics ---
-        pre_time = (t_pre_end - t_pre_start) * 1000  # ms
-        inf_time = (t_inf_end - t_inf_start) * 1000
-        post_time = (t_post_end - t_post_start) * 1000
-        total_time = (t_post_end - t0) * 1000
-
-        logging.info(
-            f"Detect time - Pre: {pre_time:.2f}ms | "
-            f"Infer: {inf_time:.2f}ms | "
-            f"Post: {post_time:.2f}ms | "
-            f"Total: {total_time:.2f}ms"
-        )
-
-        return boxes, confs, cls_ids
+        return boxes, confs, cls_ids, dt
