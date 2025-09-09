@@ -39,4 +39,7 @@ python3 samples/yolov5/infer.py models/yolov5s.onnx assets/bus.jpg
 
 # Use PyTorch for Pre/Post-processing
 python3 samples/yolov5/infer.py models/yolov5s.onnx assets/bus.jpg --processor torch
+
+# Use TensorRT for infer
+python3 samples/yolov5/infer.py models/yolov5s_fp16.engine assets --backend tensorrt
 ```

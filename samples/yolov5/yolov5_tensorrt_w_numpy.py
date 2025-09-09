@@ -7,9 +7,6 @@
 @Description: 
 """
 
-import logging
-
-import numpy as np
 from numpy import ndarray
 from typing import Union, Tuple, Optional, Any, List
 
@@ -20,7 +17,7 @@ from yolov5_runtime_w_numpy import preprocess, postprocess
 
 class YOLOv5TensorRT:
 
-    def __init__(self, weight: str = 'yolov5s.onnx'):
+    def __init__(self, weight: str = 'yolov5s.engine'):
         super().__init__()
         self.session = BackendTensorRT(weight)
         self.session.load()
@@ -29,7 +26,7 @@ class YOLOv5TensorRT:
         self.net_h, self.net_w = self.session.get_input_shapes()[self.input_name][2:]
         self.output_names = self.session.output_names
 
-    def infer(self, im: ndarray) -> list[Any]:
+    def infer(self, im: ndarray) -> List[Any]:
         output_dict = self.session.infer({self.input_name: im})
 
         pred = []
@@ -37,18 +34,20 @@ class YOLOv5TensorRT:
             pred.append(output_dict[output_name])
         return pred
 
-    def detect(self, im0: ndarray, conf: float = 0.25, iou: float = 0.45, fp16: bool = False) -> tuple:
+    def detect(self, im0: ndarray, conf: float = 0.25, iou: float = 0.45) -> Tuple:
         """
         Detect objects in the image and measure time consumption for each stage.
         Returns:
-            boxes, confs, cls_ids
+            boxes, confs, cls_ids, dt
         """
         # Record start time
         dt = (Profile(), Profile(), Profile())
 
         # --- Preprocessing ---
         with dt[0]:
-            im, ratio, padding = preprocess(im0, (self.net_h, self.net_w), fp16=fp16)
+            im, ratio, padding = preprocess(im0, (self.net_h, self.net_w))
+            im_shape = im.shape[2:]  # Model input shape (h, w)
+            im0_shape = im0.shape[:2]  # Original image shape (h, w)
 
         # --- Inference ---
         with dt[1]:
@@ -58,23 +57,10 @@ class YOLOv5TensorRT:
         with dt[2]:
             boxes, confs, cls_ids = postprocess(
                 pred,
-                im.shape[2:],  # Model input shape (h, w)
-                im0.shape[:2],  # Original image shape (h, w)
+                im_shape,
+                im0_shape,
                 conf=conf,
                 iou=iou
             )
 
-        # --- Timing statistics ---
-        pre_time = dt[0].t * 1000  # ms
-        inf_time = dt[1].t * 1000
-        post_time = dt[2].t * 1000
-        total_time = sum([t.t for t in dt]) * 1000
-
-        logging.info(
-            f"Detect time - Pre: {pre_time:.2f}ms | "
-            f"Infer: {inf_time:.2f}ms | "
-            f"Post: {post_time:.2f}ms | "
-            f"Total: {total_time:.2f}ms"
-        )
-
-        return boxes, confs, cls_ids
+        return boxes, confs, cls_ids, dt

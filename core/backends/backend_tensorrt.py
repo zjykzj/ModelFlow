@@ -11,8 +11,9 @@
 >>>docker run -it --gpus=all --shm-size=16g -v /etc/localtime:/etc/localtime -v $(pwd):/workdir --workdir=/workdir --name tensorrt-v8.x ultralytics/yolov5:v7.0
 
 # Convert onnx to engine
->>>trtexec --onnx=yolov5s.onnx --saveEngine=yolov5s_fp16.engine --explicitBatch --inputIOFormats=fp16:chw --outputIOFormats=fp16:chw --fp16
->>>trtexec --onnx=yolov8n.onnx --saveEngine=yolov8n_fp16.engine --explicitBatch --inputIOFormats=fp16:chw --outputIOFormats=fp16:chw --fp16
+>>>trtexec --onnx=yolov5s.onnx --saveEngine=yolov5s_fp16.engine --fp16 --explicitBatch --workspace=4G --inputIOFormats=fp16:chw --outputIOFormats=fp16:chw
+# New Gammar for 8.5.0.12-1+cuda11.8
+>>>trtexec --onnx=yolov5s.onnx --saveEngine=yolov5s_fp16.engine --fp16 --explicitBatch --memPoolSize=workspace:4096MiB --inputIOFormats=fp16:chw --outputIOFormats=fp16:chw
 
 # Install pycuda
 >>>pip3 install pycuda==2023.1 tensorrt -i https://pypi.tuna.tsinghua.edu.cn/simple

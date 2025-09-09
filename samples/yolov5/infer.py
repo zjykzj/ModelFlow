@@ -190,10 +190,9 @@ def main():
         try:
             from yolov5_tensorrt_w_numpy import YOLOv5TensorRT
             logging.info(f"Using YOLOv5TensorRT with Numpy")
+            ModelClass = YOLOv5TensorRT
         except ImportError:
             raise ImportError(f"Numpy processor selected, but YOLOv5TensorRT is not available.")
-
-        ModelClass = YOLOv5TensorRT
     else:
         raise ValueError(f"Unsupported backend type: {args.backend}")
 
