@@ -39,7 +39,6 @@ from core.utils.plots import Annotator, colors
 
 def predict_source(
         model: Any,
-        names: List[str],
         source: str,
         save_dir: str = "output",
         save: bool = False,
@@ -76,10 +75,10 @@ def predict_source(
         if len(boxes):
             for i in reversed(range(len(boxes))):
                 xyxy = boxes[i]
-                conf = float(confs[i])
-                cls_id = int(cls_ids[i])
+                conf = float(confs[i][0])
+                cls_id = int(cls_ids[i][0])
 
-                label = f'{names[cls_id]} {conf:.2f}'
+                label = f'{model.classes[cls_id]} {conf:.2f}'
                 annotator.box_label(xyxy, label, color=colors(cls_id, True))
         im0 = annotator.result()
 
@@ -126,6 +125,11 @@ def parse_opt() -> argparse.Namespace:
         type=str,
         help='Path to input image or video'
     )
+    parser.add_argument(
+        'data',
+        type=str,
+        help='Path to dataset.yaml'
+    )
 
     parser.add_argument(
         "--backend",
@@ -142,12 +146,6 @@ def parse_opt() -> argparse.Namespace:
         help="Pre/Post-processing backend: use NumPy or PyTorch"
     )
 
-    parser.add_argument(
-        '--data',
-        type=str,
-        default=None,
-        help='(optional) dataset.yaml path'
-    )
     # Add confidence and IOU (NMS) threshold arguments
     parser.add_argument(
         "--conf",
@@ -181,11 +179,11 @@ def main():
     if args.backend == "onnxruntime":
         if args.processor == "torch":
             try:
-                from yolov8_seg_runtime_w_torch import YOLOv8SegRuntimeTorch
-                logging.info("Using YOLOv8SegRuntimeTorch")
-                ModelClass = YOLOv8SegRuntimeTorch
+                from yolov8_seg_runtime_w_torch import YOLOv8RuntimeTorch
+                logging.info("Using YOLOv8RuntimeTorch")
+                ModelClass = YOLOv8RuntimeTorch
             except ImportError:
-                raise ImportError(f"PyTorch processor selected, but YOLOv8SegRuntimeTorch is not available.")
+                raise ImportError(f"PyTorch processor selected, but YOLOv8RuntimeTorch is not available.")
         else:
             pass
             # try:
@@ -211,7 +209,7 @@ def main():
     save_dir = os.path.join(str(args.save_dir), str(model_name))
 
     # Run inference
-    predict_source(model, names, args.source, save_dir=save_dir, save=True, conf_thresh=args.conf, iou_thresh=args.iou)
+    predict_source(model, args.source, save_dir=save_dir, save=True, conf_thresh=args.conf, iou_thresh=args.iou)
 
 
 if __name__ == "__main__":

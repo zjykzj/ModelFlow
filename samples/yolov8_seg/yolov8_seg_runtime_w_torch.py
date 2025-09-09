@@ -9,6 +9,7 @@
 
 from typing import Union, Tuple, Optional, Any, List
 
+import cv2
 import numpy as np
 from numpy import ndarray
 
@@ -130,7 +131,7 @@ def postprocess(
         classes: Optional[list] = None,
         agnostic: bool = False,
         max_det: int = 300,
-        nc: int = None,
+        nc: int = 0,  # number of classes (optional)
 ) -> Tuple:
     """
     Post-process model predictions (detections) after inference.
@@ -147,6 +148,7 @@ def postprocess(
         classes (Optional[list]): List of class indices to keep. If None, keep all classes.
         agnostic (bool): If True, perform NMS across all classes (class-agnostic).
         max_det (int): Maximum number of detections to keep per image.
+        nc (int, optional): The number of classes output by the model. Any indices after this will be considered masks.
 
     Returns:
         (Tuple): A tuple containing:
@@ -187,7 +189,7 @@ def postprocess(
     return boxes, confs, cls_ids
 
 
-class YOLOv8SegRuntimeTorch:
+class YOLOv8RuntimeTorch:
 
     def __init__(self, classes: List[str], weight: str = 'yolov8s.onnx', providers: List[str] = None):
         super().__init__()
