@@ -7,110 +7,120 @@
 @Description: 
 """
 
-import time
-import logging
-from typing import Union, Tuple, Optional
-
 import numpy as np
 from numpy import ndarray
+from typing import Union, Tuple, Optional, Any, List
 
 from core.backends.backend_runtime import BackendRuntime
-from numpy_util import letterbox, non_max_suppression, scale_boxes
+from core.utils.general import Profile
+from core.utils.v5.preprocessor import letterbox
+from core.utils.v8.postprocessor import non_max_suppression, scale_boxes
 
 
-def preprocess(im0: ndarray, img_size: Union[int, Tuple] = 640, stride: int = 32, auto: bool = False) -> ndarray:
+def preprocess(im0: ndarray, img_size: Union[int, Tuple] = 640, stride: int = 32, auto: bool = False,
+               fp16: bool = False) -> Tuple:
     """
-    图像预处理：缩放、转格式、归一化、添加 batch 维度。
+    Preprocess the input image: resize with padding, convert format from HWC to CHW and BGR to RGB,
+    normalize values from range 0-255 to 0.0-1.0, and add a batch dimension.
+
+    Parameters:
+    - im0: Input image as an ndarray.
+    - img_size: Target image size for resizing (can be an integer or a tuple).
+    - stride: Stride value for resizing operations.
+    - auto: Parameter for letterbox resizing that determines whether to automatically adjust dimensions.
+    - fp16: If True, converts the image data type to float16; otherwise, uses float32.
+
+    Returns:
+    - im: Preprocessed image ready for input into a neural network model.
+    - ratio: The ratio of resized image dimensions relative to the original.
+    - (dw, dh): Padding widths on the x and y axes added during preprocessing.
     """
-    im = letterbox(im0, img_size, stride=stride, auto=auto)[0]  # padded resize
+    im, ratio, (dw, dh) = letterbox(im0, img_size, stride=stride, auto=auto)  # padded resize
     im = im.transpose((2, 0, 1))[::-1]  # HWC to CHW, BGR to RGB
     im = np.ascontiguousarray(im)
-    im = im.astype(np.float32)
-    im /= 255.0  # 0-255 to 0.0-1.0
-    if im.ndim == 3:
+
+    im = im.astype(np.float16) if fp16 else im.astype(np.float32)  # uint8 to fp16/32
+    im /= 255  # 0 - 255 to 0.0 - 1.0
+    if len(im.shape) == 3:
         im = im[None]  # expand for batch dim
-    return im
+
+    return im, ratio, (dw, dh)
 
 
 def postprocess(
-        preds: ndarray,
-        im_shape: tuple,  # (h, w) of input to model
-        im0_shape: tuple,  # (h, w) of original image
+        pred: List[ndarray],
+        im_shape: Tuple,  # (h, w) of input to model
+        im0_shape: Tuple,  # (h, w) of original image
         conf: float = 0.25,
         iou: float = 0.45,
         classes: Optional[list] = None,
         agnostic: bool = False,
         max_det: int = 300,
-) -> tuple:
+) -> Tuple:
     """
-    后处理：NMS + 坐标缩放。
-    Returns:
-        boxes, confs, cls_ids
-    """
-    pred = non_max_suppression(preds, conf, iou, classes, agnostic, max_det=max_det)[0]
-    boxes = scale_boxes(im_shape, pred[:, :4], im0_shape)
-    confs = pred[:, 4:5]
-    cls_ids = pred[:, 5:6]
+     Postprocessing: NMS + coordinate scaling.
+     Returns:
+         boxes, confs, cls_ids
+     """
+    det = non_max_suppression(pred, conf, iou, classes, agnostic, max_det=max_det)[0]
+
+    if len(det) > 0:
+        boxes = scale_boxes(im_shape, det[:, :4], im0_shape).round()
+        confs = det[:, 4:5]
+        cls_ids = det[:, 5:6]
+    else:
+        boxes, confs, cls_ids = [], [], []
     return boxes, confs, cls_ids
 
 
-class YOLOv8Runtime:
+class YOLOv8RuntimeNumpy:
 
-    def __init__(self, weight: str = 'yolov8s.onnx'):
+    def __init__(self, weight: str = 'yolov8s.onnx', providers=None):
         super().__init__()
-        self.session = BackendRuntime(weight)
+        if providers is None:
+            providers = ['CPUExecutionProvider']
+        self.session = BackendRuntime(weight, providers=providers)
         self.session.load()
 
-        input_name = self.session.get_input_names()[0]
-        self.net_h, self.net_w = self.session.get_input_shapes()[input_name][2:]
+        self.input_name = self.session.get_input_names()[0]
+        self.net_h, self.net_w = self.session.get_input_shapes()[self.input_name][2:]
+        self.output_names = self.session.output_names
 
-    def infer(self, im: ndarray) -> ndarray:
-        input_name = self.session.input_names[0]
-        output_dict = self.session.infer({input_name: im})
-        output_name = self.session.output_names[0]
-        return output_dict[output_name]
+    def infer(self, im: ndarray) -> List[Any]:
+        output_dict = self.session.infer({self.input_name: im})
 
-    def detect(self, im0: ndarray, conf: float = 0.25, iou: float = 0.45) -> tuple:
+        pred = []
+        for output_name in self.output_names:
+            pred.append(output_dict[output_name])
+        return pred
+
+    def detect(self, im0: ndarray, conf: float = 0.25, iou: float = 0.45) -> Tuple:
         """
         Detect objects in the image and measure time consumption for each stage.
         Returns:
-            boxes, confs, cls_ids
+            boxes, confs, cls_ids, dt
         """
         # Record start time
-        t0 = time.perf_counter()
+        dt = (Profile(), Profile(), Profile())
 
         # --- Preprocessing ---
-        t_pre_start = time.perf_counter()
-        im = preprocess(im0, (self.net_h, self.net_w))
-        t_pre_end = time.perf_counter()
+        with dt[0]:
+            im, ratio, padding = preprocess(im0, (self.net_h, self.net_w))
+            im_shape = im.shape[2:]  # Model input shape (h, w)
+            im0_shape = im0.shape[:2]  # Original image shape (h, w)
 
         # --- Inference ---
-        t_inf_start = time.perf_counter()
-        outputs = self.infer(im)
-        t_inf_end = time.perf_counter()
+        with dt[1]:
+            pred = self.infer(im)
 
         # --- Postprocessing ---
-        t_post_start = time.perf_counter()
-        boxes, confs, cls_ids = postprocess(
-            outputs,
-            im.shape[2:],  # Model input shape (h, w)
-            im0.shape[:2],  # Original image shape (h, w)
-            conf=conf,
-            iou=iou
-        )
-        t_post_end = time.perf_counter()
+        with dt[2]:
+            boxes, confs, cls_ids = postprocess(
+                pred,
+                im_shape,
+                im0_shape,
+                conf=conf,
+                iou=iou
+            )
 
-        # --- Timing statistics ---
-        pre_time = (t_pre_end - t_pre_start) * 1000  # ms
-        inf_time = (t_inf_end - t_inf_start) * 1000
-        post_time = (t_post_end - t_post_start) * 1000
-        total_time = (t_post_end - t0) * 1000
-
-        logging.info(
-            f"Detect time - Pre: {pre_time:.2f}ms | "
-            f"Infer: {inf_time:.2f}ms | "
-            f"Post: {post_time:.2f}ms | "
-            f"Total: {total_time:.2f}ms"
-        )
-
-        return boxes, confs, cls_ids
+        return boxes, confs, cls_ids, dt

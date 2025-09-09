@@ -17,7 +17,7 @@ from torch import Tensor
 
 from core.backends.backend_runtime import BackendRuntime
 from core.utils.general import Profile
-from core.utils.v8.preprocess import LetterBox
+from core.utils.v8.postprocessor import LetterBox
 from torch_util import non_max_suppression, scale_boxes
 
 
