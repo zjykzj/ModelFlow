@@ -14,6 +14,7 @@
 >>>trtexec --onnx=yolov5s.onnx --saveEngine=yolov5s_fp16.engine --fp16 --explicitBatch --workspace=4G --inputIOFormats=fp16:chw --outputIOFormats=fp16:chw
 # New Gammar for 8.5.0.12-1+cuda11.8
 >>>trtexec --onnx=yolov5s.onnx --saveEngine=yolov5s_fp16.engine --fp16 --explicitBatch --memPoolSize=workspace:4096MiB --inputIOFormats=fp16:chw --outputIOFormats=fp16:chw
+>>>trtexec --onnx=yolov8s-seg.onnx --saveEngine=yolov8s-seg_fp16.engine --fp16 --explicitBatch --memPoolSize=workspace:4096MiB --inputIOFormats=fp16:chw --outputIOFormats=fp16:chw
 
 # Install pycuda
 >>>pip3 install pycuda==2023.1 tensorrt -i https://pypi.tuna.tsinghua.edu.cn/simple
@@ -326,7 +327,7 @@ class BackendTensorRT(BackendBase):
         self.device_outputs.clear()
 
         self._is_loaded = False
-        print("TensorRT 资源已释放。")
+        print("TensorRT resources have been released.")
 
     def __enter__(self):
         """支持 with 语句进入。"""
