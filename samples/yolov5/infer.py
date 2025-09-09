@@ -173,18 +173,19 @@ def main():
     if args.backend == "onnxruntime":
         if args.processor == "torch":
             try:
-                from yolov5_runtime_w_torch import YOLOv5Runtime
-                logging.info("Using YOLOv5Runtime with PyTorch")
+                from yolov5_runtime_w_torch import YOLOv5RuntimeTorch
+                logging.info("Using YOLOv5RuntimeTorch")
+                ModelClass = YOLOv5RuntimeTorch
             except ImportError:
-                raise ImportError(f"PyTorch processor selected, but YOLOv5Runtime is not available.")
+                raise ImportError(f"PyTorch processor selected, but YOLOv5RuntimeTorch is not available.")
         else:
             try:
-                from yolov5_runtime_w_numpy import YOLOv5Runtime
-                logging.info("Using YOLOv5Runtime with Numpy")
+                from yolov5_runtime_w_numpy import YOLOv5RuntimeNumpy
+                logging.info("Using YOLOv5RuntimeNumpy")
+                ModelClass = YOLOv5RuntimeNumpy
             except ImportError:
-                raise ImportError(f"Numpy processor selected, but YOLOv5Runtime is not available.")
+                raise ImportError(f"Numpy processor selected, but YOLOv5RuntimeNumpy is not available.")
 
-        ModelClass = YOLOv5Runtime
     elif args.backend == "tensorrt":
         try:
             from yolov5_tensorrt_w_numpy import YOLOv5TensorRT

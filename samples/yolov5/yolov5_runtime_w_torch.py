@@ -14,9 +14,9 @@ import torch
 from numpy import ndarray
 from torch import Tensor
 
-from core.backends.backend_runtime import BackendRuntime
-from core.utils.general import Profile
 from core.utils.preprocessor import letterbox
+from core.utils.general import Profile
+from core.backends.backend_runtime import BackendRuntime
 from torch_util import non_max_suppression, scale_boxes
 
 
@@ -38,11 +38,11 @@ def preprocess(im0: ndarray, img_size: Union[int, Tuple] = 640, stride: int = 32
     if len(im.shape) == 3:
         im = im[None]  # expand for batch dim
 
-    return im, ratio, (dw, dh)
+    return im.numpy(), ratio, (dw, dh)
 
 
 def postprocess(
-        pred: List[Tensor],
+        pred: Union[Tensor, List[Tensor]],
         im_shape: Tuple,  # (h, w) of input to model
         im0_shape: Tuple,  # (h, w) of original image
         conf: float = 0.25,
@@ -67,21 +67,20 @@ def postprocess(
     return boxes, confs, cls_ids
 
 
-class YOLOv5Runtime:
+class YOLOv5RuntimeTorch:
 
-    def __init__(self, weight: str = 'yolov5s.onnx'):
+    def __init__(self, weight: str = 'yolov5s.onnx', providers=None):
         super().__init__()
-        self.session = BackendRuntime(weight)
+        if providers is None:
+            providers = ['CPUExecutionProvider']
+        self.session = BackendRuntime(weight, providers=providers)
         self.session.load()
 
         self.input_name = self.session.get_input_names()[0]
         self.net_h, self.net_w = self.session.get_input_shapes()[self.input_name][2:]
         self.output_names = self.session.output_names
 
-        if self.session.providers[0] == 'CUDAExecutionProvider':
-            self.device = torch.device('cuda')
-        else:
-            self.device = torch.device('cpu')
+        self.device = torch.device('cpu')
 
     def from_numpy(self, x):
         """
@@ -107,7 +106,7 @@ class YOLOv5Runtime:
         """
         Detect objects in the image and measure time consumption for each stage.
         Returns:
-            boxes, confs, cls_ids
+            boxes, confs, cls_ids, dt
         """
         # Record start time
         dt = (Profile(), Profile(), Profile())
@@ -115,17 +114,19 @@ class YOLOv5Runtime:
         # --- Preprocessing ---
         with dt[0]:
             im, ratio, padding = preprocess(im0, (self.net_h, self.net_w))
+            im_shape = im.shape[2:]  # Model input shape (h, w)
+            im0_shape = im0.shape[:2]  # Original image shape (h, w)
 
         # --- Inference ---
         with dt[1]:
-            pred = self.infer(im.numpy())
+            pred = self.infer(im)
 
         # --- Postprocessing ---
         with dt[2]:
             boxes, confs, cls_ids = postprocess(
                 pred,
-                im.shape[2:],  # Model input shape (h, w)
-                im0.shape[:2],  # Original image shape (h, w)
+                im_shape,
+                im0_shape,
                 conf=conf,
                 iou=iou
             )

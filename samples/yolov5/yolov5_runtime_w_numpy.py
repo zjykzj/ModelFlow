@@ -7,8 +7,6 @@
 @Description: 
 """
 
-import logging
-
 import numpy as np
 from numpy import ndarray
 from typing import Union, Tuple, Optional, Any, List
@@ -75,11 +73,13 @@ def postprocess(
     return boxes, confs, cls_ids
 
 
-class YOLOv5Runtime:
+class YOLOv5RuntimeNumpy:
 
-    def __init__(self, weight: str = 'yolov5s.onnx'):
+    def __init__(self, weight: str = 'yolov5s.onnx', providers=None):
         super().__init__()
-        self.session = BackendRuntime(weight)
+        if providers is None:
+            providers = ['CPUExecutionProvider']
+        self.session = BackendRuntime(weight, providers=providers)
         self.session.load()
 
         self.input_name = self.session.get_input_names()[0]
@@ -106,6 +106,8 @@ class YOLOv5Runtime:
         # --- Preprocessing ---
         with dt[0]:
             im, ratio, padding = preprocess(im0, (self.net_h, self.net_w))
+            im_shape = im.shape[2:]  # Model input shape (h, w)
+            im0_shape = im0.shape[:2]  # Original image shape (h, w)
 
         # --- Inference ---
         with dt[1]:
@@ -115,8 +117,8 @@ class YOLOv5Runtime:
         with dt[2]:
             boxes, confs, cls_ids = postprocess(
                 pred,
-                im.shape[2:],  # Model input shape (h, w)
-                im0.shape[:2],  # Original image shape (h, w)
+                im_shape,
+                im0_shape,
                 conf=conf,
                 iou=iou
             )
