@@ -14,7 +14,8 @@ from typing import Union, Tuple, Optional, Any, List
 from core.backends.backend_runtime import BackendRuntime
 from core.utils.general import Profile
 from core.utils.v5.preprocessor import letterbox
-from core.utils.v8.postprocessor import non_max_suppression, scale_boxes
+from core.utils.v8.postprocessor import non_max_suppression
+from core.utils.ops import scale_boxes
 
 
 def preprocess(im0: ndarray, img_size: Union[int, Tuple] = 640, stride: int = 32, auto: bool = False,

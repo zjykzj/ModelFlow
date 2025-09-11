@@ -31,7 +31,8 @@ if str(CURRENT_DIR) not in sys.path:
     sys.path.insert(0, str(CURRENT_DIR))
 
 # Import local modules
-from core.utils.general import yaml_load, save_txt
+from core.utils.general import yaml_load
+from core.utils.results import save_txt
 from core.utils.dataloaders import LoadImages
 from core.utils.v5.plots import Annotator, colors
 

@@ -33,7 +33,9 @@ if str(CURRENT_DIR) not in sys.path:
 
 # Import local modules
 from core.utils.general import yaml_load
+from core.utils.results import save_txt
 from core.utils.dataloaders import LoadImages
+from core.utils.ops import masks2segments, scale_coords
 from core.utils.v8.plots import Annotator, colors
 
 
@@ -54,7 +56,8 @@ def predict_source(
     vid_path, vid_writer = None, None
 
     for path, im0, vid_cap, s in dataset:
-        boxes, confs, cls_ids, masks, segments, dt = model.detect(im0, conf_thresh, iou_thresh)
+        im0_shape = im0.shape[:2]
+        boxes, confs, cls_ids, masks, dt = model.detect(im0, conf_thresh, iou_thresh)
         # Print time (inference-only)
         logging.info(f"{s}{'' if len(boxes) else '(no detections), '}{dt[1].dt * 1E3:.1f}ms")
 
@@ -72,11 +75,10 @@ def predict_source(
         )
 
         annotator = Annotator(im0, line_width=line_thickness)
-        if len(masks) > 0:
+        if len(masks):
             idx = reversed(range(len(masks)))
-            # annotator.masks(masks, colors=[colors(x, True) for x in idx])
-            annotator.segments(segments, colors=[colors(x, True) for x in idx])
-        if len(boxes) > 0:
+            annotator.masks(masks, colors=[colors(x, True) for x in idx])
+        if len(boxes):
             for i in reversed(range(len(boxes))):
                 xyxy = boxes[i]
                 conf = float(confs[i][0])
@@ -96,6 +98,14 @@ def predict_source(
             if dataset.mode == 'image':
                 cv2.imwrite(save_path, im0)
                 logging.info(f"Result saved to: {save_path}")
+
+                segments = None
+                if len(masks) > 0:
+                    segments = masks2segments(masks)
+                    segments = scale_coords((model.net_h, model.net_w), segments[0], im0_shape, normalize=True)
+
+                label_path = save_path.split('.')[0] + '.txt'
+                save_txt(boxes, confs, cls_ids, im0_shape, label_path, save_conf=True, segments=segments)
             else:  # 'video' or 'stream'
                 if vid_path != save_path:  # new video
                     vid_path = save_path
