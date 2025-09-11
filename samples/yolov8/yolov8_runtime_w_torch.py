@@ -104,10 +104,8 @@ def postprocess(
         classes: Optional[list] = None,
         agnostic: bool = False,
         max_det: int = 300,
-) -> Tuple:
+) -> Tuple[ndarray, ndarray, ndarray]:
     """
-    Post-process model predictions (detections) after inference.
-
     Applies Non-Max Suppression (NMS) to filter overlapping bounding boxes,
     scales detection boxes back to original image coordinates, and separates outputs.
 
@@ -122,11 +120,10 @@ def postprocess(
         max_det (int): Maximum number of detections to keep per image.
 
     Returns:
-        (Tuple): A tuple containing:
-            - boxes (np.ndarray or []): Scaled bounding boxes in xyxy format, shape (N, 4), relative to original image.
-            - confs (np.ndarray or []): Confidence scores for each kept detection, shape (N, 1).
-            - cls_ids (np.ndarray or []): Predicted class IDs, shape (N, 1).
-            If no detections, returns empty lists.
+        Tuple[ndarray, ndarray, ndarray]: A tuple containing:
+            - boxes (ndarray): Scaled bounding boxes in xyxy format, shape (N, 4), relative to original image; empty array if no detections.
+            - confs (ndarray): Confidence scores for each kept detection, shape (N, 1); empty array if no detections.
+            - cls_ids (ndarray): Predicted class IDs, shape (N, 1); empty array if no detections.
     """
     pred = non_max_suppression(
         pred,
@@ -138,11 +135,14 @@ def postprocess(
     )[0]
 
     if len(pred) > 0:
-        boxes = scale_boxes(im_shape, pred[:, :4], im0_shape)
-        confs = pred[:, 4:5]
-        cls_ids = pred[:, 5:6]
+        boxes = scale_boxes(im_shape, pred[:, :4], im0_shape).round().cpu().numpy()
+        confs = pred[:, 4:5].cpu().numpy()
+        cls_ids = pred[:, 5:6].cpu().numpy()
     else:
-        boxes, confs, cls_ids = [], [], []
+        # ✅ 返回二维空数组，保持 shape 一致性
+        boxes = np.zeros((0, 4), dtype=np.float32)
+        confs = np.zeros((0, 1), dtype=np.float32)
+        cls_ids = np.zeros((0, 1), dtype=np.float32)
     return boxes, confs, cls_ids
 
 
@@ -184,7 +184,7 @@ class YOLOv8RuntimeTorch:
             pred.append(self.from_numpy(output_dict[output_name]))
         return pred
 
-    def detect(self, im0: ndarray, conf: float = 0.25, iou: float = 0.45) -> Tuple:
+    def detect(self, im0: ndarray, conf: float = 0.25, iou: float = 0.45) -> Tuple[ndarray, ndarray, ndarray, Tuple]:
         """
         Detect objects in the image and measure time consumption for each stage.
         Returns:

@@ -37,7 +37,7 @@ class YOLOv8TensorRT:
             pred.append(output_dict[output_name])
         return pred
 
-    def detect(self, im0: ndarray, conf: float = 0.25, iou: float = 0.45) -> Tuple:
+    def detect(self, im0: ndarray, conf: float = 0.25, iou: float = 0.45)  -> Tuple[ndarray, ndarray, ndarray, Tuple]:
         """
         Detect objects in the image and measure time consumption for each stage.
         Returns:
