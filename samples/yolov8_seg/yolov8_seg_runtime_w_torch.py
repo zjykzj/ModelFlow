@@ -96,7 +96,78 @@ def preprocess(im: ndarray, imgsz: Union[int, Tuple] = 640, stride: int = 32, au
     return im.numpy()
 
 
+import cv2
+
+
+def scale_image(masks, im0_shape, ratio_pad=None):
+    """
+    Takes a mask, and resizes it to the original image size.
+
+    Args:
+        masks (np.ndarray): resized and padded masks/images, [h, w, num]/[h, w, 3].
+        im0_shape (tuple): the original image shape
+        ratio_pad (tuple): the ratio of the padding to the original image.
+
+    Returns:
+        masks (np.ndarray): The masks that are being returned with shape [h, w, num].
+    """
+    # Rescale coordinates (xyxy) from im1_shape to im0_shape
+    im1_shape = masks.shape
+    if im1_shape[:2] == im0_shape[:2]:
+        return masks
+    if ratio_pad is None:  # calculate from im0_shape
+        gain = min(im1_shape[0] / im0_shape[0], im1_shape[1] / im0_shape[1])  # gain  = old / new
+        pad = (im1_shape[1] - im0_shape[1] * gain) / 2, (im1_shape[0] - im0_shape[0] * gain) / 2  # wh padding
+    else:
+        # gain = ratio_pad[0][0]
+        pad = ratio_pad[1]
+    top, left = int(pad[1]), int(pad[0])  # y, x
+    bottom, right = int(im1_shape[0] - pad[1]), int(im1_shape[1] - pad[0])
+
+    if len(masks.shape) < 2:
+        raise ValueError(f'"len of masks shape" should be 2 or 3, but got {len(masks.shape)}')
+    masks = masks[top:bottom, left:right]
+    masks = cv2.resize(masks, (im0_shape[1], im0_shape[0]))
+    if len(masks.shape) == 2:
+        masks = masks[:, :, None]
+
+    return masks
+
+
+def plot_masks(masks, colors, im_gpu, im0_shape, alpha=0.5, retina_masks=False):
+    """
+    Plot masks on image.
+
+    Args:
+        masks (tensor): Predicted masks on cuda, shape: [n, h, w]
+        colors (List[List[Int]]): Colors for predicted masks, [[r, g, b] * n]
+        im_gpu (tensor): Image is in cuda, shape: [3, h, w], range: [0, 1]
+        alpha (float): Mask transparency: 0.0 fully transparent, 1.0 opaque
+        retina_masks (bool): Whether to use high resolution masks or not. Defaults to False.
+    """
+    if len(masks) == 0:
+        im = im_gpu.permute(1, 2, 0).contiguous().cpu().numpy() * 255
+    if im_gpu.device != masks.device:
+        im_gpu = im_gpu.to(masks.device)
+    colors = torch.tensor(colors, device=masks.device, dtype=torch.float32) / 255.0  # shape(n,3)
+    colors = colors[:, None, None]  # shape(n,1,1,3)
+    masks = masks.unsqueeze(3)  # shape(n,h,w,1)
+    masks_color = masks * (colors * alpha)  # shape(n,h,w,3)
+
+    inv_alpha_masks = (1 - masks * alpha).cumprod(0)  # shape(n,h,w,1)
+    mcs = masks_color.max(dim=0).values  # shape(n,h,w,3)
+
+    im_gpu = im_gpu.flip(dims=[0])  # flip channel
+    im_gpu = im_gpu.permute(1, 2, 0).contiguous()  # shape(h,w,3)
+    im_gpu = im_gpu * inv_alpha_masks[-1] + mcs
+    im_mask = im_gpu * 255
+    im_mask_np = im_mask.byte().cpu().numpy()
+    im = im_mask_np if retina_masks else scale_image(im_mask_np, im0_shape)
+    return im
+
+
 def postprocess(
+        im0,
         pred: Union[Tensor, List[Tensor]],
         im_shape: Tuple,  # (h, w) of input to model
         im0_shape: Tuple,  # (h, w) of original image
@@ -146,6 +217,22 @@ def postprocess(
     pred = pred[0]  # [1, 300, 6] -> [300, 6]
 
     masks = process_mask(proto, pred[:, 6:], pred[:, :4], im_shape, upsample=True)  # HWC
+
+    img = LetterBox(im_shape)(image=im0)
+    im_gpu = (
+            torch.as_tensor(img, dtype=torch.float16, device=torch.device("cpu"))
+            .permute(2, 0, 1)
+            .flip(0)
+            .contiguous()
+            / 255
+    )
+
+    idx = reversed(range(len(masks)))
+    from annotator import colors
+    im = plot_masks(masks, colors=[colors(x, True) for x in idx], im_gpu=im_gpu, im0_shape=im0_shape)
+    print(f"im shape: {im.shape} - im type: {type(im)}")
+    cv2.imwrite("im_seg.jpg", im)
+
     if len(pred) > 0:
         boxes = scale_boxes(im_shape, pred[:, :4], im0_shape)
         confs = pred[:, 4:5]
@@ -215,6 +302,7 @@ class YOLOv8RuntimeTorch:
         # --- Postprocessing ---
         with dt[2]:
             boxes, confs, cls_ids = postprocess(
+                im0,
                 pred,
                 im_shape,
                 im0_shape,
