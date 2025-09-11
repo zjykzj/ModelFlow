@@ -32,7 +32,7 @@ if str(CURRENT_DIR) not in sys.path:
     sys.path.insert(0, str(CURRENT_DIR))
 
 # Import local modules
-from core.utils.general import yaml_load
+from core.utils.general import yaml_load, save_txt
 from core.utils.dataloaders import LoadImages
 from core.utils.v8.plots import Annotator, colors
 
@@ -54,6 +54,7 @@ def predict_source(
     vid_path, vid_writer = None, None
 
     for path, im0, vid_cap, s in dataset:
+        im0_shape = im0.shape[:2]
         boxes, confs, cls_ids, dt = model.detect(im0, conf_thresh, iou_thresh)
         # Print time (inference-only)
         logging.info(f"{s}{'' if len(boxes) else '(no detections), '}{dt[1].dt * 1E3:.1f}ms")
@@ -92,6 +93,9 @@ def predict_source(
             if dataset.mode == 'image':
                 cv2.imwrite(save_path, im0)
                 logging.info(f"Result saved to: {save_path}")
+
+                label_path = save_path.split('.')[0] + '.txt'
+                save_txt(boxes, confs, cls_ids, im0_shape, label_path, save_conf=True)
             else:  # 'video' or 'stream'
                 if vid_path != save_path:  # new video
                     vid_path = save_path

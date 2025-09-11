@@ -95,5 +95,5 @@ def save_txt(boxes, confs, cls_ids, im0_shape, txt_file, save_conf=False):
 
     if texts:
         Path(txt_file).parent.mkdir(parents=True, exist_ok=True)  # make directory
-        with open(txt_file, "a") as f:
+        with open(txt_file, "w") as f:
             f.writelines(text + "\n" for text in texts)
