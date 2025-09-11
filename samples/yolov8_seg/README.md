@@ -24,3 +24,11 @@ python3 samples/yolov8/infer.py models/yolov8s_fp16.engine assets/bus.jpg core/c
 ```
 
 
+```text
+绘制分割结果，包括
+
+1. 基于掩码的分割
+2. 基于轮廓点的分割
+
+YOLOv5/YOLOv8/YOLOv8-seg
+```

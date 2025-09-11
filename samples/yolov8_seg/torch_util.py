@@ -91,8 +91,44 @@ def masks2segments(masks, strategy="largest"):
     return segments
 
 
-## --------------------------------------------------------------------------- Plots
+def scale_image(masks, im0_shape, ratio_pad=None):
+    """
+    Takes a mask, and resizes it to the original image size.
 
+    Args:
+        masks (np.ndarray): resized and padded masks/images, [h, w, num]/[h, w, 3].
+        im0_shape (tuple): the original image shape
+        ratio_pad (tuple): the ratio of the padding to the original image.
+
+    Returns:
+        masks (np.ndarray): The masks that are being returned with shape [h, w, num].
+    """
+    # Rescale coordinates (xyxy) from im1_shape to im0_shape
+    im1_shape = masks.shape
+    if im1_shape[:2] == im0_shape[:2]:
+        return masks
+    if ratio_pad is None:  # calculate from im0_shape
+        gain = min(im1_shape[0] / im0_shape[0], im1_shape[1] / im0_shape[1])  # gain  = old / new
+        pad = (im1_shape[1] - im0_shape[1] * gain) / 2, (im1_shape[0] - im0_shape[0] * gain) / 2  # wh padding
+    else:
+        # gain = ratio_pad[0][0]
+        pad = ratio_pad[1]
+    top, left = int(pad[1]), int(pad[0])  # y, x
+    bottom, right = int(im1_shape[0] - pad[1]), int(im1_shape[1] - pad[0])
+
+    if len(masks.shape) < 2:
+        raise ValueError(f'"len of masks shape" should be 2 or 3, but got {len(masks.shape)}')
+    print(f"top: {top} - bottom: {bottom} - left: {left} - right: {right}")
+    masks = masks[top:bottom, left:right]
+    print(f"masks shape: {masks.shape}")
+    masks = cv2.resize(masks, (im0_shape[1], im0_shape[0]))
+    if len(masks.shape) == 2:
+        masks = masks[:, :, None]
+
+    return masks
+
+
+## ------------------------------------------------------------------------------------ Plot
 
 import cv2
 
@@ -230,43 +266,6 @@ class Colors:
 
 
 colors = Colors()  # create instance for 'from utils.plots import colors'
-
-
-def scale_image(masks, im0_shape, ratio_pad=None):
-    """
-    Takes a mask, and resizes it to the original image size.
-
-    Args:
-        masks (np.ndarray): resized and padded masks/images, [h, w, num]/[h, w, 3].
-        im0_shape (tuple): the original image shape
-        ratio_pad (tuple): the ratio of the padding to the original image.
-
-    Returns:
-        masks (np.ndarray): The masks that are being returned with shape [h, w, num].
-    """
-    # Rescale coordinates (xyxy) from im1_shape to im0_shape
-    im1_shape = masks.shape
-    if im1_shape[:2] == im0_shape[:2]:
-        return masks
-    if ratio_pad is None:  # calculate from im0_shape
-        gain = min(im1_shape[0] / im0_shape[0], im1_shape[1] / im0_shape[1])  # gain  = old / new
-        pad = (im1_shape[1] - im0_shape[1] * gain) / 2, (im1_shape[0] - im0_shape[0] * gain) / 2  # wh padding
-    else:
-        # gain = ratio_pad[0][0]
-        pad = ratio_pad[1]
-    top, left = int(pad[1]), int(pad[0])  # y, x
-    bottom, right = int(im1_shape[0] - pad[1]), int(im1_shape[1] - pad[0])
-
-    if len(masks.shape) < 2:
-        raise ValueError(f'"len of masks shape" should be 2 or 3, but got {len(masks.shape)}')
-    print(f"top: {top} - bottom: {bottom} - left: {left} - right: {right}")
-    masks = masks[top:bottom, left:right]
-    print(f"masks shape: {masks.shape}")
-    masks = cv2.resize(masks, (im0_shape[1], im0_shape[0]))
-    if len(masks.shape) == 2:
-        masks = masks[:, :, None]
-
-    return masks
 
 
 class Annotator:
@@ -420,37 +419,40 @@ class Annotator:
         im_mask_np = im_mask.byte().cpu().numpy()
         self.im[:] = im_mask_np if retina_masks else scale_image(im_mask_np, self.im.shape)
 
+    def masks_v2(self, masks, colors, alpha=0.5):
+        print(f"masks shape: {masks.shape} - type: {type(masks)}")
+
+        if len(masks) == 0:
+            return
+
+        # masks: (n, h, w) -> 转为 (n, h, w, 1)
+        # colors: [[r,g,b], ...] -> (n, 1, 1, 3)
+        colors = np.array(colors, dtype=np.float32) / 255.0
+        colors = colors[:, None, None, :]  # (n,1,1,3)
+        masks = masks[:, :, :, None]  # (n,h,w,1)
+
+        # 计算着色掩码: (n,h,w,3)
+        masks_color = masks * (colors * alpha)
+
+        # 透明度累积: (n,h,w,1)
+        inv_alpha_masks = 1 - masks * alpha
+        inv_alpha_masks_cumprod = np.cumprod(inv_alpha_masks, axis=0)  # 沿实例维度累积
+
+        # 合并所有mask颜色的最大值: (h,w,3)
+        mcs = np.max(masks_color, axis=0)
+
+        # 假设 self.im 是 HWC 格式，BGR，uint8 [0,255]
+        im_rgb = self.im.astype(np.float32) / 255.0  # (h,w,3), float in [0,1]
+        im_rgb = im_rgb[:, :, ::-1]  # BGR to RGB
+
+        # 应用透明度叠加: 使用最后一个累积透明度
+        alpha_mask = inv_alpha_masks_cumprod[-1].squeeze(-1)  # (h,w)
+        im_rgb = im_rgb * alpha_mask[..., None] + mcs  # (h,w,3)
+
+        # 转回 uint8 并赋值
+        im_mask = (im_rgb * 255).astype(np.uint8)
+        self.im = cv2.cvtColor(im_mask, cv2.COLOR_RGB2BGR)  # 注意：现在是 RGB，如果后续用 cv2 显示可能需要转回 BGR
+
     def result(self):
         """Return annotated image as array."""
         return np.asarray(self.im)
-
-# def plot_masks(masks, colors, im_gpu, im0_shape, alpha=0.5, retina_masks=False):
-#     """
-#     Plot masks on image.
-#
-#     Args:
-#         masks (tensor): Predicted masks on cuda, shape: [n, h, w]
-#         colors (List[List[Int]]): Colors for predicted masks, [[r, g, b] * n]
-#         im_gpu (tensor): Image is in cuda, shape: [3, h, w], range: [0, 1]
-#         alpha (float): Mask transparency: 0.0 fully transparent, 1.0 opaque
-#         retina_masks (bool): Whether to use high resolution masks or not. Defaults to False.
-#     """
-#     if len(masks) == 0:
-#         im = im_gpu.permute(1, 2, 0).contiguous().cpu().numpy() * 255
-#     if im_gpu.device != masks.device:
-#         im_gpu = im_gpu.to(masks.device)
-#     colors = torch.tensor(colors, device=masks.device, dtype=torch.float32) / 255.0  # shape(n,3)
-#     colors = colors[:, None, None]  # shape(n,1,1,3)
-#     masks = masks.unsqueeze(3)  # shape(n,h,w,1)
-#     masks_color = masks * (colors * alpha)  # shape(n,h,w,3)
-#
-#     inv_alpha_masks = (1 - masks * alpha).cumprod(0)  # shape(n,h,w,1)
-#     mcs = masks_color.max(dim=0).values  # shape(n,h,w,3)
-#
-#     im_gpu = im_gpu.flip(dims=[0])  # flip channel
-#     im_gpu = im_gpu.permute(1, 2, 0).contiguous()  # shape(h,w,3)
-#     im_gpu = im_gpu * inv_alpha_masks[-1] + mcs
-#     im_mask = im_gpu * 255
-#     im_mask_np = im_mask.byte().cpu().numpy()
-#     im = im_mask_np if retina_masks else scale_image(im_mask_np, im0_shape)
-#     return im

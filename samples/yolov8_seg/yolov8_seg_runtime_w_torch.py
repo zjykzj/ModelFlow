@@ -413,6 +413,9 @@ def postprocess(
     pred = pred[0]  # [1, 300, 6] -> [300, 6]
 
     masks = process_mask(proto, pred[:, 6:], pred[:, :4], im_shape, upsample=True)  # HWC
+    from torch_util import scale_image
+    masks = scale_image(masks.permute(1, 2, 0).numpy(), im0_shape)
+    masks = np.transpose(masks, (2, 0, 1))
 
     if len(pred) > 0:
         boxes = scale_boxes(im_shape, pred[:, :4], im0_shape)

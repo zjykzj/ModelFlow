@@ -74,20 +74,20 @@ def predict_source(
 
         annotator = Annotator(im0, line_width=line_thickness)
         if len(masks) > 0:
-            im_gpu = None
-            if im_gpu is None:
-                from core.utils.v8.preprocessor import LetterBox
-                img = LetterBox(masks.shape[1:])(image=annotator.result())
-                import torch
-                im_gpu = (
-                        torch.as_tensor(img, dtype=torch.float16, device=masks.data.device)
-                        .permute(2, 0, 1)
-                        .flip(0)
-                        .contiguous()
-                        / 255
-                )
+            # im_gpu = None
+            # if im_gpu is None:
+            #     from core.utils.v8.preprocessor import LetterBox
+            #     img = LetterBox(masks.shape[1:])(image=annotator.result())
+            #     import torch
+            #     im_gpu = (
+            #             torch.as_tensor(img, dtype=torch.float16, device=masks.data.device)
+            #             .permute(2, 0, 1)
+            #             .flip(0)
+            #             .contiguous()
+            #             / 255
+            #     )
             idx = reversed(range(len(masks)))
-            annotator.masks(masks, colors=[colors(x, True) for x in idx], im_gpu=im_gpu)
+            annotator.masks_v2(masks, colors=[colors(x, True) for x in idx])
         if len(boxes):
             for i in reversed(range(len(boxes))):
                 xyxy = boxes[i]
