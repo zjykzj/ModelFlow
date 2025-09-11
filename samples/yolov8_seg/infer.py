@@ -199,14 +199,12 @@ def main():
             except ImportError:
                 raise ImportError(f"PyTorch processor selected, but YOLOv8RuntimeTorch is not available.")
         else:
-            pass
-            # try:
-            #     from yolov8_runtime_w_numpy import YOLOv8RuntimeNumpy
-            #     logging.info("Using YOLOv8RuntimeNumpy")
-            #     ModelClass = YOLOv8RuntimeNumpy
-            # except ImportError:
-            #     raise ImportError(f"Numpy processor selected, but YOLOv8RuntimeNumpy is not available.")
-
+            try:
+                from yolov8_runtime_w_numpy import YOLOv8RuntimeNumpy
+                logging.info("Using YOLOv8RuntimeNumpy")
+                ModelClass = YOLOv8RuntimeNumpy
+            except ImportError:
+                raise ImportError(f"Numpy processor selected, but YOLOv8RuntimeNumpy is not available.")
     elif args.backend == "tensorrt":
         pass
     else:

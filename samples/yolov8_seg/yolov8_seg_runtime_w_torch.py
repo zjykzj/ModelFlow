@@ -9,9 +9,8 @@
 from typing import Union, Tuple, Optional, Any, List
 
 import numpy as np
-from numpy import ndarray
-
 import torch
+from numpy import ndarray
 from torch import Tensor
 
 from core.backends.backend_runtime import BackendRuntime
@@ -169,7 +168,7 @@ def postprocess(
 
 class YOLOv8RuntimeTorch:
 
-    def __init__(self, classes: List[str], weight: str = 'yolov8s.onnx', providers: List[str] = None):
+    def __init__(self, classes: List[str], weight: str = 'yolov8s-seg.onnx', providers: List[str] = None):
         super().__init__()
         self.classes = classes
         self.nc = len(classes)

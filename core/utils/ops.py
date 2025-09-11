@@ -8,6 +8,8 @@
 """
 
 import cv2
+import scipy.ndimage
+
 import numpy as np
 
 
@@ -166,3 +168,111 @@ def masks2segments(masks, strategy="largest"):
 
         segments.append(c.astype(np.float32))
     return segments
+
+
+def crop_mask(masks: np.ndarray, boxes: np.ndarray) -> np.ndarray:
+    """
+    Crop masks to their corresponding bounding boxes.
+
+    Args:
+        masks (np.ndarray): Array of shape [N, H, W], where N is the number of masks.
+        boxes (np.ndarray): Array of shape [N, 4], in format [x1, y1, x2, y2] (absolute coordinates).
+
+    Returns:
+        (np.ndarray): Cropped masks, same shape as input masks. Values outside the boxes are set to 0.
+    """
+    n, h, w = masks.shape
+
+    # Expand boxes to shape [N, 4, 1, 1]
+    boxes_expanded = boxes[:, :, np.newaxis, np.newaxis]  # shape: (n, 4, 1, 1)
+    x1, y1, x2, y2 = boxes_expanded[:, 0], boxes_expanded[:, 1], boxes_expanded[:, 2], boxes_expanded[:, 3]
+    # Each of x1, y1, x2, y2 has shape: (n, 1, 1)
+
+    # Create coordinate grids: r (columns) for x, c (rows) for y
+    r = np.arange(w, dtype=x1.dtype)[np.newaxis, np.newaxis, :]  # shape: (1, 1, w)
+    c = np.arange(h, dtype=y1.dtype)[np.newaxis, :, np.newaxis]  # shape: (1, h, 1)
+
+    # Create binary mask for inside-box region using broadcasting
+    # Shape of condition: (n, h, w)
+    inside_box = (r >= x1) & (r < x2) & (c >= y1) & (c < y2)  # bool array, broadcasted
+
+    # Apply mask
+    return masks * inside_box  # zero out pixels outside the box
+
+
+def process_mask(protos, masks_in, bboxes, shape, upsample=False):
+    """
+    Apply masks to bounding boxes using the output of the mask head.
+
+    Args:
+        protos (np.ndarray): A ndarray of shape [mask_dim, mask_h, mask_w].
+        masks_in (np.ndarray): A ndarray of shape [n, mask_dim], where n is the number of masks after NMS.
+        bboxes (np.ndarray): A ndarray of shape [n, 4], where n is the number of masks after NMS.
+        shape (tuple): A tuple of integers representing the size of the input image in the format (h, w).
+        upsample (bool): A flag to indicate whether to upsample the mask to the original image size. Default is False.
+
+    Returns:
+        (np.ndarray): A binary mask ndarray of shape [n, h, w], where n is the number of masks after NMS,
+                      and h and w are the height and width of the input image. The mask is applied to the bounding boxes.
+    """
+    c, mh, mw = protos.shape  # CHW
+    ih, iw = shape
+
+    # 矩阵乘法与reshape
+    masks = np.dot(masks_in, protos.reshape(c, -1)).reshape(-1, mh, mw)  # CHW
+
+    # 计算比例因子
+    width_ratio = mw / iw
+    height_ratio = mh / ih
+
+    # 缩放边界框坐标
+    downsampled_bboxes = bboxes.copy()
+    downsampled_bboxes[:, 0] *= width_ratio
+    downsampled_bboxes[:, 2] *= width_ratio
+    downsampled_bboxes[:, 1] *= height_ratio
+    downsampled_bboxes[:, 3] *= height_ratio
+
+    # 裁剪掩码
+    masks = crop_mask(masks, downsampled_bboxes)  # CHW
+
+    # 上采样到原始图像尺寸
+    if upsample:
+        masks = np.array([scipy.ndimage.zoom(mask, (ih / mh, iw / mw), order=1) for mask in masks])
+
+    # 转换为二值掩码
+    return np.greater(masks, 0.0).astype(np.float32)
+
+
+def scale_image(masks, im0_shape, ratio_pad=None):
+    """
+    Takes a mask, and resizes it to the original image size.
+
+    Args:
+        masks (np.ndarray): resized and padded masks/images, [h, w, num]/[h, w, 3].
+        im0_shape (tuple): the original image shape
+        ratio_pad (tuple): the ratio of the padding to the original image.
+
+    Returns:
+        masks (np.ndarray): The masks that are being returned with shape [h, w, num].
+    """
+    # Rescale coordinates (xyxy) from im1_shape to im0_shape
+    im1_shape = masks.shape
+    if im1_shape[:2] == im0_shape[:2]:
+        return masks
+    if ratio_pad is None:  # calculate from im0_shape
+        gain = min(im1_shape[0] / im0_shape[0], im1_shape[1] / im0_shape[1])  # gain  = old / new
+        pad = (im1_shape[1] - im0_shape[1] * gain) / 2, (im1_shape[0] - im0_shape[0] * gain) / 2  # wh padding
+    else:
+        # gain = ratio_pad[0][0]
+        pad = ratio_pad[1]
+    top, left = int(pad[1]), int(pad[0])  # y, x
+    bottom, right = int(im1_shape[0] - pad[1]), int(im1_shape[1] - pad[0])
+
+    if len(masks.shape) < 2:
+        raise ValueError(f'"len of masks shape" should be 2 or 3, but got {len(masks.shape)}')
+    masks = masks[top:bottom, left:right]
+    masks = cv2.resize(masks, (im0_shape[1], im0_shape[0]))
+    if len(masks.shape) == 2:
+        masks = masks[:, :, None]
+
+    return masks

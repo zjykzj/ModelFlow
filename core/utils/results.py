@@ -7,7 +7,9 @@
 @Description: 
 """
 
-from ops import xyxy2xywh
+from pathlib import Path
+
+from core.utils.ops import xyxy2xywh
 
 
 def save_txt(boxes, confs, cls_ids, im0_shape, txt_file, save_conf=False, segments=None):
