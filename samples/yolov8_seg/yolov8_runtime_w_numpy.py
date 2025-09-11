@@ -128,7 +128,7 @@ class YOLOv8RuntimeNumpy:
         """
         Detect objects in the image and measure time consumption for each stage.
         Returns:
-            boxes, confs, cls_ids, dt
+            boxes, confs, cls_ids, masks, dt
         """
         # Record start time
         dt = (Profile(), Profile(), Profile())
@@ -142,6 +142,9 @@ class YOLOv8RuntimeNumpy:
         # --- Inference ---
         with dt[1]:
             pred = self.infer(im)
+        print(f"perd len: {len(pred)}")
+        for item in pred:
+            print(f"item shape: {item.shape}")
 
         # --- Postprocessing ---
         with dt[2]:

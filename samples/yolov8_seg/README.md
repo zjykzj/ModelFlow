@@ -20,15 +20,5 @@ python3 samples/yolov8_seg/infer.py models/yolov8s-seg.onnx assets/bus.jpg core/
 python3 samples/yolov8_seg/infer.py models/yolov8s-seg.onnx assets/bus.jpg core/cfgs/coco.yaml --processor torch
 
 # Use TensorRT for infer
-python3 samples/yolov8_seg/infer.py models/yolov8s_fp16.engine assets/bus.jpg core/cfgs/coco.yaml --backend tensorrt
-```
-
-
-```text
-绘制分割结果，包括
-
-1. 基于掩码的分割
-2. 基于轮廓点的分割
-
-YOLOv5/YOLOv8/YOLOv8-seg
+python3 samples/yolov8_seg/infer.py models/yolov8s-seg_fp16.engine assets/bus.jpg core/cfgs/coco.yaml --backend tensorrt
 ```
