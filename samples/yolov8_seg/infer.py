@@ -54,7 +54,7 @@ def predict_source(
     vid_path, vid_writer = None, None
 
     for path, im0, vid_cap, s in dataset:
-        boxes, confs, cls_ids, masks, dt = model.detect(im0, conf_thresh, iou_thresh)
+        boxes, confs, cls_ids, masks, segments, dt = model.detect(im0, conf_thresh, iou_thresh)
         # Print time (inference-only)
         logging.info(f"{s}{'' if len(boxes) else '(no detections), '}{dt[1].dt * 1E3:.1f}ms")
 
@@ -74,7 +74,8 @@ def predict_source(
         annotator = Annotator(im0, line_width=line_thickness)
         if len(masks) > 0:
             idx = reversed(range(len(masks)))
-            annotator.masks(masks, colors=[colors(x, True) for x in idx])
+            # annotator.masks(masks, colors=[colors(x, True) for x in idx])
+            annotator.segments(segments, colors=[colors(x, True) for x in idx])
         if len(boxes) > 0:
             for i in reversed(range(len(boxes))):
                 xyxy = boxes[i]
@@ -212,7 +213,8 @@ def main():
     save_dir = os.path.join(str(args.save_dir), str(model_name))
 
     # Run inference
-    predict_source(model, args.source, save_dir=save_dir, save=True, conf_thresh=args.conf, iou_thresh=args.iou)
+    predict_source(model, args.source,
+                   save_dir=save_dir, save=True, conf_thresh=args.conf, iou_thresh=args.iou)
 
 
 if __name__ == "__main__":

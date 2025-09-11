@@ -18,7 +18,7 @@ from core.backends.backend_runtime import BackendRuntime
 from core.utils.general import Profile
 from core.utils.v8.preprocessor import LetterBox
 from samples.yolov8.torch_util import non_max_suppression, scale_boxes
-from samples.yolov8_seg.torch_util import process_mask, scale_image
+from samples.yolov8_seg.torch_util import process_mask, scale_image, masks2segments, scale_coords
 
 
 def pre_transform(im, imgsz: Union[int, Tuple] = 640, stride: int = 32, auto: bool = False):
@@ -144,17 +144,20 @@ def postprocess(
     )
     pred = pred[0]  # [1, 300, 6] -> [300, 6]
 
-    masks = process_mask(proto, pred[:, 6:], pred[:, :4], im_shape, upsample=True)  # HWC
-    masks = scale_image(masks.permute(1, 2, 0).numpy(), im0_shape)
-    masks = np.transpose(masks, (2, 0, 1))
-
     if len(pred) > 0:
+        masks = process_mask(proto, pred[:, 6:], pred[:, :4], im_shape, upsample=True)  # HWC
+        segments = [scale_coords(im_shape, x, im0_shape, normalize=False) for x in
+                    masks2segments(masks)]
+
+        masks = scale_image(masks.permute(1, 2, 0).numpy(), im0_shape)
+        masks = np.transpose(masks, (2, 0, 1))
+
         boxes = scale_boxes(im_shape, pred[:, :4], im0_shape).numpy()
         confs = pred[:, 4:5].numpy()
         cls_ids = pred[:, 5:6].numpy()
     else:
-        boxes, confs, cls_ids = [], [], []
-    return boxes, confs, cls_ids, masks
+        boxes, confs, cls_ids, masks, segments = [], [], [], [], []
+    return boxes, confs, cls_ids, masks, segments
 
 
 class YOLOv8RuntimeTorch:
@@ -216,13 +219,12 @@ class YOLOv8RuntimeTorch:
 
         # --- Postprocessing ---
         with dt[2]:
-            boxes, confs, cls_ids, masks = postprocess(
+            boxes, confs, cls_ids, masks, segments = postprocess(
                 pred,
                 im_shape,
                 im0_shape,
                 conf=conf,
                 iou=iou,
-                nc=self.nc
+                nc=self.nc,
             )
-
-        return boxes, confs, cls_ids, masks, dt
+        return boxes, confs, cls_ids, masks, segments, dt

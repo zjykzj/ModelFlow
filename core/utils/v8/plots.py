@@ -294,6 +294,36 @@ class Annotator:
         im_mask = (im_rgb * 255).astype(np.uint8)
         self.im = np.ascontiguousarray(im_mask[:, :, ::-1])  # RGB -> BGR
 
+    def segments(self, segments, colors):
+        """
+        在原图上绘制每个实例的分割轮廓。
+
+        参数:
+        - im: 原始图像（numpy数组格式）
+        - segments: 包含每个实例分割坐标点的列表，每个item为numpy数组格式，表示一个实例的分割坐标
+
+        返回:
+        - 绘制了分割轮廓的图像
+        """
+        img_h, img_w = self.im.shape[:2]
+        mask = np.zeros((img_h, img_w, 3), dtype=np.uint8)
+
+        for i, segment in enumerate(segments):
+            color_k = colors[i]
+
+            # 将segment中的坐标点转换成适合fillPoly的格式
+            pts = segment.reshape((-1, 1, 2)).astype(np.int32)
+
+            # 使用白色填充轮廓区域，也可以选择其他颜色
+            # cv2.fillPoly(mask, [pts], color=color_k)
+            # cv2.fillPoly(mask, [pts], color=(255, 255, 255))
+            # 如果需要只绘制轮廓线而不是填充区域，可使用以下代码替代fillPoly部分：
+            cv2.polylines(mask, [pts], isClosed=True, color=[0, 255, 0], thickness=2)
+
+        # 将mask与原图结合
+        # self.im = cv2.addWeighted(self.im, 1.0, mask, 0.5, 0)
+        self.im = cv2.addWeighted(self.im, 1.0, mask, 1.0, 0)
+
     def result(self):
         """Return annotated image as array."""
         return np.asarray(self.im)
