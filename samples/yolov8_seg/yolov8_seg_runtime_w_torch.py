@@ -126,7 +126,9 @@ def scale_image(masks, im0_shape, ratio_pad=None):
 
     if len(masks.shape) < 2:
         raise ValueError(f'"len of masks shape" should be 2 or 3, but got {len(masks.shape)}')
+    print(f"top: {top} - bottom: {bottom} - left: {left} - right: {right}")
     masks = masks[top:bottom, left:right]
+    print(f"masks shape: {masks.shape}")
     masks = cv2.resize(masks, (im0_shape[1], im0_shape[0]))
     if len(masks.shape) == 2:
         masks = masks[:, :, None]
@@ -164,6 +166,48 @@ def plot_masks(masks, colors, im_gpu, im0_shape, alpha=0.5, retina_masks=False):
     im_mask_np = im_mask.byte().cpu().numpy()
     im = im_mask_np if retina_masks else scale_image(im_mask_np, im0_shape)
     return im
+
+
+def plot_masks_v2(masks, colors, im_gpu, im0_shape, alpha=0.5, retina_masks=False):
+    """
+    Plot masks on image.
+
+    Args:
+        masks (tensor): Predicted masks on cuda, shape: [n, h, w]
+        colors (List[List[Int]]): Colors for predicted masks, [[r, g, b] * n]
+        im_gpu (tensor): Image is in cuda, shape: [3, h, w], range: [0, 1]
+        alpha (float): Mask transparency: 0.0 fully transparent, 1.0 opaque
+        retina_masks (bool): Whether to use high resolution masks or not. Defaults to False.
+    """
+    print(f"masks shape: {masks.shape}")
+    masks = masks.permute(1, 2, 0).numpy()
+    print(f"masks shape: {masks.shape}")
+    masks = scale_image(masks, im0_shape)
+    print(f"last masks shape: {masks.shape}")
+    masks = torch.from_numpy(masks).to(im_gpu.device)
+    masks = masks.permute(2, 0, 1)
+    print(f"last 2 masks shape: {masks.shape}")
+
+    if len(masks) == 0:
+        im = im_gpu.permute(1, 2, 0).contiguous().cpu().numpy() * 255
+    if im_gpu.device != masks.device:
+        im_gpu = im_gpu.to(masks.device)
+    colors = torch.tensor(colors, device=masks.device, dtype=torch.float32) / 255.0  # shape(n,3)
+    colors = colors[:, None, None]  # shape(n,1,1,3)
+    masks = masks.unsqueeze(3)  # shape(n,h,w,1)
+    masks_color = masks * (colors * alpha)  # shape(n,h,w,3)
+
+    inv_alpha_masks = (1 - masks * alpha).cumprod(0)  # shape(n,h,w,1)l
+    mcs = masks_color.max(dim=0).values  # shape(n,h,w,3)
+
+    im_gpu = im_gpu.flip(dims=[0])  # flip channel
+    im_gpu = im_gpu.permute(1, 2, 0).contiguous()  # shape(h,w,3)
+    im_gpu = im_gpu * inv_alpha_masks[-1] + mcs
+    im_mask = im_gpu * 255
+    im_mask_np = im_mask.byte().cpu().numpy()
+    # im = im_mask_np if retina_masks else scale_image(im_mask_np, im0_shape)
+    # return im
+    return im_mask_np
 
 
 def masks2segments(masks, strategy="largest"):
@@ -453,26 +497,36 @@ def postprocess(
     #         / 255
     # )
     #
-    # idx = reversed(range(len(masks)))
+    idx = reversed(range(len(masks)))
     from annotator import colors
     # im = plot_masks(masks, colors=[colors(x, True) for x in idx], im_gpu=im_gpu, im0_shape=im0_shape)
     # print(f"im shape: {im.shape} - im type: {type(im)}")
     # cv2.imwrite("im_seg.jpg", im)
 
-    segments = [scale_coords(im_shape, x, im0_shape, normalize=False) for x in masks2segments(masks)]
-    print(f"segments len: {len(segments)}")
-    for item in segments:
-        print(f"item shape: {item.shape}")
-    print(segments[-1])
+    im_gpu = (
+            torch.as_tensor(im0, dtype=torch.float16, device=torch.device("cpu"))
+            .permute(2, 0, 1)
+            .flip(0)
+            .contiguous()
+            / 255
+    )
+    im = plot_masks_v2(masks, colors=[colors(x, True) for x in idx], im_gpu=im_gpu, im0_shape=im0_shape)
+    cv2.imwrite("im_masks.png", im)
 
-    im = copy.deepcopy(im0)
-    for idx, segment in enumerate(segments):
-        im = plot_kpts(idx, im, segment, colors)
-    cv2.imwrite("im_pts.jpg", im)
-
-    im2 = copy.deepcopy(im0)
-    im2 = draw_segmentation_contours(im2, segments, colors)
-    cv2.imwrite("im2_pts.jpg", im2)
+    # segments = [scale_coords(im_shape, x, im0_shape, normalize=False) for x in masks2segments(masks)]
+    # print(f"segments len: {len(segments)}")
+    # for item in segments:
+    #     print(f"item shape: {item.shape}")
+    # print(segments[-1])
+    #
+    # im = copy.deepcopy(im0)
+    # for idx, segment in enumerate(segments):
+    #     im = plot_kpts(idx, im, segment, colors)
+    # cv2.imwrite("im_pts.jpg", im)
+    #
+    # im2 = copy.deepcopy(im0)
+    # im2 = draw_segmentation_contours(im2, segments, colors)
+    # cv2.imwrite("im2_pts.jpg", im2)
 
     if len(pred) > 0:
         boxes = scale_boxes(im_shape, pred[:, :4], im0_shape)
