@@ -50,20 +50,25 @@ def postprocess(
         classes: Optional[list] = None,
         agnostic: bool = False,
         max_det: int = 300,
-) -> Tuple:
+) -> Tuple[ndarray, ndarray, ndarray]:
     """
-     Postprocessing: NMS + coordinate scaling.
-     Returns:
-         boxes, confs, cls_ids
+    Postprocessing: NMS + coordinate scaling.
+    Returns:
+        boxes (np.ndarray): Scaled bounding boxes in xyxy format, shape (N, 4)
+        confs (np.ndarray): Confidence scores, shape (N, 1)
+        cls_ids (np.ndarray): Class IDs, shape (N, 1)
      """
     det = non_max_suppression(pred, conf, iou, classes, agnostic, max_det=max_det)[0]
 
     if len(det) > 0:
-        boxes = scale_boxes(im_shape, det[:, :4], im0_shape).round()
-        confs = det[:, 4:5]
-        cls_ids = det[:, 5:6]
+        boxes = scale_boxes(im_shape, det[:, :4], im0_shape).round().cpu().numpy()
+        confs = det[:, 4:5].cpu().numpy()
+        cls_ids = det[:, 5:6].cpu().numpy()
     else:
-        boxes, confs, cls_ids = [], [], []
+        # ✅ 返回二维空数组，保持 shape 一致性
+        boxes = np.zeros((0, 4), dtype=np.float32)
+        confs = np.zeros((0, 1), dtype=np.float32)
+        cls_ids = np.zeros((0, 1), dtype=np.float32)
     return boxes, confs, cls_ids
 
 
@@ -105,7 +110,7 @@ class YOLOv5RuntimeTorch:
             pred.append(self.from_numpy(output_dict[output_name]))
         return pred
 
-    def detect(self, im0: ndarray, conf: float = 0.25, iou: float = 0.45) -> Tuple:
+    def detect(self, im0: ndarray, conf: float = 0.25, iou: float = 0.45) -> Tuple[ndarray, ndarray, ndarray, Tuple]:
         """
         Detect objects in the image and measure time consumption for each stage.
         Returns:
