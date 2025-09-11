@@ -34,7 +34,7 @@ if str(CURRENT_DIR) not in sys.path:
 # Import local modules
 from core.utils.general import yaml_load
 from core.utils.dataloaders import LoadImages
-from core.utils.v5.plots import Annotator, colors
+from core.utils.v8.plots import Annotator, colors
 
 
 def predict_source(
