@@ -34,8 +34,7 @@ if str(CURRENT_DIR) not in sys.path:
 # Import local modules
 from core.utils.general import yaml_load
 from core.utils.dataloaders import LoadImages
-# from core.utils.plots import Annotator, colors
-from torch_util import Annotator, colors
+from core.utils.v8.plots import Annotator, colors
 
 
 def predict_source(
@@ -74,21 +73,9 @@ def predict_source(
 
         annotator = Annotator(im0, line_width=line_thickness)
         if len(masks) > 0:
-            # im_gpu = None
-            # if im_gpu is None:
-            #     from core.utils.v8.preprocessor import LetterBox
-            #     img = LetterBox(masks.shape[1:])(image=annotator.result())
-            #     import torch
-            #     im_gpu = (
-            #             torch.as_tensor(img, dtype=torch.float16, device=masks.data.device)
-            #             .permute(2, 0, 1)
-            #             .flip(0)
-            #             .contiguous()
-            #             / 255
-            #     )
             idx = reversed(range(len(masks)))
-            annotator.masks_v2(masks, colors=[colors(x, True) for x in idx])
-        if len(boxes):
+            annotator.masks(masks, colors=[colors(x, True) for x in idx])
+        if len(boxes) > 0:
             for i in reversed(range(len(boxes))):
                 xyxy = boxes[i]
                 conf = float(confs[i][0])

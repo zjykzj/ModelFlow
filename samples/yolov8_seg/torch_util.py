@@ -118,9 +118,7 @@ def scale_image(masks, im0_shape, ratio_pad=None):
 
     if len(masks.shape) < 2:
         raise ValueError(f'"len of masks shape" should be 2 or 3, but got {len(masks.shape)}')
-    print(f"top: {top} - bottom: {bottom} - left: {left} - right: {right}")
     masks = masks[top:bottom, left:right]
-    print(f"masks shape: {masks.shape}")
     masks = cv2.resize(masks, (im0_shape[1], im0_shape[0]))
     if len(masks.shape) == 2:
         masks = masks[:, :, None]

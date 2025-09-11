@@ -262,6 +262,38 @@ class Annotator:
                 lineType=cv2.LINE_AA,
             )
 
+    def masks(self, masks, colors, alpha=0.5):
+        if len(masks) == 0:
+            return
+
+        # masks: (n, h, w) -> 转为 (n, h, w, 1)
+        masks = masks[:, :, :, None]  # (n,h,w,1)
+        # colors: [[r,g,b], ...] -> (n, 1, 1, 3)
+        colors = np.array(colors, dtype=np.float32) / 255.0
+        colors = colors[:, None, None, :]  # (n,1,1,3)
+
+        # 计算着色掩码: (n,h,w,3)
+        masks_color = masks * (colors * alpha)
+
+        # 透明度累积: (n,h,w,1)
+        inv_alpha_masks = 1 - masks * alpha
+        inv_alpha_masks_cumprod = np.cumprod(inv_alpha_masks, axis=0)  # 沿实例维度累积
+
+        # 合并所有mask颜色的最大值: (h,w,3)
+        mcs = np.max(masks_color, axis=0)
+
+        # 假设 self.im 是 HWC 格式，BGR，uint8 [0,255]
+        im_rgb = self.im.astype(np.float32) / 255.0  # (h,w,3), float in [0,1]
+        im_rgb = im_rgb[:, :, ::-1]  # BGR to RGB
+
+        # 应用透明度叠加: 使用最后一个累积透明度
+        alpha_mask = inv_alpha_masks_cumprod[-1].squeeze(-1)  # (h,w)
+        im_rgb = im_rgb * alpha_mask[..., None] + mcs  # (h,w,3)
+
+        # 转回 uint8 并赋值
+        im_mask = (im_rgb * 255).astype(np.uint8)
+        self.im = np.ascontiguousarray(im_mask[:, :, ::-1])  # RGB -> BGR
+
     def result(self):
         """Return annotated image as array."""
         return np.asarray(self.im)
