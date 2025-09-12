@@ -142,9 +142,6 @@ class YOLOv8RuntimeNumpy:
         # --- Inference ---
         with dt[1]:
             pred = self.infer(im)
-        print(f"perd len: {len(pred)}")
-        for item in pred:
-            print(f"item shape: {item.shape}")
 
         # --- Postprocessing ---
         with dt[2]:
