@@ -35,7 +35,7 @@ if str(CURRENT_DIR) not in sys.path:
 from core.utils.general import yaml_load
 from core.utils.results import save_txt
 from core.utils.dataloaders import LoadImages
-from core.utils.v8.ops import masks2segments, scale_coords
+from core.utils.v8.ops import masks2segments
 from core.utils.v8.plots import Annotator, colors
 
 
@@ -199,18 +199,25 @@ def main():
                 raise ImportError(f"PyTorch processor selected, but YOLOv8RuntimeTorch is not available.")
         else:
             try:
-                from yolov8_runtime_w_numpy import YOLOv8RuntimeNumpy
+                from yolov8_seg_runtime_w_numpy import YOLOv8RuntimeNumpy
                 logging.info("Using YOLOv8RuntimeNumpy")
                 ModelClass = YOLOv8RuntimeNumpy
             except ImportError:
                 raise ImportError(f"Numpy processor selected, but YOLOv8RuntimeNumpy is not available.")
     elif args.backend == "tensorrt":
         try:
-            from yolov8_tensorrt_w_numpy import YOLOv8TensorRT
+            from yolov8_seg_tensorrt_w_numpy import YOLOv8TensorRT
             logging.info(f"Using YOLOv8TensorRT with Numpy")
             ModelClass = YOLOv8TensorRT
         except ImportError:
             raise ImportError(f"Numpy processor selected, but YOLOv8TensorRT is not available.")
+    elif args.backend == "triton":
+        try:
+            from yolov8_seg_triton_w_numpy import YOLOv8Triton
+            logging.info(f"Using YOLOv8Triton with Numpy")
+            ModelClass = YOLOv8Triton
+        except ImportError:
+            raise ImportError(f"Numpy processor selected, but YOLOv8Triton is not available.")
     else:
         raise ValueError(f"Unsupported backend type: {args.backend}")
 

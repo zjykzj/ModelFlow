@@ -21,4 +21,8 @@ python3 samples/yolov8_seg/infer.py models/yolov8s-seg.onnx assets/bus.jpg core/
 
 # Use TensorRT for infer
 python3 samples/yolov8_seg/infer.py models/yolov8s-seg_fp16.engine assets/bus.jpg core/cfgs/coco.yaml --backend tensorrt
+
+# Use Triton to infer
+python3 samples/yolov8_seg/infer.py SEG_YOLOv8s_ONNX assets core/cfgs/coco.yaml --backend triton
+python3 samples/yolov8_seg/infer.py SEG_YOLOv8s_TensorRT assets core/cfgs/coco.yaml --backend triton
 ```

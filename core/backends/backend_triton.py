@@ -206,7 +206,7 @@ class BackendTriton(BackendBase):
                 # === 类型校验与自动转换 ===
                 expected_dtype = self.input_dtypes[name]
                 if array.dtype != expected_dtype:
-                    logger.warning(
+                    logger.debug(
                         f"[Triton Backend] Input '{name}' dtype mismatch: "
                         f"got {array.dtype}, required {expected_dtype}. Converting automatically."
                     )
@@ -215,7 +215,7 @@ class BackendTriton(BackendBase):
                 # === 形状校验（可选增强）===
                 expected_shape = self.input_shapes[name]
                 if len(array.shape) != len(expected_shape):
-                    logger.warning(
+                    logger.debug(
                         f"[Triton Backend] Input '{name}' rank mismatch: "
                         f"got shape {array.shape}, expected rank {len(expected_shape)}."
                     )
