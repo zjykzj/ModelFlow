@@ -137,12 +137,13 @@ class BackendRuntime(BackendBase):
             self.metadata = {}
 
         # --- 日志 ---
-        print(f"ONNX Model Info:")
+        print(f"\n=== ONNX Model Info ===")
         print(
             f"  Inputs: {dict(zip(self.input_names, [(self.input_shapes[n], self.input_dtypes[n]) for n in self.input_names]))}")
         print(f"  Outputs: {self.output_names}")
         print(f"  Metadata: {self.metadata}")
         print(f"  Providers: {self.providers}")
+        print(f"=========================\n")
 
     def infer(self, input_data: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
         """
