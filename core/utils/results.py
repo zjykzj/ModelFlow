@@ -31,6 +31,23 @@ def xyxy2xywh(x):
     return y
 
 
+def clip_coords(coords, shape):
+    """
+    Clip line coordinates to the image boundaries.
+
+    Args:
+        coords (numpy.ndarray): A list of line coordinates.
+        shape (tuple): A tuple of integers representing the size of the image in the format (height, width).
+
+    Returns:
+        (numpy.ndarray): Clipped coordinates
+    """
+    # np.array (faster grouped)
+    coords[..., 0] = coords[..., 0].clip(0, shape[1])  # x
+    coords[..., 1] = coords[..., 1].clip(0, shape[0])  # y
+    return coords
+
+
 def save_txt(boxes, confs, cls_ids, im0_shape, txt_file, save_conf=False, segments=None):
     texts = []
     for i, (xyxy, conf, cls_id) in enumerate(zip(boxes, confs, cls_ids)):
@@ -40,7 +57,11 @@ def save_txt(boxes, confs, cls_ids, im0_shape, txt_file, save_conf=False, segmen
 
         line = (cls_id, *xywh)
         if segments is not None:
-            line = (cls_id, *segments.reshape(-1))
+            segment = clip_coords(segments[i], im0_shape)
+            segment[..., 0] /= im0_shape[1]  # width
+            segment[..., 1] /= im0_shape[0]  # height
+
+            line = (cls_id, *segment.reshape(-1))
         if save_conf:
             # [cls_id, x_c, y_c, box_w, box_h, conf]
             line += (conf,)

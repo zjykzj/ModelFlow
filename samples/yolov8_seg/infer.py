@@ -102,7 +102,6 @@ def predict_source(
                 segments = None
                 if len(masks) > 0:
                     segments = masks2segments(masks)
-                    segments = scale_coords((model.net_h, model.net_w), segments[0], im0_shape, normalize=True)
 
                 label_path = save_path.split('.')[0] + '.txt'
                 save_txt(boxes, confs, cls_ids, im0_shape, label_path, save_conf=True, segments=segments)
