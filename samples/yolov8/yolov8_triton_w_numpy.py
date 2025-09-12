@@ -7,6 +7,7 @@
 @Description: 
 """
 
+import numpy as np
 from numpy import ndarray
 from typing import Union, Tuple, Optional, Any, List
 
@@ -26,8 +27,11 @@ class YOLOv8Triton:
         self.session.load()
 
         self.input_name = self.session.get_input_names()[0]
+        self.input_type = self.session.get_input_dtypes()[self.input_name]
         self.net_h, self.net_w = self.session.get_input_shapes()[self.input_name][2:]
         self.output_names = self.session.output_names
+
+        self.fp16 = True if isinstance(self.input_type, np.float16) else False
 
     def infer(self, im: ndarray) -> List[Any]:
         output_dict = self.session.infer({self.input_name: im})
@@ -48,7 +52,7 @@ class YOLOv8Triton:
 
         # --- Preprocessing ---
         with dt[0]:
-            im, ratio, padding = preprocess(im0, (self.net_h, self.net_w))
+            im, ratio, padding = preprocess(im0, (self.net_h, self.net_w), fp16=self.fp16)
             im_shape = im.shape[2:]  # Model input shape (h, w)
             im0_shape = im0.shape[:2]  # Original image shape (h, w)
 

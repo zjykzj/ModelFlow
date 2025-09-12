@@ -9,6 +9,7 @@
 pip3 install tritonclient[all] opencv-python-headless -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 """
+from __future__ import annotations
 
 import numpy as np
 from typing import Dict, Any, List, Optional
@@ -19,7 +20,7 @@ import threading
 # Triton 客户端
 import tritonclient.grpc as grpcclient
 import tritonclient.http as httpclient
-from tritonclient.utils import InferenceServerException, np_to_triton_dtype
+from tritonclient.utils import np_to_triton_dtype
 
 from .backend_base import BackendBase
 
@@ -51,12 +52,14 @@ class BackendTriton(BackendBase):
         self.pool: queue.Queue = None
         self.pool_lock = threading.Lock()
 
-        # 模型元数据缓存
-        self.input_names: List[str] = []
-        self.output_names: List[str] = []
-        self.input_dtypes: Dict[str, np.dtype] = {}
-        self.input_shapes: Dict[str, List[int]] = {}
-        self.metadata: Dict[str, str] = {}
+        # 模型输入输出信息（以字典形式存储，便于查询）
+        self.input_names: List[str] = []  # 输入张量名称列表
+        self.output_names: List[str] = []  # 输出张量名称列表
+        self.input_shapes: Dict[str, Tuple[int, ...]] = {}  # 输入形状 {name: shape}
+        self.output_shapes: Dict[str, Tuple[int, ...]] = {}  # 输出形状 {name: shape}
+        self.input_dtypes: Dict[str, np.dtype] = {}  # 输入数据类型 {name: dtype}
+        self.output_dtypes: Dict[str, np.dtype] = {}  # 输出数据类型 {name: dtype}
+        self.metadata: Dict[str, str] = {}  # 自定义元数据
 
         # 类型绑定
         self.client_class = None
@@ -65,7 +68,7 @@ class BackendTriton(BackendBase):
 
     def _load_model(self, **kwargs) -> Any:
         """
-        初始化连接池 + 加载模型元数据。
+        初始化连接池 + 加载模型元数据（包括输入输出 shape/dtype）。
         """
         # 设置客户端类
         if self.protocol == "grpc":
@@ -79,7 +82,6 @@ class BackendTriton(BackendBase):
         else:
             raise ValueError(f"Unsupported protocol: {self.protocol}")
 
-        # 1. 临时 client 获取元数据
         temp_client = None
         try:
             temp_client = self.client_class(
@@ -93,24 +95,47 @@ class BackendTriton(BackendBase):
             if not temp_client.is_model_ready(self.model_path, self.model_version):
                 raise RuntimeError(f"Model '{self.model_path}' (v{self.model_version}) is not ready.")
 
-            # 获取元数据
+            # === 1. 获取模型元数据（输入/输出名称、输入 shape）===
             model_metadata = temp_client.get_model_metadata(self.model_path, self.model_version)
-            self.input_names = []
+            self.input_names.clear()
             for inp in model_metadata.inputs:
                 self.input_names.append(inp.name)
                 dtype = self._triton_dtype_to_numpy(inp.datatype)
-                shape = list(inp.shape)
+                shape = tuple(inp.shape)  # 转为 tuple，统一风格
                 self.input_dtypes[inp.name] = dtype
                 self.input_shapes[inp.name] = shape
 
             self.output_names = [out.name for out in model_metadata.outputs]
 
-            # 获取配置参数
+            # === 2. 获取模型配置（输出 dtype 和 shape）===
             model_config = temp_client.get_model_config(self.model_path, self.model_version)
-            if hasattr(model_config.config, "parameters") and model_config.config.parameters:
+            config = model_config.config
+
+            # 提取输出信息
+            for output in config.output:
+                name = output.name
+                if name not in self.output_names:
+                    continue  # 安全检查
+
+                # 数据类型
+                triton_dtype = output.data_type
+                np_dtype = self._triton_dtype_to_numpy(triton_dtype)
+                self.output_dtypes[name] = np_dtype
+
+                # 形状：优先使用 reshape，否则用 dims
+                if hasattr(output, "reshape") and output.reshape.shape:
+                    # 使用 reshape.shape
+                    shape = tuple(int(d) for d in output.reshape.shape)
+                else:
+                    # 否则使用原始 dims（注意：dims 是 int64 列表）
+                    shape = tuple(int(d) if d > 0 else 1 for d in output.dims)  # -1 → 1（占位）
+                self.output_shapes[name] = shape
+
+            # 提取自定义 metadata
+            if hasattr(config, "parameters") and config.parameters:
                 self.metadata = {
                     k: v.string_value
-                    for k, v in model_config.config.parameters.items()
+                    for k, v in config.parameters.items()
                 }
             else:
                 self.metadata = {}
@@ -121,10 +146,10 @@ class BackendTriton(BackendBase):
         except Exception as e:
             if temp_client:
                 temp_client.close()
-            logger.error(f"Failed to load model metadata: {e}")
+            logger.error(f"Failed to load model metadata/config: {e}")
             raise RuntimeError(f"Failed to load model: {e}") from e
 
-        # 2. 创建连接池
+        # === 3. 创建连接池 ===
         try:
             self.pool = queue.Queue(maxsize=self.pool_size)
             for _ in range(self.pool_size):
@@ -139,11 +164,11 @@ class BackendTriton(BackendBase):
             logger.error(f"Failed to create connection pool: {e}")
             raise RuntimeError(f"Failed to initialize connection pool: {e}") from e
 
-        # 3. 打印模型信息（参考 BackendRuntime 风格）
+        # === 4. 打印模型信息（统一风格）===
         self._print_model_info()
 
         self._is_loaded = True
-        return None  # 不返回 client
+        return None
 
     def _print_model_info(self):
         """打印模型的输入、输出、元数据等信息，格式与 BackendRuntime / BackendTensorRT 统一。"""
@@ -159,7 +184,7 @@ class BackendTriton(BackendBase):
             for name in self.input_names:
                 shape = self.input_shapes[name]
                 dtype = self.input_dtypes[name]
-                print(f"  {name} ({dtype}): {shape}")
+                print(f"  {name} ({dtype}): {list(shape)}")
         else:
             print("  <none>")
 
@@ -167,18 +192,11 @@ class BackendTriton(BackendBase):
         print(f"\nOutput(s):")
         if self.output_names:
             for name in self.output_names:
-                # Triton metadata 不直接提供 output shape 和 dtype（除非启用 dynamic shape 或 profiling）
-                # 所以我们只打印名称 + 类型占位（如需 shape，需调用 get_model_config 深入分析)
-                dtype_str = "?"
-                try:
-                    # 尝试从 input_class 推断（实际中较难获取 output dtype）
-                    # 这里我们先留空或标记为未知
-                    dtype_str = str(self._triton_dtype_to_numpy(
-                        # 这需要从 get_model_config 的 output 部分获取，但 http/grpc client API 不一致
-                    ))
-                except:
-                    dtype_str = "unknown"
-                print(f"  {name} ({dtype_str})")
+                dtype = self.output_dtypes.get(name, "unknown")
+                shape = self.output_shapes.get(name, "?")
+                dtype_str = str(dtype) if isinstance(dtype, np.dtype) else dtype
+                shape_repr = list(shape) if isinstance(shape, (list, tuple)) else shape
+                print(f"  {name} ({dtype_str}): {shape_repr}")
         else:
             print("  <none>")
 
@@ -317,23 +335,63 @@ class BackendTriton(BackendBase):
             self.cleanup()
 
     @staticmethod
-    def _triton_dtype_to_numpy(triton_dtype: str) -> np.dtype:
-        mapping = {
-            "FP32": np.float32,
-            "FP16": np.float16,
-            "FP64": np.float64,
-            "INT8": np.int8,
-            "INT16": np.int16,
-            "INT32": np.int32,
-            "INT64": np.int64,
-            "UINT8": np.uint8,
-            "UINT16": np.uint16,
-            "UINT32": np.uint32,
-            "UINT64": np.uint64,
-            "BOOL": np.bool_,
-            "BYTES": np.bytes_,
-        }
-        dtype = mapping.get(triton_dtype)
-        if dtype is None:
-            raise ValueError(f"Unsupported Triton data type: {triton_dtype}")
-        return dtype
+    def _triton_dtype_to_numpy(triton_dtype: str | int) -> np.dtype:
+        # 先处理整数枚举 → 字符串
+        if isinstance(triton_dtype, int):
+            int_to_str = {
+                0: "INVALID",
+                1: "BOOL",
+                2: "UINT8",
+                3: "UINT16",
+                4: "UINT32",
+                5: "UINT64",
+                6: "INT8",
+                7: "INT16",
+                8: "INT32",
+                9: "INT64",
+                10: "FP16",
+                11: "FP32",
+                12: "FP64",
+                13: "STRING",
+                14: "BF16",  # ← 可能出现
+                15: "BYTES",
+            }
+            if triton_dtype not in int_to_str:
+                raise ValueError(f"Unsupported Triton data type enum: {triton_dtype}")
+            triton_dtype = int_to_str[triton_dtype]
+
+        # 再映射到 NumPy dtype
+        if triton_dtype == "FP32":
+            return np.float32
+        elif triton_dtype == "FP16":
+            return np.float16
+        elif triton_dtype == "FP64":
+            return np.float64
+        elif triton_dtype == "INT8":
+            return np.int8
+        elif triton_dtype == "INT16":
+            return np.int16
+        elif triton_dtype == "INT32":
+            return np.int32
+        elif triton_dtype == "INT64":
+            return np.int64
+        elif triton_dtype == "UINT8":
+            return np.uint8
+        elif triton_dtype == "UINT16":
+            return np.uint16
+        elif triton_dtype == "UINT32":
+            return np.uint32
+        elif triton_dtype == "UINT64":
+            return np.uint64
+        elif triton_dtype == "BOOL":
+            return np.bool_
+        elif triton_dtype == "BYTES":
+            return np.bytes_
+        elif triton_dtype == "STRING":
+            return np.object_
+        elif triton_dtype == "BF16":
+            # 关键：避免使用 np.dtype('bfloat16')
+            # 改为返回 float32 作为兼容传输类型
+            return np.float32
+        else:
+            raise ValueError(f"Unsupported Triton data type string: {triton_dtype}")
