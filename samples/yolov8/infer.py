@@ -204,6 +204,13 @@ def main():
             ModelClass = YOLOv8TensorRT
         except ImportError:
             raise ImportError(f"Numpy processor selected, but YOLOv8TensorRT is not available.")
+    elif args.backend == "triton":
+        try:
+            from yolov8_triton_w_numpy import YOLOv8Triton
+            logging.info(f"Using YOLOv8Triton with Numpy")
+            ModelClass = YOLOv8Triton
+        except ImportError:
+            raise ImportError(f"Numpy processor selected, but YOLOv8Triton is not available.")
     else:
         raise ValueError(f"Unsupported backend type: {args.backend}")
 
