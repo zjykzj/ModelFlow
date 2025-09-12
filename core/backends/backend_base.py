@@ -65,7 +65,7 @@ class BackendBase(ABC):
         try:
             self.session = self._load_model(**kwargs)
             self._is_loaded = True
-            print(f"Model loaded successfully with {type(self.session).__name__}.")
+            # print(f"Model loaded successfully with {type(self.session).__name__}.")
         except Exception as e:
             raise RuntimeError(f"Failed to load model {self.model_path}: {e}") from e
 

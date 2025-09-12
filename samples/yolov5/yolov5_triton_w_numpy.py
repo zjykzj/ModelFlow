@@ -26,7 +26,6 @@ class YOLOv5Triton:
         self.session.load()
 
         self.input_name = self.session.get_input_names()[0]
-        self.input_dtype = self.session.get_input_dtype()
         self.net_h, self.net_w = self.session.get_input_shapes()[self.input_name][2:]
         self.output_names = self.session.output_names
 
@@ -35,7 +34,7 @@ class YOLOv5Triton:
 
         pred = []
         for output_name in self.output_names:
-            pred.append(output_dict[output_name])
+            pred.append(output_dict[output_name].copy())  # fix ValueError: assignment destination is read-only
         return pred
 
     def detect(self, im0: ndarray, conf: float = 0.25, iou: float = 0.45) -> Tuple[ndarray, ndarray, ndarray, Tuple]:
