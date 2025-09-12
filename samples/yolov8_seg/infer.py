@@ -35,7 +35,7 @@ if str(CURRENT_DIR) not in sys.path:
 from core.utils.general import yaml_load
 from core.utils.results import save_txt
 from core.utils.dataloaders import LoadImages
-from core.utils.ops import masks2segments, scale_coords
+from core.utils.v8.ops import masks2segments, scale_coords
 from core.utils.v8.plots import Annotator, colors
 
 

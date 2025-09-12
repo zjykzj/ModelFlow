@@ -7,9 +7,28 @@
 @Description: 
 """
 
+import numpy as np
 from pathlib import Path
 
-from core.utils.ops import xyxy2xywh
+
+def xyxy2xywh(x):
+    """
+    Convert bounding box coordinates from (x1, y1, x2, y2) format to (x, y, width, height) format where (x1, y1) is the
+    top-left corner and (x2, y2) is the bottom-right corner.
+
+    Args:
+        x (np.ndarray): The input bounding box coordinates in (x1, y1, x2, y2) format.
+
+    Returns:
+        y (np.ndarray): The bounding box coordinates in (x, y, width, height) format.
+    """
+    assert x.shape[-1] == 4, f"input shape last dimension expected 4 but input shape is {x.shape}"
+    y = np.empty_like(x)  # faster than clone/copy
+    y[..., 0] = (x[..., 0] + x[..., 2]) / 2  # x center
+    y[..., 1] = (x[..., 1] + x[..., 3]) / 2  # y center
+    y[..., 2] = x[..., 2] - x[..., 0]  # width
+    y[..., 3] = x[..., 3] - x[..., 1]  # height
+    return y
 
 
 def save_txt(boxes, confs, cls_ids, im0_shape, txt_file, save_conf=False, segments=None):
