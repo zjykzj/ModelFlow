@@ -19,6 +19,10 @@ python3 samples/yolov5/infer.py models/yolov5s.onnx assets/bus.jpg core/cfgs/coc
 # Use PyTorch for Pre/Post-processing
 python3 samples/yolov5/infer.py models/yolov5s.onnx assets/bus.jpg core/cfgs/coco.yaml --processor torch
 
-# Use TensorRT for infer
+# Use TensorRT to infer
 python3 samples/yolov5/infer.py models/yolov5s_fp16.engine assets core/cfgs/coco.yaml --backend tensorrt
+
+# Use Triton to infer
+python3 samples/yolov5/infer.py DET_YOLOv5s_ONNX assets core/cfgs/coco.yaml --backend triton
+python3 samples/yolov5/infer.py DET_YOLOv5s_TensorRT assets core/cfgs/coco.yaml --backend triton
 ```
