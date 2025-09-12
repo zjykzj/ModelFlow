@@ -119,16 +119,20 @@ class BackendRuntime(BackendBase):
         return session
 
     def _extract_model_info(self, session: Any):
-        """从 ONNX 会话中提取输入/输出信息和元数据。"""
-        # --- 输入信息 ---
-        self.input_names = [inp.name for inp in session.get_inputs()]
-        self.input_dtypes = {inp.name: _onnx_type_to_numpy(inp.type) for inp in session.get_inputs()}
-        self.input_shapes = {inp.name: inp.shape for inp in session.get_inputs()}
+        """从 ONNX 会话中提取输入/输出信息和元数据，并美化打印。"""
+        # --- 提取输入信息 ---
+        inputs = session.get_inputs()
+        self.input_names = [inp.name for inp in inputs]
+        self.input_dtypes = {inp.name: _onnx_type_to_numpy(inp.type) for inp in inputs}
+        self.input_shapes = {inp.name: inp.shape for inp in inputs}
 
-        # --- 输出信息 ---
-        self.output_names = [out.name for out in session.get_outputs()]
+        # --- 提取输出信息 ---
+        outputs = session.get_outputs()
+        self.output_names = [out.name for out in outputs]
+        self.output_dtypes = {out.name: _onnx_type_to_numpy(out.type) for out in outputs}
+        self.output_shapes = {out.name: out.shape for out in outputs}  # 新增：输出形状
 
-        # --- 元数据 ---
+        # --- 提取元数据 ---
         try:
             meta = session.get_modelmeta()
             self.metadata = meta.custom_metadata_map if meta.custom_metadata_map else {}
@@ -136,13 +140,34 @@ class BackendRuntime(BackendBase):
             print(f"Warning: Could not extract model metadata: {e}")
             self.metadata = {}
 
-        # --- 日志 ---
+        # --- 美化打印模型信息 ---
         print(f"\n=== ONNX Model Info ===")
-        print(
-            f"  Inputs: {dict(zip(self.input_names, [(self.input_shapes[n], self.input_dtypes[n]) for n in self.input_names]))}")
-        print(f"  Outputs: {self.output_names}")
-        print(f"  Metadata: {self.metadata}")
-        print(f"  Providers: {self.providers}")
+        print(f"Model:  {self.model_path}")
+        print(f"Providers: {self.providers}")
+
+        print(f"\nInput(s):")
+        if self.input_names:
+            for name in self.input_names:
+                shape = self.input_shapes[name]
+                dtype = self.input_dtypes[name]
+                print(f"  {name} ({dtype}): {shape}")
+        else:
+            print("  <none>")
+
+        print(f"\nOutput(s):")
+        if self.output_names:
+            for name in self.output_names:
+                shape = self.output_shapes[name]
+                dtype = self.output_dtypes[name]
+                print(f"  {name} ({dtype}): {shape}")
+        else:
+            print("  <none>")
+
+        if self.metadata:
+            print(f"\nMetadata: {self.metadata}")
+        else:
+            print(f"\nMetadata: <empty>")
+
         print(f"=========================\n")
 
     def infer(self, input_data: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:

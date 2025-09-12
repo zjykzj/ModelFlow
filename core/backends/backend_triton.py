@@ -146,26 +146,47 @@ class BackendTriton(BackendBase):
         return None  # 不返回 client
 
     def _print_model_info(self):
-        """打印模型的输入、输出、元数据等信息，格式与 BackendRuntime 一致。"""
+        """打印模型的输入、输出、元数据等信息，格式与 BackendRuntime / BackendTensorRT 统一。"""
         print(f"\n=== Triton Model Info ===")
-        print(f"Model Name: {self.model_path}")
+        print(f"Model Name:  {self.model_path}")
         print(f"Model Version: {self.model_version}")
-        print(f"Server URL: {self.server_url}")
-        print(f"Protocol: {self.protocol.upper()}")
-        print(f"Connection Pool Size: {self.pool_size}")
+        print(f"Server URL:  {self.server_url}")
+        print(f"Protocol:    {self.protocol.upper()}")
 
-        # 输入信息
-        input_info = {
-            name: (self.input_shapes[name], self.input_dtypes[name])
-            for name in self.input_names
-        }
-        print(f"Inputs: {input_info}")
+        # --- 输入信息 ---
+        print(f"\nInput(s):")
+        if self.input_names:
+            for name in self.input_names:
+                shape = self.input_shapes[name]
+                dtype = self.input_dtypes[name]
+                print(f"  {name} ({dtype}): {shape}")
+        else:
+            print("  <none>")
 
-        # 输出信息
-        print(f"Outputs: {self.output_names}")
+        # --- 输出信息 ---
+        print(f"\nOutput(s):")
+        if self.output_names:
+            for name in self.output_names:
+                # Triton metadata 不直接提供 output shape 和 dtype（除非启用 dynamic shape 或 profiling）
+                # 所以我们只打印名称 + 类型占位（如需 shape，需调用 get_model_config 深入分析)
+                dtype_str = "?"
+                try:
+                    # 尝试从 input_class 推断（实际中较难获取 output dtype）
+                    # 这里我们先留空或标记为未知
+                    dtype_str = str(self._triton_dtype_to_numpy(
+                        # 这需要从 get_model_config 的 output 部分获取，但 http/grpc client API 不一致
+                    ))
+                except:
+                    dtype_str = "unknown"
+                print(f"  {name} ({dtype_str})")
+        else:
+            print("  <none>")
 
-        # 元数据
-        print(f"Metadata: {dict(self.metadata)}")
+        # --- 元数据 ---
+        if self.metadata:
+            print(f"\nMetadata: {dict(self.metadata)}")
+        else:
+            print(f"\nMetadata: <empty>")
 
         print(f"=========================\n")
 
@@ -292,7 +313,7 @@ class BackendTriton(BackendBase):
 
     def __del__(self):
         if self._is_loaded:
-            logger.warning(f"Backend for {self.model_path} not cleaned up properly.")
+            logger.debug(f"Backend for {self.model_path} not cleaned up properly.")
             self.cleanup()
 
     @staticmethod

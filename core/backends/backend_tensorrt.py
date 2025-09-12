@@ -24,6 +24,7 @@ Note: The yolov5-v7.0 models may experience inference errors in TensorRT-v7.x.x.
 """
 
 import os
+import logging
 import numpy as np
 from typing import Dict, Any, List, Tuple, Optional
 
@@ -132,33 +133,72 @@ class BackendTensorRT(BackendBase):
 
     def _extract_engine_info(self, engine: trt.ICudaEngine):
         """
-        从 TensorRT 引擎中提取输入输出的名称、形状、数据类型等信息。
-
-        Args:
-            engine (trt.ICudaEngine): 已加载的 TensorRT 引擎
+        从 TensorRT 引擎中提取输入输出的名称、形状、数据类型等信息，并美化打印。
         """
-        # 遍历所有绑定（binding），每个 binding 对应一个输入或输出张量
-        for idx in range(engine.num_bindings):
-            # 获取绑定名称
-            name = engine.get_binding_name(idx)
-            # 获取数据类型（转换为 NumPy 类型）
-            dtype = trt.nptype(engine.get_binding_dtype(idx))
-            # 获取形状
-            shape = tuple(engine.get_binding_shape(idx))
+        # 清空旧信息
+        self.input_names.clear()
+        self.output_names.clear()
+        self.input_shapes.clear()
+        self.input_dtypes.clear()
+        self.output_shapes.clear()
+        self.output_dtypes.clear()
+        self.binding_name_to_index.clear()
 
-            # 记录绑定名称与索引的映射
+        # 临时存储绑定索引信息用于打印
+        binding_details = []
+
+        # 遍历所有 bindings
+        for idx in range(engine.num_bindings):
+            name = engine.get_binding_name(idx)
+            dtype = trt.nptype(engine.get_binding_dtype(idx))
+            shape = tuple(engine.get_binding_shape(idx))
+            is_input = engine.binding_is_input(idx)
+
+            # 记录绑定映射
             self.binding_name_to_index[name] = idx
 
-            if engine.binding_is_input(idx):
-                # 是输入
+            if is_input:
                 self.input_names.append(name)
                 self.input_shapes[name] = shape
                 self.input_dtypes[name] = dtype
             else:
-                # 是输出
                 self.output_names.append(name)
                 self.output_shapes[name] = shape
                 self.output_dtypes[name] = dtype
+
+            # 收集用于打印的信息
+            binding_details.append((idx, name, "input" if is_input else "output", dtype, shape))
+
+        # === 美化打印 ===
+        print(f"\n=== TensorRT Engine Info ===")
+        print(f"Model:  {self.model_path}")
+        print(f"Platform: CUDA GPU")
+
+        print(f"\nInput(s):")
+        if self.input_names:
+            for name in self.input_names:
+                shape = self.input_shapes[name]
+                dtype = self.input_dtypes[name]
+                print(f"  {name} ({dtype}): {list(shape)}")
+        else:
+            print("  <none>")
+
+        print(f"\nOutput(s):")
+        if self.output_names:
+            for name in self.output_names:
+                shape = self.output_shapes[name]
+                dtype = self.output_dtypes[name]
+                print(f"  {name} ({dtype}): {list(shape)}")
+        else:
+            print("  <none>")
+
+        print(f"\nBindings Map:")
+        for idx, name, io_type, dtype, shape in binding_details:
+            print(f"  {idx} -> {name} ({io_type})")
+
+        print(f"\nMemory Buffers: Allocated (host + device for all I/O)")
+        print(f"CUDA Stream: Created")
+        print(f"=========================\n")
 
     def _allocate_buffers(self):
         """
@@ -327,7 +367,7 @@ class BackendTensorRT(BackendBase):
         self.device_outputs.clear()
 
         self._is_loaded = False
-        print("TensorRT resources have been released.")
+        logging.debug("TensorRT resources have been released.")
 
     def __enter__(self):
         """支持 with 语句进入。"""
