@@ -26,3 +26,5 @@ python3 samples/yolov8/infer.py models/yolov8s_fp16.engine assets/bus.jpg core/c
 python3 samples/yolov8/infer.py DET_YOLOv8s_ONNX assets core/cfgs/coco.yaml --backend triton
 python3 samples/yolov8/infer.py DET_YOLOv8s_TensorRT assets core/cfgs/coco.yaml --backend triton
 ```
+
+![](./output/yolov8s/bus.jpg)
