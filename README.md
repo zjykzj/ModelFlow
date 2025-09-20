@@ -15,6 +15,21 @@
   <a href="http://commitizen.github.io/cz-cli/"><img src="https://img.shields.io/badge/commitizen-friendly-brightgreen.svg"></a>
 </p>
 
+| Model      | Inference Backend | Pre/Post-processing | Implementation File                     | Implemented |
+|------------|-------------------|---------------------|-----------------------------------------|-------------|
+| YOLOv5     | ONNX Runtime      | PyTorch             | `yolov5_runtime_w_torch.py`             | ✅          |
+| YOLOv5     | ONNX Runtime      | NumPy               | `yolov5_runtime_w_numpy.py`             | ✅          |
+| YOLOv5     | TensorRT          | NumPy               | `yolov5_tensorrt_w_numpy.py`            | ✅          |
+| YOLOv5     | Triton Server     | NumPy               | `yolov5_triton_w_numpy.py`              | ✅          |
+| YOLOv8     | ONNX Runtime      | PyTorch             | `yolov8_runtime_w_torch.py`             | ✅          |
+| YOLOv8     | ONNX Runtime      | NumPy               | `yolov8_runtime_w_numpy.py`             | ✅          |
+| YOLOv8     | TensorRT          | NumPy               | `yolov8_tensorrt_w_numpy.py`            | ✅          |
+| YOLOv8     | Triton Server     | NumPy               | `yolov8_triton_w_numpy.py`              | ✅          |
+| YOLOv8-seg | ONNX Runtime      | PyTorch             | `yolov8_seg_runtime_w_torch.py`         | ✅          |
+| YOLOv8-seg | ONNX Runtime      | NumPy               | `yolov8_seg_runtime_w_numpy.py`         | ✅          |
+| YOLOv8-seg | TensorRT          | NumPy               | `yolov8_seg_tensorrt_w_numpy.py`        | ✅          |
+| YOLOv8-seg | Triton Server     | NumPy               | `yolov8_seg_triton_w_numpy.py`          | ✅          |
+
 ## Table of Contents
 
 - [Table of Contents](#table-of-contents)
