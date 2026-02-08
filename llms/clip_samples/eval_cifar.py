@@ -6,6 +6,8 @@
 @Author  : zj
 @Description:
 
+使用原始模板进行评估
+
 root@autodl-container-00e345b2a0-c853a801:~/zj/ModelFlow/llms/clip_samples# python3 eval_cifar.py
 🚀 Using device: cuda
 🧠 Loading CLIP model: ViT-B/32 ...
@@ -40,6 +42,46 @@ Inference: 100%|█████████████████████�
    Model:       ViT-B/32
    Dataset:     CIFAR100
    Accuracy:    61.7000%  (6170/10000)
+============================================================
+
+使用优化模板进行评估
+
+root@autodl-container-00e345b2a0-c853a801:~/zj/ModelFlow/llms/clip_samples# python3 eval_cifar.py
+🚀 Using device: cuda
+🧠 Loading CLIP model: ViT-B/32 ...
+✅ Model loaded and set to eval mode.
+📂 Loading dataset: CIFAR10 (test set) ...
+📊 Dataset size: 10000 samples | Classes: 10
+🔤 Encoding text prompts with ensemble templates...
+✅ Encoded text features using 20 templates.
+🔍 Starting zero-shot evaluation...
+Inference: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 157/157 [00:05<00:00, 30.13it/s]
+
+============================================================
+🎯 Zero-Shot Classification Results
+   Model:       ViT-B/32
+   Dataset:     CIFAR10
+   Accuracy:    89.5200%  (8952/10000)
+============================================================
+root@autodl-container-00e345b2a0-c853a801:~/zj/ModelFlow/llms/clip_samples#
+root@autodl-container-00e345b2a0-c853a801:~/zj/ModelFlow/llms/clip_samples#
+root@autodl-container-00e345b2a0-c853a801:~/zj/ModelFlow/llms/clip_samples#
+root@autodl-container-00e345b2a0-c853a801:~/zj/ModelFlow/llms/clip_samples# python3 eval_cifar.py --dataset cifar100
+🚀 Using device: cuda
+🧠 Loading CLIP model: ViT-B/32 ...
+✅ Model loaded and set to eval mode.
+📂 Loading dataset: CIFAR100 (test set) ...
+📊 Dataset size: 10000 samples | Classes: 100
+🔤 Encoding text prompts with ensemble templates...
+✅ Encoded text features using 20 templates.
+🔍 Starting zero-shot evaluation...
+Inference: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 157/157 [00:04<00:00, 32.10it/s]
+
+============================================================
+🎯 Zero-Shot Classification Results
+   Model:       ViT-B/32
+   Dataset:     CIFAR100
+   Accuracy:    63.9600%  (6396/10000)
 ============================================================
 
 """
@@ -87,6 +129,32 @@ def get_dataset(dataset_name, preprocess):
     return dataset, classes
 
 
+def get_templates():
+    """返回用于集成的手工模板列表"""
+    return [
+        'a photo of a {}.',
+        'a blurry photo of a {}.',
+        'a black and white photo of a {}.',
+        'a low contrast photo of a {}.',
+        'a high contrast photo of a {}.',
+        'a bad photo of a {}.',
+        'a good photo of a {}.',
+        'a photo of a small {}.',
+        'a photo of a large {}.',
+        'a photo of a {} with sharp focus.',
+        'a photo of many {}s.',
+        'a close-up photo of a {}.',
+        'a cropped photo of a {}.',
+        'a bright photo of a {}.',
+        'a dark photo of a {}.',
+        'a photo of my {}.',
+        'i love my {}!',
+        'a plastic {}.',
+        'a toy {}.',
+        'a cartoon {}.'
+    ]
+
+
 def main():
     parser = argparse.ArgumentParser(description="Zero-shot evaluation of CLIP on CIFAR datasets.")
     parser.add_argument("--dataset", type=str, default="cifar10",
@@ -129,12 +197,31 @@ def main():
     # ----------------------------
     # 3. 编码文本 prompts（只做一次）
     # ----------------------------
-    print("🔤 Encoding text prompts...")
+    # print("🔤 Encoding text prompts...")
+    # with torch.no_grad():
+    #     text_inputs = clip.tokenize([f"a photo of a {c}" for c in class_names]).to(device)
+    #     text_features = model.encode_text(text_inputs)
+    #     text_features /= text_features.norm(dim=-1, keepdim=True)
+    # print(f"✅ Encoded {num_classes} text features.")
+
+    print("🔤 Encoding text prompts with ensemble templates...")
+    templates = get_templates()
+    all_text_features = []
+
     with torch.no_grad():
-        text_inputs = clip.tokenize([f"a photo of a {c}" for c in class_names]).to(device)
-        text_features = model.encode_text(text_inputs)
-        text_features /= text_features.norm(dim=-1, keepdim=True)
-    print(f"✅ Encoded {num_classes} text features.")
+        for template in templates:
+            # 为每个类别生成带模板的句子
+            sentences = [template.format(c) for c in class_names]
+            text_tokens = clip.tokenize(sentences).to(device)
+            text_feats = model.encode_text(text_tokens)
+            text_feats /= text_feats.norm(dim=-1, keepdim=True)
+            all_text_features.append(text_feats)
+
+        # 对所有模板的特征取平均 → 每个类别一个更鲁棒的文本表示
+        text_features = torch.stack(all_text_features).mean(dim=0)
+        text_features /= text_features.norm(dim=-1, keepdim=True)  # 再次归一化
+
+    print(f"✅ Encoded text features using {len(templates)} templates.")
 
     # ----------------------------
     # 4. 批量推理与评估
