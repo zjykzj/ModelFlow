@@ -6,60 +6,11 @@
 @Author  : zj
 @Description:
 
-root@autodl-container-00e345b2a0-c853a801:~/zj/ModelFlow/llms/openclip_samples# python3 openclip_linear_probe_cifar.py
-🚀 Using device: cuda
-🧠 Loading OpenCLIP model: ViT-B-32 | Pretrained: laion400m_e32 ...
-/root/zj/open_clip/src/open_clip/factory.py:450: UserWarning: QuickGELU mismatch between final model config (quick_gelu=False) and pretrained tag 'laion400m_e32' (quick_gelu=True).
-  warnings.warn(
-✅ Model loaded and frozen.
-📂 Loading CIFAR10 training set...
-📂 Loading CIFAR10 test set...
-🔍 Extracting features from training set...
-Extracting features: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 782/782 [00:24<00:00, 31.55it/s]
-🔍 Extracting features from test set...
-Extracting features: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 157/157 [00:05<00:00, 30.37it/s]
-📊 Feature shape - Train: (50000, 512), Test: (10000, 512)
-🛠️ Training Logistic Regression classifier...
-✅ Classifier training completed.
-🧪 Evaluating on test set...
+python openclip_linear_probe_cifar.py --dataset cifar10 --classifier logistic
 
-============================================================
-🎯 OpenCLIP Linear Probe Classification Results
-   Model:       ViT-B-32
-   Pretrained:  laion400m_e32
-   Dataset:     CIFAR10
-   Train Size:  50000
-   Test Size:   10000
-   Accuracy:    94.7500%  (9475/10000)
-============================================================
-root@autodl-container-00e345b2a0-c853a801:~/zj/ModelFlow/llms/openclip_samples#
-root@autodl-container-00e345b2a0-c853a801:~/zj/ModelFlow/llms/openclip_samples#
-root@autodl-container-00e345b2a0-c853a801:~/zj/ModelFlow/llms/openclip_samples# python3 openclip_linear_probe_cifar.py --dataset cifar100
-🚀 Using device: cuda
-🧠 Loading OpenCLIP model: ViT-B-32 | Pretrained: laion400m_e32 ...
-/root/zj/open_clip/src/open_clip/factory.py:450: UserWarning: QuickGELU mismatch between final model config (quick_gelu=False) and pretrained tag 'laion400m_e32' (quick_gelu=True).
-  warnings.warn(
-✅ Model loaded and frozen.
-📂 Loading CIFAR100 training set...
-📂 Loading CIFAR100 test set...
-🔍 Extracting features from training set...
-Extracting features: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 782/782 [00:25<00:00, 31.10it/s]
-🔍 Extracting features from test set...
-Extracting features: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 157/157 [00:05<00:00, 28.98it/s]
-📊 Feature shape - Train: (50000, 512), Test: (10000, 512)
-🛠️ Training Logistic Regression classifier...
-✅ Classifier training completed.
-🧪 Evaluating on test set...
+python openclip_linear_probe_cifar.py --dataset cifar10 --classifier knn --k 1
 
-============================================================
-🎯 OpenCLIP Linear Probe Classification Results
-   Model:       ViT-B-32
-   Pretrained:  laion400m_e32
-   Dataset:     CIFAR100
-   Train Size:  50000
-   Test Size:   10000
-   Accuracy:    78.7900%  (7879/10000)
-============================================================
+python openclip_linear_probe_cifar.py --dataset cifar100 --classifier knn --k 5
 
 """
 
@@ -73,6 +24,7 @@ from tqdm import tqdm
 from torchvision.datasets import CIFAR10, CIFAR100
 from torch.utils.data import DataLoader
 from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
 
 
 def get_dataset(dataset_name, preprocess, train=True):
@@ -120,6 +72,14 @@ def main():
                         help="Batch size for feature extraction (default: 64)")
     parser.add_argument("--num_workers", type=int, default=4,
                         help="Number of workers for data loading (default: 4)")
+
+    # 新增：分类器类型和 KNN 参数
+    parser.add_argument("--classifier", type=str, default="logistic",
+                        choices=["logistic", "knn"],
+                        help="Classifier head: 'logistic' or 'knn' (default: logistic)")
+    parser.add_argument("--k", type=int, default=1,
+                        help="Number of neighbors for KNN (used only when --classifier=knn, default: 1)")
+
     args = parser.parse_args()
 
     # ----------------------------
@@ -129,7 +89,6 @@ def main():
     print(f"🚀 Using device: {device}")
     print(f"🧠 Loading OpenCLIP model: {args.model} | Pretrained: {args.pretrained} ...")
 
-    # 加载模型、transform（preprocess）——注意：不需要 tokenizer
     model, preprocess, _ = open_clip.create_model_and_transforms(
         model_name=args.model,
         pretrained=args.pretrained
@@ -174,16 +133,29 @@ def main():
     print(f"📊 Feature shape - Train: {train_features.shape}, Test: {test_features.shape}")
 
     # ----------------------------
-    # 4. 训练线性分类器（Logistic Regression）
+    # 4. 训练分类器（Logistic 或 KNN）
     # ----------------------------
-    print("🛠️ Training Logistic Regression classifier...")
-    classifier = LogisticRegression(
-        random_state=42,
-        max_iter=1000,
-        C=1.0
-    )
-    classifier.fit(train_features, train_labels)
-    print("✅ Classifier training completed.")
+    if args.classifier == "logistic":
+        print("🛠️ Training Logistic Regression classifier...")
+        classifier = LogisticRegression(
+            random_state=42,
+            max_iter=1000,
+            C=1.0
+        )
+        classifier.fit(train_features, train_labels)
+        print("✅ Logistic classifier training completed.")
+    elif args.classifier == "knn":
+        print(f"🛠️ Setting up KNN classifier with k={args.k} (metric=cosine, since features are normalized)...")
+        # 注意：因为特征已 L2 归一化，余弦相似度 = 内积 = -欧氏距离平方（单调关系）
+        # 所以可以用 'cosine' 距离，或 'euclidean'（效果等价，但 cosine 更直观）
+        classifier = KNeighborsClassifier(
+            n_neighbors=args.k,
+            metric='cosine',  # 支持 cosine
+            algorithm='brute',  # 对于 <100K 样本，brute 足够快且精确
+            n_jobs=-1
+        )
+        classifier.fit(train_features, train_labels)
+        print("✅ KNN classifier ready (no training needed).")
 
     # ----------------------------
     # 5. 评估测试集准确率
@@ -192,15 +164,18 @@ def main():
     test_preds = classifier.predict(test_features)
     accuracy = (test_preds == test_labels).mean()
 
-    print("\n" + "=" * 60)
-    print(f"🎯 OpenCLIP Linear Probe Classification Results")
+    print("\n" + "=" * 70)
+    print(f"🎯 OpenCLIP Frozen Feature Classification Results")
     print(f"   Model:       {args.model}")
     print(f"   Pretrained:  {args.pretrained}")
     print(f"   Dataset:     {args.dataset.upper()}")
+    print(f"   Classifier:  {args.classifier}")
+    if args.classifier == "knn":
+        print(f"   k (top-N):   {args.k}")
     print(f"   Train Size:  {len(train_labels)}")
     print(f"   Test Size:   {len(test_labels)}")
     print(f"   Accuracy:    {accuracy:.4%}  ({int(accuracy * len(test_labels))}/{len(test_labels)})")
-    print("=" * 60)
+    print("=" * 70)
 
 
 if __name__ == "__main__":

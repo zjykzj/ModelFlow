@@ -15,45 +15,6 @@
   <a href="http://commitizen.github.io/cz-cli/"><img src="https://img.shields.io/badge/commitizen-friendly-brightgreen.svg"></a>
 </p>
 
-| Model      | Inference Backend | Pre/Post-processing | Implementation File              | Implemented |
-|------------|-------------------|---------------------|----------------------------------|-------------|
-| YOLOv5     | ONNX Runtime      | PyTorch             | `yolov5_runtime_w_torch.py`      | ✅           |
-| YOLOv5     | ONNX Runtime      | NumPy               | `yolov5_runtime_w_numpy.py`      | ✅           |
-| YOLOv5     | TensorRT          | NumPy               | `yolov5_tensorrt_w_numpy.py`     | ✅           |
-| YOLOv5     | Triton Server     | NumPy               | `yolov5_triton_w_numpy.py`       | ✅           |
-| YOLOv8     | ONNX Runtime      | PyTorch             | `yolov8_runtime_w_torch.py`      | ✅           |
-| YOLOv8     | ONNX Runtime      | NumPy               | `yolov8_runtime_w_numpy.py`      | ✅           |
-| YOLOv8     | TensorRT          | NumPy               | `yolov8_tensorrt_w_numpy.py`     | ✅           |
-| YOLOv8     | Triton Server     | NumPy               | `yolov8_triton_w_numpy.py`       | ✅           |
-| YOLOv8-seg | ONNX Runtime      | PyTorch             | `yolov8_seg_runtime_w_torch.py`  | ✅           |
-| YOLOv8-seg | ONNX Runtime      | NumPy               | `yolov8_seg_runtime_w_numpy.py`  | ✅           |
-| YOLOv8-seg | TensorRT          | NumPy               | `yolov8_seg_tensorrt_w_numpy.py` | ✅           |
-| YOLOv8-seg | Triton Server     | NumPy               | `yolov8_seg_triton_w_numpy.py`   | ✅           |
-
-## CLIP 和 OpenCLIP 模型在 CIFAR-10 和 CIFAR-100 上的 Zero-Shot 和 Linear Probe 评估结果
-
-### CIFAR-10 数据集
-
-| 方法                    | 模型       | 准确率 (Accuracy)  | 提升（对比 Zero-Shot 单模板） |
-|-----------------------|----------|-----------------|----------------------|
-| **Zero-Shot（单模板）**    | CLIP     | 88.80%          | -                    |
-| **Zero-Shot（20模板集成）** | CLIP     | 89.52% (+0.72%) | +0.72%               |
-| **Linear Probe**      | CLIP     | 94.32%          | +5.52%               |
-| **Zero-Shot（单模板）**    | OpenCLIP | 88.66%          | -                    |
-| **Zero-Shot（20模板集成）** | OpenCLIP | 88.88% (+0.22%) | +0.22%               |
-| **Linear Probe**      | OpenCLIP | **94.75%**      | **+6.09%**           |
-
-### CIFAR-100 数据集
-
-| 方法                    | 模型       | 准确率 (Accuracy)  | 提升（对比 Zero-Shot 单模板） |
-|-----------------------|----------|-----------------|----------------------|
-| **Zero-Shot（单模板）**    | CLIP     | 61.70%          | -                    |
-| **Zero-Shot（20模板集成）** | CLIP     | 63.96% (+2.26%) | +2.26%               |
-| **Linear Probe**      | CLIP     | 75.62%          | +13.92%              |
-| **Zero-Shot（单模板）**    | OpenCLIP | 67.02%          | -                    |
-| **Zero-Shot（20模板集成）** | OpenCLIP | 67.90% (+0.88%) | +0.88%               |
-| **Linear Probe**      | OpenCLIP | **78.79%**      | **+11.77%**          |
-
 ## Table of Contents
 
 - [Table of Contents](#table-of-contents)
@@ -90,6 +51,53 @@ of this repository: model transformation and model inference, and minimize the c
 main energy on algorithm deployment.
 
 Note: The previous implementation was in [v0.1.0](https://github.com/zjykzj/ModelFlow/tree/v0.1.0).
+
+## YOLOv5/YOLOv8 Eval
+
+| Model      | Inference Backend | Pre/Post-processing | Implementation File              | Implemented |
+|------------|-------------------|---------------------|----------------------------------|-------------|
+| YOLOv5     | ONNX Runtime      | PyTorch             | `yolov5_runtime_w_torch.py`      | ✅           |
+| YOLOv5     | ONNX Runtime      | NumPy               | `yolov5_runtime_w_numpy.py`      | ✅           |
+| YOLOv5     | TensorRT          | NumPy               | `yolov5_tensorrt_w_numpy.py`     | ✅           |
+| YOLOv5     | Triton Server     | NumPy               | `yolov5_triton_w_numpy.py`       | ✅           |
+| YOLOv8     | ONNX Runtime      | PyTorch             | `yolov8_runtime_w_torch.py`      | ✅           |
+| YOLOv8     | ONNX Runtime      | NumPy               | `yolov8_runtime_w_numpy.py`      | ✅           |
+| YOLOv8     | TensorRT          | NumPy               | `yolov8_tensorrt_w_numpy.py`     | ✅           |
+| YOLOv8     | Triton Server     | NumPy               | `yolov8_triton_w_numpy.py`       | ✅           |
+| YOLOv8-seg | ONNX Runtime      | PyTorch             | `yolov8_seg_runtime_w_torch.py`  | ✅           |
+| YOLOv8-seg | ONNX Runtime      | NumPy               | `yolov8_seg_runtime_w_numpy.py`  | ✅           |
+| YOLOv8-seg | TensorRT          | NumPy               | `yolov8_seg_tensorrt_w_numpy.py` | ✅           |
+| YOLOv8-seg | Triton Server     | NumPy               | `yolov8_seg_triton_w_numpy.py`   | ✅           |
+
+## CLIP/OpenCLIP Eval
+
+CLIP 和 OpenCLIP 模型在 CIFAR-10 和 CIFAR-100 上的 Zero-Shot 和 Linear Probe 评估结果
+
+### CIFAR-10 数据集
+
+| 方法 / 分类头                     | 模型       | 准确率 (Accuracy) | 提升（对比 Zero-Shot 单模板） |
+|------------------------------|----------|----------------|----------------------|
+| **Zero-Shot（单模板）**           | CLIP     | 88.80%         | —                    |
+| **Zero-Shot（20模板集成）**        | CLIP     | 89.52%         | +0.72%               |
+| **Linear Probe + LR**        | CLIP     | 94.32%         | +5.52%               |
+| **Zero-Shot（单模板）**           | OpenCLIP | 88.66%         | —                    |
+| **Zero-Shot（20模板集成）**        | OpenCLIP | 88.88%         | +0.22%               |
+| **Linear Probe + LR**        | OpenCLIP | **94.85%**     | **+6.19%**           |
+| **Linear Probe + KNN (k=1)** | OpenCLIP | 91.91%         | +3.25%               |
+| **Linear Probe + KNN (k=5)** | OpenCLIP | 93.56%         | +4.90%               |
+
+### CIFAR-100 数据集
+
+| 方法 / 分类头                     | 模型       | 准确率 (Accuracy) | 提升（对比 Zero-Shot 单模板） |
+|------------------------------|----------|----------------|----------------------|
+| **Zero-Shot（单模板）**           | CLIP     | 61.70%         | —                    |
+| **Zero-Shot（20模板集成）**        | CLIP     | 63.96%         | +2.26%               |
+| **Linear Probe + LR**        | CLIP     | 75.62%         | +13.92%              |
+| **Zero-Shot（单模板）**           | OpenCLIP | 67.02%         | —                    |
+| **Zero-Shot（20模板集成）**        | OpenCLIP | 67.90%         | +0.88%               |
+| **Linear Probe + LR**        | OpenCLIP | **78.70%**     | **+11.68%**          |
+| **Linear Probe + KNN (k=1)** | OpenCLIP | 70.83%         | +3.81%               |
+| **Linear Probe + KNN (k=5)** | OpenCLIP | 73.32%         | +6.30%               |
 
 ## Maintainers
 
