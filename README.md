@@ -15,34 +15,44 @@
   <a href="http://commitizen.github.io/cz-cli/"><img src="https://img.shields.io/badge/commitizen-friendly-brightgreen.svg"></a>
 </p>
 
-| Model      | Inference Backend | Pre/Post-processing | Implementation File                     | Implemented |
-|------------|-------------------|---------------------|-----------------------------------------|-------------|
-| YOLOv5     | ONNX Runtime      | PyTorch             | `yolov5_runtime_w_torch.py`             | ✅          |
-| YOLOv5     | ONNX Runtime      | NumPy               | `yolov5_runtime_w_numpy.py`             | ✅          |
-| YOLOv5     | TensorRT          | NumPy               | `yolov5_tensorrt_w_numpy.py`            | ✅          |
-| YOLOv5     | Triton Server     | NumPy               | `yolov5_triton_w_numpy.py`              | ✅          |
-| YOLOv8     | ONNX Runtime      | PyTorch             | `yolov8_runtime_w_torch.py`             | ✅          |
-| YOLOv8     | ONNX Runtime      | NumPy               | `yolov8_runtime_w_numpy.py`             | ✅          |
-| YOLOv8     | TensorRT          | NumPy               | `yolov8_tensorrt_w_numpy.py`            | ✅          |
-| YOLOv8     | Triton Server     | NumPy               | `yolov8_triton_w_numpy.py`              | ✅          |
-| YOLOv8-seg | ONNX Runtime      | PyTorch             | `yolov8_seg_runtime_w_torch.py`         | ✅          |
-| YOLOv8-seg | ONNX Runtime      | NumPy               | `yolov8_seg_runtime_w_numpy.py`         | ✅          |
-| YOLOv8-seg | TensorRT          | NumPy               | `yolov8_seg_tensorrt_w_numpy.py`        | ✅          |
-| YOLOv8-seg | Triton Server     | NumPy               | `yolov8_seg_triton_w_numpy.py`          | ✅          |
+| Model      | Inference Backend | Pre/Post-processing | Implementation File              | Implemented |
+|------------|-------------------|---------------------|----------------------------------|-------------|
+| YOLOv5     | ONNX Runtime      | PyTorch             | `yolov5_runtime_w_torch.py`      | ✅           |
+| YOLOv5     | ONNX Runtime      | NumPy               | `yolov5_runtime_w_numpy.py`      | ✅           |
+| YOLOv5     | TensorRT          | NumPy               | `yolov5_tensorrt_w_numpy.py`     | ✅           |
+| YOLOv5     | Triton Server     | NumPy               | `yolov5_triton_w_numpy.py`       | ✅           |
+| YOLOv8     | ONNX Runtime      | PyTorch             | `yolov8_runtime_w_torch.py`      | ✅           |
+| YOLOv8     | ONNX Runtime      | NumPy               | `yolov8_runtime_w_numpy.py`      | ✅           |
+| YOLOv8     | TensorRT          | NumPy               | `yolov8_tensorrt_w_numpy.py`     | ✅           |
+| YOLOv8     | Triton Server     | NumPy               | `yolov8_triton_w_numpy.py`       | ✅           |
+| YOLOv8-seg | ONNX Runtime      | PyTorch             | `yolov8_seg_runtime_w_torch.py`  | ✅           |
+| YOLOv8-seg | ONNX Runtime      | NumPy               | `yolov8_seg_runtime_w_numpy.py`  | ✅           |
+| YOLOv8-seg | TensorRT          | NumPy               | `yolov8_seg_tensorrt_w_numpy.py` | ✅           |
+| YOLOv8-seg | Triton Server     | NumPy               | `yolov8_seg_triton_w_numpy.py`   | ✅           |
 
-* CLIP 模型在 CIFAR-10 和 CIFAR-100 上的 Zero-Shot 和 Linear Probe 评估结果
+## CLIP 和 OpenCLIP 模型在 CIFAR-10 和 CIFAR-100 上的 Zero-Shot 和 Linear Probe 评估结果
 
-| 方法 | 数据集 | 准确率 (Accuracy) | 提升（对比 Zero-Shot 单模板） |
-|------|--------|-------------------|------------------------------|
-| **Zero-Shot（单模板）** | CIFAR-10 | 88.80% | - |
-| **Zero-Shot（20模板集成）** | CIFAR-10 | 89.52% (+0.72%) | +0.72% |
-| **Linear Probe** | CIFAR-10 | **94.32%** | **+5.52%** |
+### CIFAR-10 数据集
 
-| 方法 | 数据集 | 准确率 (Accuracy) | 提升（对比 Zero-Shot 单模板） |
-|------|--------|-------------------|------------------------------|
-| **Zero-Shot（单模板）** | CIFAR-100 | 61.70% | - |
-| **Zero-Shot（20模板集成）** | CIFAR-100 | 63.96% (+2.26%) | +2.26% |
-| **Linear Probe** | CIFAR-100 | **75.62%** | **+13.92%** |
+| 方法                    | 模型       | 准确率 (Accuracy)  | 提升（对比 Zero-Shot 单模板） |
+|-----------------------|----------|-----------------|----------------------|
+| **Zero-Shot（单模板）**    | CLIP     | 88.80%          | -                    |
+| **Zero-Shot（20模板集成）** | CLIP     | 89.52% (+0.72%) | +0.72%               |
+| **Linear Probe**      | CLIP     | 94.32%          | +5.52%               |
+| **Zero-Shot（单模板）**    | OpenCLIP | 88.66%          | -                    |
+| **Zero-Shot（20模板集成）** | OpenCLIP | 88.88% (+0.22%) | +0.22%               |
+| **Linear Probe**      | OpenCLIP | **94.75%**      | **+6.09%**           |
+
+### CIFAR-100 数据集
+
+| 方法                    | 模型       | 准确率 (Accuracy)  | 提升（对比 Zero-Shot 单模板） |
+|-----------------------|----------|-----------------|----------------------|
+| **Zero-Shot（单模板）**    | CLIP     | 61.70%          | -                    |
+| **Zero-Shot（20模板集成）** | CLIP     | 63.96% (+2.26%) | +2.26%               |
+| **Linear Probe**      | CLIP     | 75.62%          | +13.92%              |
+| **Zero-Shot（单模板）**    | OpenCLIP | 67.02%          | -                    |
+| **Zero-Shot（20模板集成）** | OpenCLIP | 67.90% (+0.88%) | +0.88%               |
+| **Linear Probe**      | OpenCLIP | **78.79%**      | **+11.77%**          |
 
 ## Table of Contents
 
@@ -63,11 +73,21 @@
 
 注：之前的实现备份在[v0.1.0](https://github.com/zjykzj/ModelFlow/tree/v0.1.0)。 -->
 
-The purpose of this repository is to better deploy computer vision algorithms, especially the implementation of object classification, object detection, and instance segmentation algorithms.
+The purpose of this repository is to better deploy computer vision algorithms, especially the implementation of object
+classification, object detection, and instance segmentation algorithms.
 
-At first, I wanted to design a unified architecture that would adapt to different pre-processing and post-processing, network module implementations, and inference engines through a modular paradigm, similar to commonly used popular repositories. But this approach is difficult to push forward. Every time I want to add a new algorithm, I need to repeatedly think about how to split the algorithm according to the current architecture and how to adapt the input and output of each module. These issues have left me exhausted and even lost my passion for warehouse optimization for a period of time.
+At first, I wanted to design a unified architecture that would adapt to different pre-processing and post-processing,
+network module implementations, and inference engines through a modular paradigm, similar to commonly used popular
+repositories. But this approach is difficult to push forward. Every time I want to add a new algorithm, I need to
+repeatedly think about how to split the algorithm according to the current architecture and how to adapt the input and
+output of each module. These issues have left me exhausted and even lost my passion for warehouse optimization for a
+period of time.
 
-I have thought for a long time and confirmed that I may have fallen into some kind of development dilemma. In order to pursue design perfection, the complexity of engineering development has been infinitely increased. After realizing the problem of Over-Engineering, I plan to start over. In the new development, I will focus as much as possible on the goals of this repository: model transformation and model inference, and minimize the content of architecture design. Focus the main energy on algorithm deployment.
+I have thought for a long time and confirmed that I may have fallen into some kind of development dilemma. In order to
+pursue design perfection, the complexity of engineering development has been infinitely increased. After realizing the
+problem of Over-Engineering, I plan to start over. In the new development, I will focus as much as possible on the goals
+of this repository: model transformation and model inference, and minimize the content of architecture design. Focus the
+main energy on algorithm deployment.
 
 Note: The previous implementation was in [v0.1.0](https://github.com/zjykzj/ModelFlow/tree/v0.1.0).
 

@@ -1,57 +1,64 @@
 # -*- coding: utf-8 -*-
 
 """
-@Time    : 2026/2/8 17:50
-@File    : clip_linear_probe.py
+@Time    : 2026/2/8 18:24
+@File    : openclip_linear_probe_cifar.py
 @Author  : zj
 @Description:
 
-root@autodl-container-00e345b2a0-c853a801:~/zj/ModelFlow/llms/clip_samples# python3 clip_linear_probe_cifar.py
+root@autodl-container-00e345b2a0-c853a801:~/zj/ModelFlow/llms/openclip_samples# python3 openclip_linear_probe_cifar.py
 🚀 Using device: cuda
-🧠 Loading CLIP model: ViT-B/32 ...
+🧠 Loading OpenCLIP model: ViT-B-32 | Pretrained: laion400m_e32 ...
+/root/zj/open_clip/src/open_clip/factory.py:450: UserWarning: QuickGELU mismatch between final model config (quick_gelu=False) and pretrained tag 'laion400m_e32' (quick_gelu=True).
+  warnings.warn(
 ✅ Model loaded and frozen.
 📂 Loading CIFAR10 training set...
 📂 Loading CIFAR10 test set...
 🔍 Extracting features from training set...
-Extracting features: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 782/782 [00:24<00:00, 31.72it/s]
+Extracting features: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 782/782 [00:24<00:00, 31.55it/s]
 🔍 Extracting features from test set...
-Extracting features: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 157/157 [00:05<00:00, 30.74it/s]
+Extracting features: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 157/157 [00:05<00:00, 30.37it/s]
 📊 Feature shape - Train: (50000, 512), Test: (10000, 512)
 🛠️ Training Logistic Regression classifier...
 ✅ Classifier training completed.
 🧪 Evaluating on test set...
 
 ============================================================
-🎯 Linear Probe Classification Results
-   Model:       ViT-B/32
+🎯 OpenCLIP Linear Probe Classification Results
+   Model:       ViT-B-32
+   Pretrained:  laion400m_e32
    Dataset:     CIFAR10
    Train Size:  50000
    Test Size:   10000
-   Accuracy:    94.3200%  (9432/10000)
+   Accuracy:    94.7500%  (9475/10000)
 ============================================================
-root@autodl-container-00e345b2a0-c853a801:~/zj/ModelFlow/llms/clip_samples#
-root@autodl-container-00e345b2a0-c853a801:~/zj/ModelFlow/llms/clip_samples# python3 clip_linear_probe_cifar.py --dataset cifar100
+root@autodl-container-00e345b2a0-c853a801:~/zj/ModelFlow/llms/openclip_samples#
+root@autodl-container-00e345b2a0-c853a801:~/zj/ModelFlow/llms/openclip_samples#
+root@autodl-container-00e345b2a0-c853a801:~/zj/ModelFlow/llms/openclip_samples# python3 openclip_linear_probe_cifar.py --dataset cifar100
 🚀 Using device: cuda
-🧠 Loading CLIP model: ViT-B/32 ...
+🧠 Loading OpenCLIP model: ViT-B-32 | Pretrained: laion400m_e32 ...
+/root/zj/open_clip/src/open_clip/factory.py:450: UserWarning: QuickGELU mismatch between final model config (quick_gelu=False) and pretrained tag 'laion400m_e32' (quick_gelu=True).
+  warnings.warn(
 ✅ Model loaded and frozen.
 📂 Loading CIFAR100 training set...
 📂 Loading CIFAR100 test set...
 🔍 Extracting features from training set...
-Extracting features: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 782/782 [00:23<00:00, 32.83it/s]
+Extracting features: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 782/782 [00:25<00:00, 31.10it/s]
 🔍 Extracting features from test set...
-Extracting features: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 157/157 [00:05<00:00, 31.36it/s]
+Extracting features: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 157/157 [00:05<00:00, 28.98it/s]
 📊 Feature shape - Train: (50000, 512), Test: (10000, 512)
 🛠️ Training Logistic Regression classifier...
 ✅ Classifier training completed.
 🧪 Evaluating on test set...
 
 ============================================================
-🎯 Linear Probe Classification Results
-   Model:       ViT-B/32
+🎯 OpenCLIP Linear Probe Classification Results
+   Model:       ViT-B-32
+   Pretrained:  laion400m_e32
    Dataset:     CIFAR100
    Train Size:  50000
    Test Size:   10000
-   Accuracy:    75.6200%  (7562/10000)
+   Accuracy:    78.7900%  (7879/10000)
 ============================================================
 
 """
@@ -59,7 +66,7 @@ Extracting features: 100%|██████████████████
 import os
 import argparse
 import torch
-import clip
+import open_clip
 import numpy as np
 from tqdm import tqdm
 
@@ -83,7 +90,7 @@ def get_dataset(dataset_name, preprocess, train=True):
 
 
 def extract_features(model, dataloader, device):
-    """从 dataloader 中提取所有图像的 CLIP 特征（L2 归一化）"""
+    """从 dataloader 中提取所有图像的 OpenCLIP 视觉特征（L2 归一化）"""
     all_features = []
     all_labels = []
     with torch.no_grad():
@@ -101,12 +108,14 @@ def extract_features(model, dataloader, device):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Linear Probe evaluation of CLIP on CIFAR datasets.")
+    parser = argparse.ArgumentParser(description="Linear Probe evaluation of OpenCLIP on CIFAR datasets.")
     parser.add_argument("--dataset", type=str, default="cifar10",
                         choices=["cifar10", "cifar100"],
                         help="Dataset to evaluate on (default: cifar10)")
-    parser.add_argument("--model", type=str, default="ViT-B/32",
-                        help="CLIP model name (default: ViT-B/32)")
+    parser.add_argument("--model", type=str, default="ViT-B-32",
+                        help="OpenCLIP model architecture (default: ViT-B-32)")
+    parser.add_argument("--pretrained", type=str, default="laion400m_e32",
+                        help="Pretrained checkpoint name (default: laion400m_e32)")
     parser.add_argument("--batch_size", type=int, default=64,
                         help="Batch size for feature extraction (default: 64)")
     parser.add_argument("--num_workers", type=int, default=4,
@@ -118,9 +127,14 @@ def main():
     # ----------------------------
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"🚀 Using device: {device}")
-    print(f"🧠 Loading CLIP model: {args.model} ...")
-    model, preprocess = clip.load(args.model, device=device)
-    model.eval()
+    print(f"🧠 Loading OpenCLIP model: {args.model} | Pretrained: {args.pretrained} ...")
+
+    # 加载模型、transform（preprocess）——注意：不需要 tokenizer
+    model, preprocess, _ = open_clip.create_model_and_transforms(
+        model_name=args.model,
+        pretrained=args.pretrained
+    )
+    model.to(device).eval()
     for param in model.parameters():
         param.requires_grad_(False)  # 冻结整个模型
     print("✅ Model loaded and frozen.")
@@ -166,9 +180,7 @@ def main():
     classifier = LogisticRegression(
         random_state=42,
         max_iter=1000,
-        C=1.0,  # 可尝试调整正则强度（如 C=0.1, 1.0, 10.0）
-        # solver='lbfgs',  # 适用于中小规模多分类
-        # multi_class='multinomial'
+        C=1.0
     )
     classifier.fit(train_features, train_labels)
     print("✅ Classifier training completed.")
@@ -181,8 +193,9 @@ def main():
     accuracy = (test_preds == test_labels).mean()
 
     print("\n" + "=" * 60)
-    print(f"🎯 Linear Probe Classification Results")
+    print(f"🎯 OpenCLIP Linear Probe Classification Results")
     print(f"   Model:       {args.model}")
+    print(f"   Pretrained:  {args.pretrained}")
     print(f"   Dataset:     {args.dataset.upper()}")
     print(f"   Train Size:  {len(train_labels)}")
     print(f"   Test Size:   {len(test_labels)}")
