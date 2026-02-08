@@ -7,7 +7,7 @@
  <div align="center"><a title="" href="git@github.com:zjykzj/ModelFlow.git"><img align="center" src="./assets/logos/ModelFlow.svg"></a></div>
 
 <p align="center">
-  Model Export & Model Infer
+  Model Eval & Infer & Export
 <br>
 <br>
   <a href="https://github.com/RichardLitt/standard-readme"><img src="https://img.shields.io/badge/standard--readme-OK-green.svg?style=flat-square"></a>
