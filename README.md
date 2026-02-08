@@ -30,6 +30,20 @@
 | YOLOv8-seg | TensorRT          | NumPy               | `yolov8_seg_tensorrt_w_numpy.py`        | ✅          |
 | YOLOv8-seg | Triton Server     | NumPy               | `yolov8_seg_triton_w_numpy.py`          | ✅          |
 
+* CLIP 模型在 CIFAR-10 和 CIFAR-100 上的 Zero-Shot 和 Linear Probe 评估结果
+
+| 方法 | 数据集 | 准确率 (Accuracy) | 提升（对比 Zero-Shot 单模板） |
+|------|--------|-------------------|------------------------------|
+| **Zero-Shot（单模板）** | CIFAR-10 | 88.80% | - |
+| **Zero-Shot（20模板集成）** | CIFAR-10 | 89.52% (+0.72%) | +0.72% |
+| **Linear Probe** | CIFAR-10 | **94.32%** | **+5.52%** |
+
+| 方法 | 数据集 | 准确率 (Accuracy) | 提升（对比 Zero-Shot 单模板） |
+|------|--------|-------------------|------------------------------|
+| **Zero-Shot（单模板）** | CIFAR-100 | 61.70% | - |
+| **Zero-Shot（20模板集成）** | CIFAR-100 | 63.96% (+2.26%) | +2.26% |
+| **Linear Probe** | CIFAR-100 | **75.62%** | **+13.92%** |
+
 ## Table of Contents
 
 - [Table of Contents](#table-of-contents)

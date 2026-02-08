@@ -2,7 +2,7 @@
 
 """
 @Time    : 2026/2/8 17:16
-@File    : eval_cifar.py
+@File    : cifar_zero_shot.py
 @Author  : zj
 @Description:
 
