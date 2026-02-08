@@ -4,72 +4,178 @@
 @Time    : 2026/2/8 17:16
 @File    : eval_cifar.py
 @Author  : zj
-@Description: 
+@Description:
+
+root@autodl-container-00e345b2a0-c853a801:~/zj/ModelFlow/llms/clip_samples# python3 eval_cifar.py
+🚀 Using device: cuda
+🧠 Loading CLIP model: ViT-B/32 ...
+✅ Model loaded and set to eval mode.
+📂 Loading dataset: CIFAR10 (test set) ...
+📊 Dataset size: 10000 samples | Classes: 10
+🔤 Encoding text prompts...
+✅ Encoded 10 text features.
+🔍 Starting zero-shot evaluation...
+Inference: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 157/157 [00:05<00:00, 28.80it/s]
+
+============================================================
+🎯 Zero-Shot Classification Results
+   Model:       ViT-B/32
+   Dataset:     CIFAR10
+   Accuracy:    88.8000%  (8880/10000)
+============================================================
+
+root@autodl-container-00e345b2a0-c853a801:~/zj/ModelFlow/llms/clip_samples# python3 eval_cifar.py --dataset cifar100
+🚀 Using device: cuda
+🧠 Loading CLIP model: ViT-B/32 ...
+✅ Model loaded and set to eval mode.
+📂 Loading dataset: CIFAR100 (test set) ...
+📊 Dataset size: 10000 samples | Classes: 100
+🔤 Encoding text prompts...
+✅ Encoded 100 text features.
+🔍 Starting zero-shot evaluation...
+Inference: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 157/157 [00:05<00:00, 29.37it/s]
+
+============================================================
+🎯 Zero-Shot Classification Results
+   Model:       ViT-B/32
+   Dataset:     CIFAR100
+   Accuracy:    61.7000%  (6170/10000)
+============================================================
+
 """
 
 import os
+import argparse
 import torch
 import clip
-
 from tqdm import tqdm
 
-from torchvision.datasets import CIFAR10
+from torchvision.datasets import CIFAR10, CIFAR100
 from torch.utils.data import DataLoader
 
-# ----------------------------
-# 1. 设置设备与模型
-# ----------------------------
-device = "cuda" if torch.cuda.is_available() else "cpu"
-model, preprocess = clip.load("ViT-B/32", device=device)
-model.eval()
 
-# ----------------------------
-# 2. CIFAR-10 类别名称（必须按官方顺序）
-# ----------------------------
-cifar10_classes = [
-    "airplane", "automobile", "bird", "cat", "deer",
-    "dog", "frog", "horse", "ship", "truck"
-]
+def get_dataset(dataset_name, preprocess):
+    """根据名称返回对应的数据集和类别列表"""
+    root = os.path.expanduser("~/.cache")
+    if dataset_name.lower() == "cifar10":
+        dataset = CIFAR10(root=root, train=False, download=True, transform=preprocess)
+        classes = [
+            "airplane", "automobile", "bird", "cat", "deer",
+            "dog", "frog", "horse", "ship", "truck"
+        ]
+    elif dataset_name.lower() == "cifar100":
+        dataset = CIFAR100(root=root, train=False, download=True, transform=preprocess)
+        # CIFAR-100 官方细粒度类别（按顺序）
+        classes = [
+            'apple', 'aquarium_fish', 'baby', 'bear', 'beaver', 'bed', 'bee', 'beetle',
+            'bicycle', 'bottle', 'bowl', 'boy', 'bridge', 'bus', 'butterfly', 'camel',
+            'can', 'castle', 'caterpillar', 'cattle', 'chair', 'chimpanzee', 'clock',
+            'cloud', 'cockroach', 'couch', 'crab', 'crocodile', 'cup', 'dinosaur',
+            'dolphin', 'elephant', 'flatfish', 'forest', 'fox', 'girl', 'hamster',
+            'house', 'kangaroo', 'keyboard', 'lamp', 'lawn_mower', 'leopard', 'lion',
+            'lizard', 'lobster', 'man', 'maple_tree', 'motorcycle', 'mountain', 'mouse',
+            'mushroom', 'oak_tree', 'orange', 'orchid', 'otter', 'palm_tree', 'pear',
+            'pickup_truck', 'pine_tree', 'plain', 'plate', 'poppy', 'porcupine',
+            'possum', 'rabbit', 'raccoon', 'ray', 'road', 'rocket', 'rose',
+            'sea', 'seal', 'shark', 'shrew', 'skunk', 'skyscraper', 'snail', 'snake',
+            'spider', 'squirrel', 'streetcar', 'sunflower', 'sweet_pepper', 'table',
+            'tank', 'telephone', 'television', 'tiger', 'tractor', 'train', 'trout',
+            'tulip', 'turtle', 'wardrobe', 'whale', 'willow_tree', 'wolf', 'woman', 'worm'
+        ]
+    else:
+        raise ValueError(f"Unsupported dataset: {dataset_name}. Choose 'cifar10' or 'cifar100'.")
+    return dataset, classes
 
-# ----------------------------
-# 3. 构造文本 prompts 并编码（只做一次）
-# ----------------------------
-with torch.no_grad():
-    text_inputs = clip.tokenize([f"a photo of a {c}" for c in cifar10_classes]).to(device)
-    text_features = model.encode_text(text_inputs)
-    text_features /= text_features.norm(dim=-1, keepdim=True)  # L2 归一化
 
-# ----------------------------
-# 4. 加载 CIFAR-10 测试集（使用 CLIP 的 preprocess）
-# ----------------------------
-# 注意：CIFAR10 返回的是 PIL Image，所以可以直接用 preprocess
-test_dataset = CIFAR10(root=os.path.expanduser("~/.cache"), train=False, download=True, transform=preprocess)
-test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False, num_workers=4)
+def main():
+    parser = argparse.ArgumentParser(description="Zero-shot evaluation of CLIP on CIFAR datasets.")
+    parser.add_argument("--dataset", type=str, default="cifar10",
+                        choices=["cifar10", "cifar100"],
+                        help="Dataset to evaluate on (default: cifar10)")
+    parser.add_argument("--model", type=str, default="ViT-B/32",
+                        help="CLIP model name (default: ViT-B/32)")
+    parser.add_argument("--batch_size", type=int, default=64,
+                        help="Batch size for inference (default: 64)")
+    parser.add_argument("--num_workers", type=int, default=4,
+                        help="Number of workers for data loading (default: 4)")
+    args = parser.parse_args()
 
-# ----------------------------
-# 5. 批量推理与评估
-# ----------------------------
-correct = 0
-total = 0
-logit_scale = model.logit_scale.exp()
+    # ----------------------------
+    # 1. 设置设备与模型
+    # ----------------------------
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"🚀 Using device: {device}")
+    print(f"🧠 Loading CLIP model: {args.model} ...")
+    model, preprocess = clip.load(args.model, device=device)
+    model.eval()
+    print("✅ Model loaded and set to eval mode.")
 
-with torch.no_grad():
-    for images, labels in tqdm(test_loader):
-        images = images.to(device)
-        labels = labels.to(device)
+    # ----------------------------
+    # 2. 加载数据集与类别
+    # ----------------------------
+    print(f"📂 Loading dataset: {args.dataset.upper()} (test set) ...")
+    test_dataset, class_names = get_dataset(args.dataset, preprocess)
+    num_classes = len(class_names)
+    print(f"📊 Dataset size: {len(test_dataset)} samples | Classes: {num_classes}")
 
-        # 编码图像
-        image_features = model.encode_image(images)
-        image_features /= image_features.norm(dim=-1, keepdim=True)
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=args.batch_size,
+        shuffle=False,
+        num_workers=args.num_workers,
+        pin_memory=True if device == "cuda" else False
+    )
 
-        # 计算 logits: [B, K]
-        logits = logit_scale * (image_features @ text_features.T)  # shape: (batch_size, 10)
+    # ----------------------------
+    # 3. 编码文本 prompts（只做一次）
+    # ----------------------------
+    print("🔤 Encoding text prompts...")
+    with torch.no_grad():
+        text_inputs = clip.tokenize([f"a photo of a {c}" for c in class_names]).to(device)
+        text_features = model.encode_text(text_inputs)
+        text_features /= text_features.norm(dim=-1, keepdim=True)
+    print(f"✅ Encoded {num_classes} text features.")
 
-        # 预测类别
-        preds = logits.argmax(dim=1)
+    # ----------------------------
+    # 4. 批量推理与评估
+    # ----------------------------
+    correct = 0
+    total = 0
+    logit_scale = model.logit_scale.exp()
 
-        correct += (preds == labels).sum().item()
-        total += labels.size(0)
+    print("🔍 Starting zero-shot evaluation...")
+    with torch.no_grad():
+        for batch_idx, (images, labels) in enumerate(tqdm(test_loader, desc="Inference")):
+            images = images.to(device, non_blocking=True)
+            labels = labels.to(device, non_blocking=True)
 
-accuracy = correct / total
-print(f"\n✅ CLIP ViT-B/32 Zero-Shot Accuracy on CIFAR-10: {accuracy:.4f} ({correct}/{total})")
+            # Encode images
+            image_features = model.encode_image(images)
+            image_features /= image_features.norm(dim=-1, keepdim=True)
+
+            # Compute logits
+            logits = logit_scale * (image_features @ text_features.T)  # [B, K]
+
+            # Predict
+            preds = logits.argmax(dim=1)
+            batch_correct = (preds == labels).sum().item()
+            batch_total = labels.size(0)
+
+            correct += batch_correct
+            total += batch_total
+
+            # 可选：打印每个 batch 的准确率（调试用，可注释）
+            # batch_acc = batch_correct / batch_total
+            # print(f"  Batch {batch_idx + 1}: Acc = {batch_acc:.4f} ({batch_correct}/{batch_total})")
+
+    accuracy = correct / total
+    print("\n" + "=" * 60)
+    print(f"🎯 Zero-Shot Classification Results")
+    print(f"   Model:       {args.model}")
+    print(f"   Dataset:     {args.dataset.upper()}")
+    print(f"   Accuracy:    {accuracy:.4%}  ({correct}/{total})")
+    print("=" * 60)
+
+
+if __name__ == "__main__":
+    main()
