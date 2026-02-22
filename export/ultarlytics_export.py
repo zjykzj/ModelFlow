@@ -12,9 +12,11 @@ See:
 
 Usage: Convert yolov8s to ONNX:
     $ python ultarlytics_export.py yolov8s
+    $ python ultarlytics_export.py yolov8s-seg
 
 Usage: Set opset=12:
     $ python ultarlytics_export.py yolov8s --opset 12
+    $ python ultarlytics_export.py yolov8s-seg --opset 12
 
 Note 1: After obtaining the onnx file, it can be converted into a trt file using the trtexec command-line tool
 Note 2: For TensorRT 7.X version, setting opset=12 can perform the correct conversion and inference

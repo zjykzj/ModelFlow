@@ -7,6 +7,7 @@
 @Description:
 
 >>>python3 pytorch_to_onnx.py --model resnet18 --save resnet18.onnx --img-size 224 --img-channels 3
+>>>python3 pytorch_to_onnx.py --model efficientnet_b0 --save efficientnet_b0.onnx --img-size 224 --img-channels 3
 
 """
 
@@ -68,18 +69,45 @@ def load_model(args) -> torch.nn.Module:
 
         if tv_version >= version.parse("0.13"):
             # --- 构造正确的 Weights 类名 ---
-            # 特殊情况：包含下划线的模型（如 mobilenet_v2）
-            if '_' in args.model:
-                # 例如: mobilenet_v2 -> MobileNet_V2_Weights
+            # 特殊模型映射表（最准确的方式）
+            special_model_mapping = {
+                'efficientnet_b0': 'EfficientNet_B0_Weights',
+                'efficientnet_b1': 'EfficientNet_B1_Weights',
+                'efficientnet_b2': 'EfficientNet_B2_Weights',
+                'efficientnet_b3': 'EfficientNet_B3_Weights',
+                'efficientnet_b4': 'EfficientNet_B4_Weights',
+                'efficientnet_b5': 'EfficientNet_B5_Weights',
+                'efficientnet_b6': 'EfficientNet_B6_Weights',
+                'efficientnet_b7': 'EfficientNet_B7_Weights',
+                'efficientnet_v2_s': 'EfficientNet_V2_S_Weights',
+                'efficientnet_v2_m': 'EfficientNet_V2_M_Weights',
+                'efficientnet_v2_l': 'EfficientNet_V2_L_Weights',
+                'mobilenet_v2': 'MobileNet_V2_Weights',
+                'mobilenet_v3_large': 'MobileNet_V3_Large_Weights',
+                'mobilenet_v3_small': 'MobileNet_V3_Small_Weights',
+                'mnasnet0_5': 'MNASNet0_5_Weights',
+                'mnasnet0_75': 'MNASNet0_75_Weights',
+                'mnasnet1_0': 'MNASNet1_0_Weights',
+                'mnasnet1_3': 'MNASNet1_3_Weights',
+                'shufflenet_v2_x0_5': 'ShuffleNet_V2_X0_5_Weights',
+                'shufflenet_v2_x1_0': 'ShuffleNet_V2_X1_0_Weights',
+                'shufflenet_v2_x1_5': 'ShuffleNet_V2_X1_5_Weights',
+                'shufflenet_v2_x2_0': 'ShuffleNet_V2_X2_0_Weights',
+                'squeezenet1_0': 'SqueezeNet1_0_Weights',
+                'squeezenet1_1': 'SqueezeNet1_1_Weights',
+            }
+
+            # 优先使用映射表
+            if args.model in special_model_mapping:
+                weights_name = special_model_mapping[args.model]
+            elif '_' in args.model:
+                # 通用规则：分割后每部分 capitalize，并用下划线连接
                 parts = args.model.split('_')
-                # 大写每个部分的首字母
-                capitalized = ''.join([part.capitalize() for part in parts])
+                capitalized = '_'.join([part.capitalize() for part in parts])
                 weights_name = f"{capitalized}_Weights"
             else:
-                # 一般情况：resnet18 -> ResNet18_Weights
-                # 手动处理常见模型（因为不是简单 capitalize）
+                # 无下划线的模型（如 resnet18）
                 if args.model.startswith('resnet'):
-                    # resnet18, resnet50
                     num = args.model[6:]
                     weights_name = f"ResNet{num}_Weights"
                 elif args.model.startswith('resnext'):
@@ -89,7 +117,6 @@ def load_model(args) -> torch.nn.Module:
                     num = args.model[11:]
                     weights_name = f"Wide_ResNet{num}_Weights"
                 else:
-                    # 其他尝试 capitalize
                     weights_name = f"{args.model.capitalize()}_Weights"
 
             # 检查是否存在
