@@ -155,4 +155,7 @@ cython_debug/
 output/
 models/
 
-./export/*.pt
+export/*.pt
+export/*.onnx
+export/*.trt
+export/*.engine
