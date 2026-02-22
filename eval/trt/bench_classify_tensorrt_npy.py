@@ -75,10 +75,8 @@ class TRTClassifyModel:
 
             logger.info(f"Binding[{i}]: name='{name}', shape={shape}, dtype={dtype}, is_input={is_input}")
 
-        logger.info(f"Model Input Names: {self.input_names}")
-        logger.info(f"Model Input Shapes: {self.input_shapes}")
-        logger.info(f"Model Output Names: {self.output_names}")
-        logger.info(f"Model Output Shapes: {self.output_shapes}")
+        logger.info(f"input_names: {self.input_names} - output_names: {self.output_names}")
+        logger.info(f"input_shapes: {self.input_shapes} - output_shapes: {self.output_shapes}")
 
         # 仅支持单输入单输出分类模型
         assert len(self.input_names) == 1, "Only single input is supported."
@@ -143,6 +141,19 @@ class TRTClassifyModel:
     def forward(self, img):
         return self.infer(img)
 
+
+"""
+Evaluation Summary:
+  Task Type: classification
+  Total Images: 50000
+  Total Correct Predictions: 38835
+  Total Errors: 11165
+  Number of Classes: 1000
+  Accuracy: 0.7767
+  Precision: 0.7796
+  Recall: 0.7767
+  F1-Score: 0.7781
+"""
 
 if __name__ == '__main__':
     with Profile(name="evaluating") as stage_profiler:
