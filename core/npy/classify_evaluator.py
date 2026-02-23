@@ -145,8 +145,6 @@ class EvalEvaluator:
         self.confusion_matrix = None
 
         self.class_list = self.model.class_list
-        self.label_list = self.model.label_list
-        self.input_size = self.model.input_size
 
     def run(self):
         """

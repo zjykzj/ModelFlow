@@ -39,69 +39,79 @@ logger = EnhancedLogger(LOGGER_NAME, log_dir='logs',
                         use_file_handler=True, use_stream_handler=True).logger
 
 import numpy as np
-import onnxruntime as ort
+from typing import List, Dict, Any, Optional, Union, Tuple
+from core.backends.onnx_model import ONNXModel
 
 
-class ONNXClassifyModel:
+class ONNXClassifyModel(ONNXModel):
+    """分类模型（继承自统一基类）"""
 
-    def __init__(self, model_path, class_list, label_list, half=False, device=None, input_size=224):
-        self.model_path = model_path
-        self.class_list = class_list
-        self.label_list = label_list
-        self.half = half
-        self.device = device
-        self.input_size = input_size
+    def __init__(
+            self,
+            model_path: str,
+            class_list: List[str],
+            label_list: Optional[List[str]] = None,
+            half: bool = False,
+            device: Optional[str] = None,
+    ):
+        super().__init__(
+            model_path=model_path,
+            class_list=class_list,
+            label_list=label_list,
+            half=half,
+            device=device,
+        )
 
-        logger.info(f"model_path: {model_path}")
-        # Force CPU execution (ignore device argument per requirement)
-        self.session = ort.InferenceSession(self.model_path, providers=['CPUExecutionProvider'])
-        logger.info(f"session: {self.session}")
-        # 获取输入信息
-        inputs = self.session.get_inputs()
-        self.input_names = [inp.name for inp in inputs]
-        self.input_shapes = [inp.shape for inp in inputs]
+    def predict(self, img: np.ndarray) -> Tuple[int, float]:
+        """
+        分类预测，返回类别索引和置信度
 
-        # 获取输出信息
-        outputs = self.session.get_outputs()
-        self.output_names = [out.name for out in outputs]
-        self.output_shapes = [out.shape for out in outputs]
+        Args:
+            img: 预处理后的图像数组 (1, C, H, W)
 
-        logger.info(f"input_names: {self.input_names} - output_names: {self.output_names}")
-        logger.info(f"input_shapes: {self.input_shapes} - output_shapes: {self.output_shapes}")
+        Returns:
+            (class_index, confidence)
+        """
+        logits = self.__call__(img)
+        probs = self._softmax(logits)
+        class_idx = int(np.argmax(probs[0]))
+        confidence = float(probs[0][class_idx])
+        return class_idx, confidence
 
-        self.__warmup()
+    @staticmethod
+    def _softmax(x: np.ndarray) -> np.ndarray:
+        """Softmax激活函数"""
+        exp_x = np.exp(x - np.max(x, axis=-1, keepdims=True))
+        return exp_x / np.sum(exp_x, axis=-1, keepdims=True)
 
-    def __warmup(self):
-        dummy_input = np.random.randn(1, 3, self.input_size, self.input_size).astype(np.float32)
-        for _ in range(3):
-            self.session.run(None, {self.input_names[0]: dummy_input})
 
-    def __call__(self, img):
-        outputs = self.session.run(None, {self.input_names[0]: img})
-        logits = outputs[0]
-        return logits
-
-    def forward(self, img):
-        return self.__call__(img)
-
-    def infer(self, img):
-        return self.__call__(img)
-
+"""
+Evaluation Summary:
+  Task Type: classification
+  Total Images: 50000
+  Total Correct Predictions: 38839
+  Total Errors: 11161
+  Number of Classes: 1000
+  Accuracy: 0.7768
+  Precision: 0.7798
+  Recall: 0.7768
+  F1-Score: 0.7783
+"""
 
 if __name__ == '__main__':
     with Profile(name="evaluating") as stage_profiler:
+        input_size = 224
         model_path = "./models/runtime/efficientnet_b0.onnx"
         assert os.path.isfile(model_path), model_path
         from core.cfgs.imagenet_cfg import class_list, label_list
 
-        input_size = 224
-        model = ONNXClassifyModel(model_path, class_list, label_list, input_size=input_size)
+        model = ONNXClassifyModel(model_path, class_list, label_list)
 
         data_root = "/home/zjykzj/datasets/imagenet/val"
         assert os.path.isdir(data_root), data_root
         dataset = ClassifyDataset(data_root, class_list, label_list, imread=imread_pil)
 
-        transform = ImgPrepare(input_size=256, crop_size=224, batch=True, mode="crop")
+        transform = ImgPrepare(input_size=256, crop_size=input_size, batch=True, mode="crop")
         engine = EvalEvaluator(model, dataset, transform, cls_thres=None)
         print(engine)
 
