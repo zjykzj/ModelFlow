@@ -135,8 +135,6 @@ class EvalEvaluator:
 
         self.device = self.model.device
         self.class_list = self.model.class_list
-        self.label_list = self.model.label_list
-        self.input_size = self.model.input_size
 
     def run(self):
         """
@@ -171,7 +169,8 @@ class EvalEvaluator:
             t2 = time.time()
 
             with torch.no_grad():
-                output = self.model(input_data)
+                logits = self.model(input_data.cpu().numpy())
+                output = torch.from_numpy(logits)
 
             t3 = time.time()
             probs = torch.softmax(output, dim=1).data.cpu().numpy()

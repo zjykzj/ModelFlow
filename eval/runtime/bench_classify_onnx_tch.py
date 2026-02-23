@@ -6,7 +6,7 @@
 @Author  : zj
 @Description:
 
->>>python3 py/runtime/bench_classify_onnx_tch.py
+>>>python3 eval/runtime/bench_classify_onnx_tch.py
 
 """
 
@@ -39,79 +39,34 @@ logger = EnhancedLogger(LOGGER_NAME, log_dir='logs',
                         log_file=f'{LOGGER_NAME}.log', level=logging.INFO, backup_count=30,
                         use_file_handler=True, use_stream_handler=True).logger
 
-import torch
-import numpy as np
-import onnxruntime as ort
+from eval.runtime.bench_classify_onnx_npy import ONNXClassifyModel
 
-
-class ONNXClassifyModel:
-
-    def __init__(self, model_path, class_list, label_list, half=False, device=None, input_size=224):
-        self.model_path = model_path
-        self.class_list = class_list
-        self.label_list = label_list
-        self.half = half
-        self.device = device
-        self.input_size = input_size
-
-        logger.info(f"model_path: {model_path}")
-        # Force CPU execution (ignore device argument per requirement)
-        self.session = ort.InferenceSession(self.model_path, providers=['CPUExecutionProvider'])
-        logger.info(f"session: {self.session}")
-        # 获取输入信息
-        inputs = self.session.get_inputs()
-        self.input_names = [inp.name for inp in inputs]
-        self.input_shapes = [inp.shape for inp in inputs]
-
-        # 获取输出信息
-        outputs = self.session.get_outputs()
-        self.output_names = [out.name for out in outputs]
-        self.output_shapes = [out.shape for out in outputs]
-
-        logger.info(f"input_names: {self.input_names} - output_names: {self.output_names}")
-        logger.info(f"input_shapes: {self.input_shapes} - output_shapes: {self.output_shapes}")
-
-        self.__warmup()
-
-    def __warmup(self):
-        dummy_input = np.random.randn(1, 3, self.input_size, self.input_size).astype(np.float32)
-        for _ in range(3):
-            self.session.run(None, {self.input_names[0]: dummy_input})
-
-    @torch.no_grad()
-    def __call__(self, img):
-        # img is expected to be a torch.Tensor of shape [1, 3, H, W], dtype float32
-        # Convert to numpy for ONNX Runtime
-        if isinstance(img, torch.Tensor):
-            img_np = img.cpu().numpy()
-        else:
-            img_np = img  # fallback, though original expects torch.Tensor
-
-        outputs = self.session.run(None, {self.input_names[0]: img_np})
-        logits = outputs[0]
-        # Convert back to torch tensor to match original return type
-        return torch.from_numpy(logits)
-
-    def forward(self, img):
-        return self.__call__(img)
-
-    def infer(self, img):
-        return self.__call__(img)
-
+"""
+Evaluation Summary:
+  Task Type: classification
+  Total Images: 50000
+  Total Correct Predictions: 38842
+  Total Errors: 11158
+  Number of Classes: 1000
+  Accuracy: 0.7768
+  Precision: 0.7797
+  Recall: 0.7768
+  F1-Score: 0.7782
+"""
 
 if __name__ == '__main__':
     with Profile(name="evaluating") as stage_profiler:
+        input_size = 224
         model_path = "./models/runtime/efficientnet_b0.onnx"
         assert os.path.isfile(model_path), model_path
         from core.cfgs.imagenet_cfg import class_list, label_list
 
-        input_size = 224
-        model = ONNXClassifyModel(model_path, class_list, label_list, input_size=input_size)
+        model = ONNXClassifyModel(model_path, class_list, label_list)
 
         data_root = "/home/zjykzj/datasets/imagenet/val"
         dataset = ClassifyDataset(data_root, class_list, label_list, imread=imread_pil)
 
-        transform = ImgPrepare(input_size=256, crop_size=224, batch=True, mode="crop")
+        transform = ImgPrepare(input_size=256, crop_size=input_size, batch=True, mode="crop")
         engine = EvalEvaluator(model, dataset, transform, cls_thres=None)
         print(engine)
 
