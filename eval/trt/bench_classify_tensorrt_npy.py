@@ -4,7 +4,10 @@
 @Time    : 2026/2/22 19:39
 @File    : bench_classify_tensorrt_npy.py
 @Author  : zj
-@Description: 
+@Description:
+
+>>>python3 eval/trt/bench_classify_tensorrt_npy.py
+
 """
 
 import sys
@@ -43,12 +46,11 @@ import pycuda.autoinit  # 自动初始化 CUDA 上下文（仅用于脚本模式
 
 
 class TRTClassifyModel:
-    def __init__(self, engine_path, class_list, label_list, input_size=224, fp16=False):
+    def __init__(self, engine_path, class_list, fp16=False, label_list=None):
         self.engine_path = engine_path
         self.class_list = class_list
-        self.label_list = label_list
-        self.input_size = input_size
         self.fp16 = fp16
+        self.label_list = label_list
 
         logger.info(f"Loading TensorRT engine from: {engine_path}")
         self.engine = self._load_engine()
@@ -142,19 +144,6 @@ class TRTClassifyModel:
         return self.infer(img)
 
 
-"""
-Evaluation Summary:
-  Task Type: classification
-  Total Images: 50000
-  Total Correct Predictions: 38835
-  Total Errors: 11165
-  Number of Classes: 1000
-  Accuracy: 0.7767
-  Precision: 0.7796
-  Recall: 0.7767
-  F1-Score: 0.7781
-"""
-
 if __name__ == '__main__':
     with Profile(name="evaluating") as stage_profiler:
         model_path = "./models/tensorrt/efficientnet_b0_fp16.engine"
@@ -162,13 +151,13 @@ if __name__ == '__main__':
         from core.cfgs.imagenet_cfg import class_list, label_list
 
         input_size = 224
-        model = TRTClassifyModel(model_path, class_list, label_list, input_size=input_size)
+        model = TRTClassifyModel(model_path, class_list, label_list=label_list)
 
         data_root = "/workdir/datasets/imagenet/val"
         assert os.path.isdir(data_root), data_root
         dataset = ClassifyDataset(data_root, class_list, label_list, imread=imread_pil)
 
-        transform = ImgPrepare(input_size=256, crop_size=224, batch=True, mode="crop")
+        transform = ImgPrepare(input_size=256, crop_size=input_size, batch=True, mode="crop")
         engine = EvalEvaluator(model, dataset, transform, cls_thres=None)
         print(engine)
 
