@@ -182,8 +182,11 @@ class EvalEvaluator:
 
             # --- 后处理 ---
             # YOLOv8-seg 输出：[pred(1, 116, 8400), proto(1, 32, 160, 160)]
-            pred = pred_results[0]
-            proto = pred_results[1] if len(pred_results) > 1 else None
+            # pred = pred_results[0]
+            # proto = pred_results[1] if len(pred_results) > 1 else None
+            assert len(pred_results) == 2
+            if len(pred_results[0].shape) != 3:
+                pred_results = pred_results[::-1]
 
             boxes, scores, labels, masks = postprocess(
                 pred_results,
