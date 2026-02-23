@@ -6,7 +6,7 @@
 @Author  : zj
 @Description:
 
->>>python3 py/runtime/bench_classify_onnx_npy.py
+>>>python3 eval/runtime/bench_classify_onnx_npy.py
 
 """
 

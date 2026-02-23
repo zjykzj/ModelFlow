@@ -6,7 +6,7 @@
 @Author  : zj
 @Description:
 
->>>python3 py/runtime/bench_yolov8_onnx_npy.py
+>>>python3 eval/runtime/bench_yolov8_onnx_npy.py
 
 """
 
@@ -38,51 +38,7 @@ logger = EnhancedLogger(LOGGER_NAME, log_dir='logs',
                         log_file=f'{LOGGER_NAME}.log', level=logging.INFO, backup_count=30,
                         use_file_handler=True, use_stream_handler=True).logger
 
-import numpy as np
-import onnxruntime as ort
-
-
-class ONNXDetectModel:
-
-    def __init__(self, model_path, class_list, half=False):
-        self.model_path = model_path
-        self.class_list = class_list
-        self.half = half
-
-        logger.info(f"model_path: {model_path}")
-        # Force CPU execution (ignore device argument per requirement)
-        self.session = ort.InferenceSession(self.model_path, providers=['CPUExecutionProvider'])
-        logger.info(f"session: {self.session}")
-        # 获取输入信息
-        inputs = self.session.get_inputs()
-        self.input_names = [inp.name for inp in inputs]
-        self.input_shapes = [inp.shape for inp in inputs]
-
-        # 获取输出信息
-        outputs = self.session.get_outputs()
-        self.output_names = [out.name for out in outputs]
-        self.output_shapes = [out.shape for out in outputs]
-
-        logger.info(f"input_names: {self.input_names} - output_names: {self.output_names}")
-        logger.info(f"input_shapes: {self.input_shapes} - output_shapes: {self.output_shapes}")
-
-        self.__warmup()
-
-    def __warmup(self):
-        dummy_inputs = [np.random.randn(*reshape).astype(np.float32) for reshape in self.input_shapes]
-        for _ in range(3):
-            feed_data = dict(zip(self.input_names, dummy_inputs))
-            self.session.run(None, feed_data)
-
-    def __call__(self, input_data):
-        outputs = self.session.run(self.output_names, {self.input_names[0]: input_data})
-        return outputs
-
-    def forward(self, input_data):
-        return self.__call__(input_data)
-
-    def infer(self, input_data):
-        return self.__call__(input_data)
+from eval.runtime.bench_yolov5_onnx_npy import ONNXDetectModel
 
 """
  Average Precision  (AP) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.437
@@ -101,12 +57,12 @@ class ONNXDetectModel:
 
 if __name__ == '__main__':
     with Profile(name="evaluating") as stage_profiler:
+        input_size = 640
         model_path = "./models/runtime/yolov8s.onnx"
         from core.cfgs.coco_cfg import class_list
 
         model = ONNXDetectModel(model_path, class_list)
 
-        input_size = 640
         data_root = "/home/zjykzj/datasets/coco/"
         dataset = DetectDataset(data_root, class_list, img_size=input_size)
 
