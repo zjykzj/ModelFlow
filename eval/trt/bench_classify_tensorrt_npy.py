@@ -40,124 +40,76 @@ logger = EnhancedLogger(LOGGER_NAME, log_dir='logs',
 
 import numpy as np
 
-import tensorrt as trt
-import pycuda.driver as cuda
-import pycuda.autoinit  # 自动初始化 CUDA 上下文（仅用于脚本模式）
+from typing import List, Dict, Any, Optional, Union, Tuple
+from core.backends.trt_model import TRTModel
 
 
-class TRTClassifyModel:
-    def __init__(self, engine_path, class_list, fp16=False, label_list=None):
-        self.engine_path = engine_path
-        self.class_list = class_list
-        self.fp16 = fp16
-        self.label_list = label_list
+class TRTClassifyModel(TRTModel):
+    """分类模型（继承自统一基类）"""
 
-        logger.info(f"Loading TensorRT engine from: {engine_path}")
-        self.engine = self._load_engine()
-        self.context = self.engine.create_execution_context()
-
-        # 解析 bindings
-        self.input_names = []
-        self.output_names = []
-        self.input_shapes = []
-        self.output_shapes = []
-
-        for i in range(self.engine.num_bindings):
-            name = self.engine.get_binding_name(i)
-            shape = tuple(self.engine.get_binding_shape(i))
-            dtype = trt.nptype(self.engine.get_binding_dtype(i))
-            is_input = self.engine.binding_is_input(i)
-
-            if is_input:
-                self.input_names.append(name)
-                self.input_shapes.append(shape)
-            else:
-                self.output_names.append(name)
-                self.output_shapes.append(shape)
-
-            logger.info(f"Binding[{i}]: name='{name}', shape={shape}, dtype={dtype}, is_input={is_input}")
-
-        logger.info(f"input_names: {self.input_names} - output_names: {self.output_names}")
-        logger.info(f"input_shapes: {self.input_shapes} - output_shapes: {self.output_shapes}")
-
-        # 仅支持单输入单输出分类模型
-        assert len(self.input_names) == 1, "Only single input is supported."
-        assert len(self.output_names) == 1, "Only single output is supported."
-
-        self.input_name = self.input_names[0]
-        self.output_name = self.output_names[0]
-        self.input_shape = self.input_shapes[0]
-        self.output_shape = self.output_shapes[0]
-
-        self._allocate_buffers()
-        self.__warmup()
-
-    def _load_engine(self):
-        with open(self.engine_path, "rb") as f:
-            runtime = trt.Runtime(trt.Logger(trt.Logger.WARNING))
-            return runtime.deserialize_cuda_engine(f.read())
-
-    def _allocate_buffers(self):
-        # 假设输入输出都是 float32（常见于分类模型）
-        self.input_nbytes = trt.volume(self.input_shape) * np.dtype(np.float32).itemsize
-        self.output_nbytes = trt.volume(self.output_shape) * np.dtype(np.float32).itemsize
-
-        # 分配 GPU 显存
-        self.d_input = cuda.mem_alloc(self.input_nbytes)
-        self.d_output = cuda.mem_alloc(self.output_nbytes)
-
-        # 主机内存（用于拷贝）
-        self.h_input = cuda.pagelocked_empty(trt.volume(self.input_shape), dtype=np.float32)
-        self.h_output = cuda.pagelocked_empty(trt.volume(self.output_shape), dtype=np.float32)
-
-    def __warmup(self):
-        dummy = np.random.randn(*self.input_shape).astype(np.float32)
-        for _ in range(3):
-            self.infer(dummy)
-
-    def infer(self, img: np.ndarray):
-        assert img.shape == self.input_shape, f"Input shape mismatch: {img.shape} vs {self.input_shape}"
-        # 将数据复制到 pinned memory
-        np.copyto(self.h_input, img.ravel())
-
-        # 创建 CUDA 流
-        stream = cuda.Stream()
-        # H2D
-        cuda.memcpy_htod_async(self.d_input, self.h_input, stream)
-        # 推理
-        self.context.execute_async_v2(
-            bindings=[int(self.d_input), int(self.d_output)],
-            stream_handle=stream.handle
+    def __init__(
+            self,
+            engine_path: str,
+            class_list: List[str],
+            label_list: Optional[List[str]] = None,
+            half: bool = False,
+    ):
+        super().__init__(
+            engine_path=engine_path,
+            class_list=class_list,
+            label_list=label_list,
+            half=half,
         )
-        # D2H
-        cuda.memcpy_dtoh_async(self.h_output, self.d_output, stream)
-        # 同步
-        stream.synchronize()
 
-        # reshape 输出
-        return self.h_output.reshape(self.output_shape)
+    def predict(self, img: np.ndarray) -> Tuple[int, float]:
+        """
+        分类预测，返回类别索引和置信度
 
-    def __call__(self, img):
-        return self.infer(img)
+        Args:
+            img: 预处理后的图像数组 (1, C, H, W)
 
-    def forward(self, img):
-        return self.infer(img)
+        Returns:
+            (class_index, confidence)
+        """
+        logits = self.__call__(img)
+        probs = self._softmax(logits)
+        class_idx = int(np.argmax(probs[0]))
+        confidence = float(probs[0][class_idx])
+        return class_idx, confidence
 
+    @staticmethod
+    def _softmax(x: np.ndarray) -> np.ndarray:
+        """Softmax激活函数"""
+        exp_x = np.exp(x - np.max(x, axis=-1, keepdims=True))
+        return exp_x / np.sum(exp_x, axis=-1, keepdims=True)
+
+
+"""
+Evaluation Summary:
+  Task Type: classification
+  Total Images: 50000
+  Total Correct Predictions: 38835
+  Total Errors: 11165
+  Number of Classes: 1000
+  Accuracy: 0.7767
+  Precision: 0.7796
+  Recall: 0.7767
+  F1-Score: 0.7781
+"""
 
 if __name__ == '__main__':
     with Profile(name="evaluating") as stage_profiler:
+        input_size = 224
         model_path = "./models/tensorrt/efficientnet_b0_fp16.engine"
         assert os.path.isfile(model_path), model_path
         from core.cfgs.imagenet_cfg import class_list, label_list
 
-        input_size = 224
         model = TRTClassifyModel(model_path, class_list, label_list=label_list)
-
         data_root = "/workdir/datasets/imagenet/val"
         assert os.path.isdir(data_root), data_root
         dataset = ClassifyDataset(data_root, class_list, label_list, imread=imread_pil)
-
         transform = ImgPrepare(input_size=256, crop_size=input_size, batch=True, mode="crop")
+
         engine = EvalEvaluator(model, dataset, transform, cls_thres=None)
         print(engine)
 
