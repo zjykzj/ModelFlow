@@ -394,68 +394,6 @@ class TritonModel:
             logger.error(f"Inference failed: {e}")
             raise
 
-    # def infer(
-    #         self,
-    #         inputs: Optional[Union[List[InferInput], List[HTTPInferInput]]] = None,
-    #         outputs: Optional[Union[List[InferRequestedOutput], List[HTTPInferRequestedOutput]]] = None,
-    #         batch_size: int = 1,
-    #         sequence_id: int = 0,
-    #         priority: int = 0,
-    #         timeout: float = None,
-    #         input_data: Optional[Union[np.ndarray, List[np.ndarray], Dict[str, np.ndarray]]] = None,
-    #         output_names: Optional[List[str]] = None,
-    # ) -> Dict[str, np.ndarray]:
-    #     """核心推理方法"""
-    #     # 如果提供了 input_data 但没有 inputs，则创建 inputs
-    #     if inputs is None and input_data is not None:
-    #         input_list = self._prepare_input(input_data)
-    #         inputs = self._create_infer_inputs(input_list)
-    #
-    #     if inputs is None:
-    #         raise ValueError("Either 'inputs' or 'input_data' must be provided")
-    #
-    #     # 如果 outputs 为 None，使用 output_names 创建
-    #     if outputs is None:
-    #         outputs = self._create_infer_outputs(output_names)
-    #
-    #     try:
-    #         if self.protocol == 'grpc':
-    #             response = self.client.infer(
-    #                 model_name=self.model_name,
-    #                 inputs=inputs,
-    #                 outputs=outputs,
-    #                 sequence_id=sequence_id,
-    #                 priority=priority,
-    #                 timeout=timeout
-    #             )
-    #             results = {}
-    #             for output_name in self.output_names:
-    #                 try:
-    #                     results[output_name] = response.as_numpy(output_name)
-    #                 except Exception:
-    #                     pass
-    #         else:
-    #             response = self.client.infer(
-    #                 model_name=self.model_name,
-    #                 inputs=inputs,
-    #                 outputs=outputs,
-    #                 sequence_id=sequence_id,
-    #                 priority=priority,
-    #                 timeout=timeout
-    #             )
-    #             results = {}
-    #             for output_name in self.output_names:
-    #                 try:
-    #                     results[output_name] = response.as_numpy(output_name)
-    #                 except Exception:
-    #                     pass
-    #
-    #         return results
-    #
-    #     except Exception as e:
-    #         logger.error(f"Inference failed: {e}")
-    #         raise
-
     def forward(
             self,
             input_data: Union[np.ndarray, List[np.ndarray], Dict[str, np.ndarray]],
