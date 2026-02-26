@@ -46,35 +46,3 @@ pip3 install pycuda==2024.1.2 -i https://pypi.tuna.tsinghua.edu.cn/simple
 # 验证 PyCUDA
 python3 -c "import pycuda.driver as cuda; import pycuda.autoinit; print(f'✅ PyCUDA: {cuda.Device.count()} GPUs')"
 ```
-
-## Device Info
-
-```text
-[02/22/2026-12:31:53] [I] === Device Information ===
-[02/22/2026-12:31:53] [I] Selected Device: NVIDIA GeForce RTX 4060 Laptop GPU
-[02/22/2026-12:31:53] [I] Compute Capability: 8.9
-[02/22/2026-12:31:53] [I] SMs: 24
-[02/22/2026-12:31:53] [I] Compute Clock Rate: 1.89 GHz
-[02/22/2026-12:31:53] [I] Device Global Memory: 8187 MiB
-[02/22/2026-12:31:53] [I] Shared Memory per SM: 100 KiB
-[02/22/2026-12:31:53] [I] Memory Bus Width: 128 bits (ECC disabled)
-[02/22/2026-12:31:53] [I] Memory Clock Rate: 8.001 GHz
-[02/22/2026-12:31:53] [I] 
-[02/22/2026-12:31:53] [I] TensorRT version: 8.5.0
-[02/22/2026-12:31:53] [I] [TRT] [MemUsageChange] Init CUDA: CPU +13, GPU +0, now: CPU 31, GPU 1088 (MiB)
-[02/22/2026-12:31:55] [I] [TRT] [MemUsageChange] Init builder kernel library: CPU +524, GPU +114, now: CPU 608, GPU 1202 (MiB)
-[02/22/2026-12:31:55] [I] Start parsing network model
-[02/22/2026-12:31:55] [I] [TRT] ----------------------------------------------------------------
-[02/22/2026-12:31:55] [I] [TRT] Input filename:   efficientnet_b0.onnx
-[02/22/2026-12:31:55] [I] [TRT] ONNX IR version:  0.0.7
-[02/22/2026-12:31:55] [I] [TRT] Opset version:    12
-[02/22/2026-12:31:55] [I] [TRT] Producer name:    pytorch
-[02/22/2026-12:31:55] [I] [TRT] Producer version: 1.13.1
-[02/22/2026-12:31:55] [I] [TRT] Domain:           
-[02/22/2026-12:31:55] [I] [TRT] Model version:    0
-[02/22/2026-12:31:55] [I] [TRT] Doc string:       
-[02/22/2026-12:31:55] [I] [TRT] ----------------------------------------------------------------
-[02/22/2026-12:31:55] [I] Finish parsing network model
-[02/22/2026-12:31:55] [I] [TRT] [MemUsageChange] Init cuBLAS/cuBLASLt: CPU +6, GPU +12, now: CPU 636, GPU 1214 (MiB)
-[02/22/2026-12:31:55] [I] [TRT] [MemUsageChange] Init cuDNN: CPU +2, GPU +8, now: CPU 638, GPU 1222 (MiB)
-```

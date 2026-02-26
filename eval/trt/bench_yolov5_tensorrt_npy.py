@@ -55,6 +55,8 @@ class TRTDetectModel(TRTModel):
 
 
 """
+yolov5s_fp16.engine
+
  Average Precision  (AP) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.36448
  Average Precision  (AP) @[ IoU=0.50      | area=   all | maxDets=100 ] = 0.55865
  Average Precision  (AP) @[ IoU=0.75      | area=   all | maxDets=100 ] = 0.38843
@@ -67,12 +69,29 @@ class TRTDetectModel(TRTModel):
  Average Recall     (AR) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.28797
  Average Recall     (AR) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.53612
  Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.65122
+ 
+yolov5s_int8.engine
+ 
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.295
+ Average Precision  (AP) @[ IoU=0.50      | area=   all | maxDets=100 ] = 0.483
+ Average Precision  (AP) @[ IoU=0.75      | area=   all | maxDets=100 ] = 0.311
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.123
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.286
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.442
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=  1 ] = 0.269
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets= 10 ] = 0.447
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.485
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.255
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.487
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.599
+ 
 """
 
 if __name__ == '__main__':
     with Profile(name="evaluating") as stage_profiler:
         input_size = 640
-        model_path = "./models/tensorrt/yolov5s_fp16.engine"
+        # model_path = "./models/tensorrt/yolov5s_fp16.engine"
+        model_path = "./models/tensorrt/yolov5s_int8.engine"
         from core.cfgs.coco_cfg import class_list
 
         model = TRTDetectModel(model_path, class_list)

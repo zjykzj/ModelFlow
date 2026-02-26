@@ -85,6 +85,8 @@ class TRTClassifyModel(TRTModel):
 
 
 """
+efficientnet_b0_fp16.engine
+
 Evaluation Summary:
   Task Type: classification
   Total Images: 50000
@@ -95,12 +97,26 @@ Evaluation Summary:
   Precision: 0.7796
   Recall: 0.7767
   F1-Score: 0.7781
+
+efficientnet_b0_int8.engine
+
+Evaluation Summary:
+  Task Type: classification
+  Total Images: 50000
+  Total Correct Predictions: 36090
+  Total Errors: 13910
+  Number of Classes: 1000
+  Accuracy: 0.7218
+  Precision: 0.7340
+  Recall: 0.7218
+  F1-Score: 0.7278
 """
 
 if __name__ == '__main__':
     with Profile(name="evaluating") as stage_profiler:
         input_size = 224
         model_path = "./models/tensorrt/efficientnet_b0_fp16.engine"
+        # model_path = "./efficientnet_b0_int8.engine"
         assert os.path.isfile(model_path), model_path
         from core.cfgs.imagenet_cfg import class_list, label_list
 
