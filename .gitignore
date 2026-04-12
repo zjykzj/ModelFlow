@@ -159,4 +159,6 @@ export/*.pt
 export/*.onnx
 export/*.trt
 export/*.engine
-*logs
+
+/export/cal_coco_src/
+/export/cal_imagenet_src/
