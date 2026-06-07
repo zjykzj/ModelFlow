@@ -13,5 +13,6 @@
 from .base import BaseEvaluator
 from .detect import DetectEvaluator
 from .classify import ClassifyEvaluator
+from .segment import SegmentEvaluator
 
-__all__ = ["BaseEvaluator", "DetectEvaluator", "ClassifyEvaluator"]
+__all__ = ["BaseEvaluator", "DetectEvaluator", "ClassifyEvaluator", "SegmentEvaluator"]
