@@ -17,45 +17,65 @@ Supported models: YOLOv5, YOLOv8, YOLOv8-seg (instance segmentation), EfficientN
 ### Model Inference
 
 ```bash
-# YOLOv5 inference with ONNX Runtime (NumPy processing)
-python3 samples/yolov5/infer.py models/yolov5s.onnx assets/bus.jpg core/cfgs/coco.yaml
+# YOLOv8 ONNX Runtime inference
+python3 samples/infer.py --task detect --model models/runtime/yolov8s.onnx --image assets/bus.jpg
 
-# YOLOv5 inference with TensorRT
-python3 samples/yolov5/infer.py models/yolov5s_fp16.engine assets core/cfgs/coco.yaml --backend tensorrt
+# YOLOv5 ONNX Runtime inference
+python3 samples/infer.py --task detect --model models/runtime/yolov5s.onnx --image assets/bus.jpg --model-version v5
 
-# YOLOv5 inference with Triton
-python3 samples/yolov5/infer.py DET_YOLOv5s_ONNX assets core/cfgs/coco.yaml --backend triton
+# TensorRT inference
+python3 samples/infer.py --task detect --model models/tensorrt/yolov8s_fp16.engine --image assets/bus.jpg --backend tensorrt
 
-# Specify backend and processor type
-python3 samples/yolov5/infer.py model.onnx image.jpg data.yaml --backend onnxruntime --processor numpy
+# Triton inference
+python3 samples/infer.py --task detect --model Detect_COCO_YOLOv8s_ONNX --image assets/bus.jpg --backend triton
+
+# Classification inference
+python3 samples/infer.py --task classify --model models/runtime/efficientnet_b0.onnx --image assets/bus.jpg --classes imagenet --input-size 224
+
+# Segmentation inference
+python3 samples/infer.py --task segment --model models/runtime/yolov8s-seg.onnx --image assets/bus.jpg
 ```
 
 ### Model Export and Conversion
 
 ```bash
-# PyTorch to ONNX export (using Ultralytics export script)
-python3 export.py --weights yolov5s.pt --include onnx --opset 12
+# torchvision classification model to ONNX
+python3 -m export.onnx.convert --model efficientnet_b0 --save models/runtime/efficientnet_b0.onnx
 
-# ONNX to TensorRT (FP16)
-trtexec --onnx=yolov5s.onnx --saveEngine=yolov5s_fp16.engine --workspace=4096 --fp16
+# Ultralytics YOLOv8 to ONNX
+python3 -m export.onnx.ultralytics yolov8s --save models/runtime/yolov8s.onnx
 
-# ONNX to TensorRT (INT8 calibration)
-python3 export/safe_int8_build_by_torch.py --onnx export/yolov5s.onnx --calib_dir export/coco_calib_dst --output yolov5s_int8.engine --input_shape 1 3 640 640
+# ONNX to TensorRT FP16
+python3 -m export.tensorrt.build_fp16 --onnx models/runtime/yolov8s.onnx --save models/tensorrt/yolov8s_fp16.engine
 
-# Generate calibration cache for ImageNet
-python3 export/scripts/generate_calib_cache_for_imagenet.py --input_dir export/cal_imagenet_src --output_dir export/cal_imagenet_dst
+# ONNX to TensorRT INT8
+python3 -m export.tensorrt.build_int8 \
+    --onnx models/runtime/yolov8s.onnx \
+    --calib_dir export/cal_coco_dst \
+    --output models/tensorrt/yolov8s_int8.engine \
+    --input_shape 1 3 640 640
+
+# Generate calibration cache
+python3 export/scripts/generate_calib_cache_for_imagenet.py --input_dir cal_src --output_dir cal_dst
 
 # Test TensorRT engine
-trtexec --loadEngine=yolov5s_slim_fp16.engine --iterations=100
+trtexec --loadEngine=models/tensorrt/yolov8s_fp16.engine --iterations=100
 ```
 
 ### Model Evaluation and Benchmarking
 
 ```bash
-# Run evaluation benchmarks from eval/ directory
-python3 eval/runtime/bench_yolov5_onnx_npy.py
-python3 eval/trt/bench_yolov5_tensorrt_npy.py
-python3 eval/triton/bench_yolov5_triton_npy.py
+# Run evaluation benchmarks (calls modelflow.evaluators internally)
+python3 eval/runtime/bench_yolov8_onnx_npy.py
+python3 eval/trt/bench_yolov8_tensorrt_npy.py
+python3 eval/triton/bench_yolov8_triton_npy.py
+```
+
+### Python API Evaluation Demo
+
+```bash
+# Quick evaluation demo
+python3 samples/eval_demo.py --task detect --model models/runtime/yolov8s.onnx --data /path/to/coco
 ```
 
 ### Triton Server Deployment
@@ -121,17 +141,8 @@ ModelFlow/
 │   ├── runtime/         # ONNX models
 │   ├── tensorrt/        # TensorRT engines
 │   └── triton/          # Triton model repository
-├── core/                 # Legacy inference/evaluation implementations (being migrated)
-│   ├── backends/        # Backend implementations (ONNX, TRT, Triton)
-│   ├── npy/             # NumPy-based pre/post-processing
-│   ├── tch/             # PyTorch-based pre/post-processing
-│   ├── cfgs/            # COCO/ImageNet class lists
-│   └── utils/           # Logging and utilities
-├── eval/                # Evaluation benchmark scripts (legacy)
-├── samples/             # Example inference scripts (legacy, being migrated to modelflow)
-│   ├── yolov5/
-│   ├── yolov8/
-│   └── yolov8_seg/
+├── eval/                # Evaluation benchmark scripts (calls modelflow.evaluators)
+├── samples/             # Usage examples using modelflow API
 ├── llms/                # Language model evaluations (CLIP/OpenCLIP)
 └── assets/              # Assets and data scripts
 ```
@@ -152,7 +163,6 @@ ModelFlow/
 
 - **Python Inference Package**: `/home/zjykzj/cc/ModelFlow/modelflow/`
 - **Export Module**: `/home/zjykzj/cc/ModelFlow/export/`
-- **Legacy Backends**: `/home/zjykzj/cc/ModelFlow/core/backends/`
 - **Specifications**: `/home/zjykzj/cc/ModelFlow/specs/`
 - **Export Utilities**: `/home/zjykzj/cc/ModelFlow/export/`
 - **Evaluation Scripts**: `/home/zjykzj/cc/ModelFlow/eval/`
