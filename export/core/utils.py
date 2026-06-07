@@ -32,7 +32,7 @@ def letterbox(
     image: np.ndarray,
     target_size: Union[int, Tuple[int, int]] = 640,
     color: Tuple[int, int, int] = (114, 114, 114),
-    auto_pad: bool = True,
+    auto_pad: bool = False,
 ) -> Tuple[np.ndarray, Tuple[float, float], Tuple[int, int]]:
     """保持宽高比的缩放 + 填充，返回 (padded_image, scale, pad)
 
@@ -42,12 +42,13 @@ def letterbox(
         image: HWC BGR 图像 (H, W, 3)
         target_size: 目标尺寸，int 表示正方形，tuple 为 (w, h)
         color: 填充颜色 (B, G, R)
-        auto_pad: 是否自动填充至能被 32 整除（YOLO 检测头要求）
+        auto_pad: 最小矩形模式。True=仅填充至 stride(32) 对齐（推理高效），
+                  False=始终填充至 target_size（正方形，校准数据生成）
 
     Returns:
-        padded_image: 填充后的图像 (target_h, target_w, 3)
+        padded_image: 填充后的图像
         scale: (scale_w, scale_h) 缩放因子
-        pad: (pad_w, pad_h) 每边填充像素数
+        pad: (pad_left, pad_top) 每边填充像素数
     """
     if isinstance(target_size, int):
         target_size = (target_size, target_size)
@@ -163,8 +164,8 @@ def detect_preprocess(
         scale: (scale_w, scale_h) 缩放因子
         pad: (pad_left, pad_top) 填充偏移量
     """
-    # LetterBox
-    padded, scale, pad = letterbox(image, target_size)
+    # LetterBox（最小矩形模式，推理高效）
+    padded, scale, pad = letterbox(image, target_size, auto_pad=True)
 
     # BGR → RGB
     rgb = cv2.cvtColor(padded, cv2.COLOR_BGR2RGB)
@@ -223,9 +224,12 @@ def collect_images(
         图片路径列表
     """
     extensions = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
+    input_path = Path(input_dir)
+    if not input_path.exists():
+        return []
     image_files = [
         p
-        for p in Path(input_dir).iterdir()
+        for p in input_path.iterdir()
         if p.suffix.lower() in extensions
     ]
     image_files.sort()

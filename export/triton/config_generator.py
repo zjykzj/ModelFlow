@@ -25,19 +25,22 @@ from typing import Optional, List, Dict, Any
 _TASK_IO_SPECS: Dict[str, Dict[str, Any]] = {
     "classify": {
         "input": {"name": "image", "data_type": "TYPE_FP32", "dims": [3, 224, 224]},
-        "output": {"name": "output0", "data_type": "TYPE_FP32", "dims": [1000]},
+        "output": [{"name": "output0", "data_type": "TYPE_FP32", "dims": [1000]}],
     },
     "detect": {
         "input": {"name": "image", "data_type": "TYPE_FP32", "dims": [3, 640, 640]},
-        "output": {"name": "output0", "data_type": "TYPE_FP32", "dims": [84, 8400]},
+        "output": [{"name": "output0", "data_type": "TYPE_FP32", "dims": [84, 8400]}],
     },
     "segment": {
         "input": {"name": "image", "data_type": "TYPE_FP32", "dims": [3, 640, 640]},
-        "output": {"name": "output0", "data_type": "TYPE_FP32", "dims": [116, 8400]},
+        "output": [
+            {"name": "output0", "data_type": "TYPE_FP32", "dims": [116, 8400]},
+            {"name": "output1", "data_type": "TYPE_FP32", "dims": [32, 160, 160]},
+        ],
     },
     "pose": {
         "input": {"name": "image", "data_type": "TYPE_FP32", "dims": [3, 640, 640]},
-        "output": {"name": "output0", "data_type": "TYPE_FP32", "dims": [56, 8400]},
+        "output": [{"name": "output0", "data_type": "TYPE_FP32", "dims": [56, 8400]}],
     },
 }
 
@@ -136,13 +139,16 @@ class TritonConfigGenerator:
         lines.append("")
 
         # Output
-        out = spec["output"]
+        outputs = spec["output"]
         lines.append("output [")
-        lines.append("  {")
-        lines.append(f'    name: "{out["name"]}"')
-        lines.append(f'    data_type: {out["data_type"]}')
-        lines.append(f'    dims: [{", ".join(str(d) for d in out["dims"])}]')
-        lines.append("  }")
+        for i, out in enumerate(outputs):
+            lines.append("  {")
+            lines.append(f'    name: "{out["name"]}"')
+            lines.append(f'    data_type: {out["data_type"]}')
+            lines.append(f'    dims: [{", ".join(str(d) for d in out["dims"])}]')
+            lines.append("  }")
+            if i < len(outputs) - 1:
+                lines.append("  ,")
         lines.append("]")
         lines.append("")
 

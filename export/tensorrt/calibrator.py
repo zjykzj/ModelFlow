@@ -16,7 +16,14 @@ from abc import abstractmethod
 from typing import List, Optional, Tuple
 
 import numpy as np
-import tensorrt as trt
+
+try:
+    import tensorrt as trt
+except ImportError as e:
+    raise ImportError(
+        "TensorRT is required for INT8 calibration. Install: pip install tensorrt\n"
+        "Or use trtexec-based FP16 export: from export.tensorrt import build_fp16_engine"
+    ) from e
 
 
 class BaseCalibrator(trt.IInt8EntropyCalibrator2):

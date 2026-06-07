@@ -28,7 +28,13 @@ import os
 import sys
 import argparse
 
-import tensorrt as trt
+try:
+    import tensorrt as trt
+except ImportError as e:
+    raise ImportError(
+        "TensorRT is required for INT8 engine building. Install: pip install tensorrt\n"
+        "For FP16 engines without TensorRT Python API, use: python3 -m export.tensorrt.build_fp16"
+    ) from e
 
 from .calibrator import PyCudaCalibrator
 
