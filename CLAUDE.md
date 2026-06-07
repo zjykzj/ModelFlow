@@ -329,7 +329,7 @@ Example: Detect_COCO_YOLOv8s_ONNX, Classify_ImageNet_EfficientNetB0_TRT
 
 ### Version
 
-Package version: `modelflow/__init__.py` has `__version__ = "0.1.0"`; the CHANGELOG records project history from v0.3.0.
+Package version: defined in `modelflow/__init__.py` (`__version__`). The CHANGELOG records project history from v0.3.0.
 
 ### Environment Setup
 
