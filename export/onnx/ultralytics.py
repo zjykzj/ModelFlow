@@ -22,6 +22,7 @@ import argparse
 from typing import Optional
 
 from export.core.base import BaseExporter
+from export.core.validation import check_onnx, compare_output
 
 
 def get_latest_opset() -> int:
@@ -68,6 +69,7 @@ class UltralyticsExporter(BaseExporter):
         output_path: str,
         img_size: int = 640,
         half: bool = False,
+        do_validation: bool = True,
     ) -> str:
         """导出 ONNX 模型
 
@@ -78,10 +80,12 @@ class UltralyticsExporter(BaseExporter):
             output_path: ONNX 保存路径（仅用于重命名/移动，实际导出由 Ultralytics 完成）
             img_size: 输入尺寸
             half: 是否导出 FP16 半精度 ONNX
+            do_validation: 是否自动执行 ONNX 验证 + PT 输出对比
 
         Returns:
             ONNX 文件绝对路径
         """
+        import torch
         from ultralytics import YOLO
 
         print(f"[Ultralytics] Loading {self.model_name} ...")
@@ -109,6 +113,20 @@ class UltralyticsExporter(BaseExporter):
             print(f"[Ultralytics] ✅ ONNX saved to {output_path}")
         else:
             print(f"[Ultralytics] ✅ ONNX export completed (expected at {src_name})")
+
+        # 自动验证
+        if do_validation and os.path.exists(output_path):
+            check_onnx(output_path)
+            try:
+                # PT vs ONNX 输出对比（使用底层 PyTorch 模型）
+                dummy_input = torch.randn(1, 3, img_size, img_size)
+                compare_output(
+                    onnx_path=output_path,
+                    input_tensor=dummy_input,
+                    torch_model=model.model,
+                )
+            except Exception as e:
+                print(f"[Ultralytics] ⚠️  PT vs ONNX comparison skipped: {e}")
 
         return output_path
 
