@@ -6,4 +6,4 @@
 @Description: ModelFlow — Python 推理/评估/可视化核心包
 """
 
-__version__ = "0.1.0"
+__version__ = "0.4.0"

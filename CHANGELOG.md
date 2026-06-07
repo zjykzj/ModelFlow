@@ -5,6 +5,27 @@ All notable changes to ModelFlow are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] - 2026-06-07
+
+### Added
+
+- **SSD Agent 开发方法论**：`specs/SSD_AGENT.md` — 面向 AI Agent 的规范驱动开发指南
+  - 三层体系（Specs → CLAUDE.md → 代码）和开发铁律
+  - 完整开发工作流：确定影响范围 → 按模块读 spec → 对照 CLAUDE.md → 写代码 → 提交前检查
+  - 架构硬约束（5 条）、Backend/Processor/Evaluator 契约速查
+  - Specs 导航地图、常见开发场景速查、代码审查清单
+- **CLAUDE.md 增强**：从 DataFlow-CV 引入成熟模式
+  - Specifications 章节（specs vs CLAUDE.md 职责划分）
+  - 架构约束图 + 5 条硬约束
+  - Critical Implementation Details（Backend 契约、YOLO 版本差异、Mask 解码、DataFlow-CV 桥接）
+  - Known Gotchas（12 条常见陷阱）
+  - Test Structure 文档与 Git 提交规范化
+
+### Changed
+
+- **CLAUDE.md**：451 行完整重写，增加 250+ 行关键上下文
+- **版本提升**：0.3.0 → 0.4.0
+
 ## [0.3.0] - 2026-06-07
 
 ### Added
