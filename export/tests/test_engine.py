@@ -98,6 +98,7 @@ class TestCalibrator:
         )
         assert calib.total == 5
 
+    @pytest.mark.skipif(not HAS_TRT, reason="Requires TensorRT")
     def test_calibrator_empty_dir(self):
         """空目录应抛出异常"""
         from export.tensorrt.calibrator import BaseCalibrator
@@ -109,6 +110,7 @@ class TestCalibrator:
                     input_shape=(1, 3, 640, 640),
                 )
 
+    @pytest.mark.skipif(not HAS_TRT, reason="Requires TensorRT")
     def test_calibrator_nonexistent_dir(self):
         """不存在的目录应抛出异常"""
         from export.tensorrt.calibrator import BaseCalibrator

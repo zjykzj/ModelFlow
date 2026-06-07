@@ -38,11 +38,19 @@ class TestPreprocess:
         return np.random.randint(0, 256, (480, 640, 3), dtype=np.uint8)
 
     def test_letterbox_square(self, dummy_image):
-        """LetterBox 缩放至正方形"""
+        """LetterBox 缩放至正方形（auto_pad=False 默认）"""
         padded, scale, pad = letterbox(dummy_image, target_size=640)
         assert padded.shape[:2] == (640, 640)
         assert scale[0] > 0 and scale[1] > 0
         assert len(pad) == 2
+
+    def test_letterbox_min_rect(self, dummy_image):
+        """LetterBox 最小矩形模式（auto_pad=True，推理高效）"""
+        padded, scale, pad = letterbox(dummy_image, target_size=640, auto_pad=True)
+        # 最小矩形模式：尺寸应为 stride(32) 的倍数，但不一定是正方形
+        assert padded.shape[0] % 32 == 0
+        assert padded.shape[1] % 32 == 0
+        assert padded.shape[0] <= 640 and padded.shape[1] <= 640
 
     def test_letterbox_auto_pad(self, dummy_image):
         """auto_pad=True 时，padding 应为 32 的倍数"""
@@ -62,9 +70,11 @@ class TestPreprocess:
         assert -2.0 < result.mean() < 2.0
 
     def test_detect_preprocess_shape(self, dummy_image):
-        """检测预处理输出 shape 应为 (3, 640, 640)"""
+        """检测预处理使用最小矩形模式 — 尺寸应为 stride(32) 的倍数"""
         result, scale, pad = detect_preprocess(dummy_image, target_size=640)
-        assert result.shape == (3, 640, 640)
+        assert result.shape[0] == 3  # CHW
+        assert result.shape[1] % 32 == 0
+        assert result.shape[2] % 32 == 0
         assert result.dtype == np.float32
 
     def test_detect_preprocess_range(self, dummy_image):
