@@ -4,218 +4,263 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-ModelFlow is a computer vision model deployment toolkit focused on **model evaluation, export, and inference**. The primary goal is to deploy computer vision algorithms (object classification, detection, and instance segmentation) with support for multiple inference backends:
+ModelFlow is a computer vision model deployment toolkit focused on **model evaluation, export, and inference**.
+Supports object classification, detection, instance segmentation, semantic segmentation, and multi-modal (CLIP)
+across multiple inference backends:
 
-- **ONNX Runtime** (with NumPy or PyTorch pre/post-processing)
+- **ONNX Runtime** (CPU/GPU via CUDA provider)
 - **TensorRT** (FP16 and INT8 quantization support)
-- **Triton Inference Server** (with ONNX and TensorRT backends)
+- **Triton Inference Server** (with ONNX Runtime and TensorRT backends)
 
-Supported models: YOLOv5, YOLOv8, YOLOv8-seg (instance segmentation), EfficientNetB0, CLIP/OpenCLIP.
+Architecture: `InferencePipeline = Preprocessor + Backend + Postprocessor` — a unified, task-driven Pipeline pattern
+handling everything from image loading to metric computation.
 
 ## Common Commands
 
-### Model Inference
+### Running Tests
 
 ```bash
-# YOLOv8 ONNX Runtime inference
+# Run all modelflow tests (96 tests)
+pytest tests/ -v
+
+# Run a single test file
+pytest tests/test_processors.py -v
+
+# Run a single test
+pytest tests/test_processors.py::test_detect_postprocess_nms -v
+
+# Run export tests
+pytest export/tests/ -v
+
+# Run full suite including export
+pytest tests/ export/tests/ -v
+```
+
+### Model Inference (unified)
+
+The recommended entry point is the unified `samples/infer.py` (replaces 15 legacy scripts):
+
+```bash
+# Detection (ONNX Runtime)
 python3 samples/infer.py --task detect --model models/runtime/yolov8s.onnx --image assets/bus.jpg
 
-# YOLOv5 ONNX Runtime inference
-python3 samples/infer.py --task detect --model models/runtime/yolov5s.onnx --image assets/bus.jpg --model-version v5
-
-# TensorRT inference
+# Detection (TensorRT)
 python3 samples/infer.py --task detect --model models/tensorrt/yolov8s_fp16.engine --image assets/bus.jpg --backend tensorrt
 
-# Triton inference
+# Detection (Triton)
 python3 samples/infer.py --task detect --model Detect_COCO_YOLOv8s_ONNX --image assets/bus.jpg --backend triton
 
-# Classification inference
+# YOLOv5 detection
+python3 samples/infer.py --task detect --model models/runtime/yolov5s.onnx --image assets/bus.jpg --model-version v5
+
+# Classification
 python3 samples/infer.py --task classify --model models/runtime/efficientnet_b0.onnx --image assets/bus.jpg --classes imagenet --input-size 224
 
-# Segmentation inference
+# Instance segmentation
 python3 samples/infer.py --task segment --model models/runtime/yolov8s-seg.onnx --image assets/bus.jpg
+```
+
+### Model Evaluation (unified)
+
+The consolidated `samples/eval_bench.py` (replaces 14 legacy benchmark scripts):
+
+```bash
+# Detection evaluation
+python3 samples/eval_bench.py --task detect --model models/runtime/yolov8s.onnx --data /path/to/coco/val2017
+
+# Classification evaluation
+python3 samples/eval_bench.py --task classify --model models/runtime/efficientnet_b0.onnx --data /path/to/val --classes imagenet
+
+# TensorRT detection evaluation
+python3 samples/eval_bench.py --task detect --model models/tensorrt/yolov8s_fp16.engine --backend tensorrt --data /path/to/coco
+
+# With ground truth annotations for mAP
+python3 samples/eval_bench.py --task detect --model models/runtime/yolov8s.onnx --data /path/to/coco --anno-json /path/to/annotations.json
 ```
 
 ### Model Export and Conversion
 
 ```bash
-# torchvision classification model to ONNX
+# PT → ONNX (torchvision classification)
 python3 -m export.onnx.convert --model efficientnet_b0 --save models/runtime/efficientnet_b0.onnx
 
-# Ultralytics YOLOv8 to ONNX
+# PT → ONNX (Ultralytics YOLOv8)
 python3 -m export.onnx.ultralytics yolov8s --save models/runtime/yolov8s.onnx
 
-# ONNX to TensorRT FP16
+# ONNX → TensorRT FP16
 python3 -m export.tensorrt.build_fp16 --onnx models/runtime/yolov8s.onnx --save models/tensorrt/yolov8s_fp16.engine
 
-# ONNX to TensorRT INT8
+# ONNX → TensorRT INT8
 python3 -m export.tensorrt.build_int8 \
     --onnx models/runtime/yolov8s.onnx \
     --calib_dir export/cal_coco_dst \
     --output models/tensorrt/yolov8s_int8.engine \
     --input_shape 1 3 640 640
 
-# Generate calibration cache
+# Generate Triton config
+python3 -m export.triton.config_generator \
+    --model-name Detect_COCO_YOLOv8s_TRT \
+    --backend tensorrt --task detect --save ./models/triton/
+```
+
+### Docker Environments
+
+```bash
+# TensorRT development (ultralytics/yolov5:v7.0 image)
+docker run -it --gpus all --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 \
+  -v /home/zjykzj:/workdir --workdir=/workdir --name ultra ultralytics/yolov5:v7.0 bash
+
+# Triton server
+docker run --gpus=all -it -p 8000:8000 -p 8001:8001 -p 8002:8002 \
+  -v $(pwd):/workdir --workdir=/workdir nvcr.io/nvidia/tritonserver:23.10-py3 \
+  tritonserver --model-repository=./models/triton/
+```
+
+### Utilities
+
+```bash
+# Generate INT8 calibration cache from ImageNet
 python3 export/scripts/generate_calib_cache_for_imagenet.py --input_dir cal_src --output_dir cal_dst
 
 # Test TensorRT engine
 trtexec --loadEngine=models/tensorrt/yolov8s_fp16.engine --iterations=100
-```
 
-### Model Evaluation and Benchmarking
-
-```bash
-# Run evaluation benchmarks (calls modelflow.evaluators internally)
-python3 eval/runtime/bench_yolov8_onnx_npy.py
-python3 eval/trt/bench_yolov8_tensorrt_npy.py
-python3 eval/triton/bench_yolov8_triton_npy.py
-```
-
-### Python API Evaluation Demo
-
-```bash
-# Quick evaluation demo
-python3 samples/eval_demo.py --task detect --model models/runtime/yolov8s.onnx --data /path/to/coco
-```
-
-### Triton Server Deployment
-
-```bash
-# Start Triton server with model repository
-docker run --gpus=all -it -p 8000:8000 -p 8001:8001 -p 8002:8002 -v $(pwd):/workdir --workdir=/workdir nvcr.io/nvidia/tritonserver:23.10-py3 tritonserver --model-repository=./models/triton/
-
-# For TensorRT models in Triton (inside container)
-/usr/src/tensorrt/bin/trtexec --onnx=yolov5s.onnx --saveEngine=model.plan --workspace=4096 --fp16
-```
-
-### Dataset Preparation
-
-```bash
 # Download COCO dataset
 bash assets/get_coco.sh
 
 # Download COCO128 dataset
 bash assets/get_coco128.sh
-
-# Download ImageNet (requires manual setup)
-bash assets/get_imagenet.sh
 ```
-
-### LLM Evaluations (CLIP/OpenCLIP)
-
-CLIP and OpenCLIP models are evaluated on CIFAR-10 and CIFAR-100 datasets. Installation:
-
-```bash
-conda install --yes -c pytorch pytorch=1.7.1 torchvision cudatoolkit=11.0
-pip install ftfy regex tqdm
-pip install git+https://github.com/openai/CLIP.git
-```
-
-Evaluation scripts are in `llms/clip_samples/` and `llms/openclip_samples/`.
 
 ## Architecture
 
-### Directory Structure
+### Module Independence (three sibling modules, no cross-dependencies)
+
+| Module | Purpose | Tests |
+|--------|---------|-------|
+| `modelflow/` | Python inference, evaluation, visualization | `tests/` (96 tests) |
+| `export/` | PyTorch → ONNX → TensorRT → Triton pipeline | `export/tests/` |
+| `cpp/` | C++ inference (OpenCV + ONNX Runtime / TensorRT) | — |
+
+### modelflow Package Structure
 
 ```
-ModelFlow/
-├── modelflow/             # Python inference/evaluation/visualization core package
-│   ├── core/             # Infrastructure: interfaces, registry, types, config
-│   ├── cfgs/             # Dataset class configurations (COCO, ImageNet)
-│   ├── backends/         # Inference backends (ONNX Runtime, TensorRT, Triton)
-│   ├── processors/       # Pre/post-processors by task (classify, detect, segment)
-│   ├── pipelines/        # Pre-built InferencePipeline factories
-│   ├── datasets/         # Dataset loaders (COCO, classification)
-│   ├── evaluators/       # Evaluation orchestrators
-│   ├── metrics/          # Local metric implementations
-│   ├── viz/              # Visualization (DataFlow-CV bridge + local)
-│   └── utils/            # Logger, profiler
-├── export/                # Model export and conversion (pt → onnx → tensorrt/triton)
-│   ├── core/             # Export infrastructure (base class, validation, preprocessing)
-│   ├── onnx/             # PT→ONNX for torchvision and Ultralytics
-│   ├── tensorrt/         # TensorRT engine builders (FP16/INT8)
-│   ├── triton/           # Triton config generation and model repo management
-│   ├── scripts/          # Calibration data preparation utilities
-│   └── tests/            # Unit and integration tests
-├── models/               # Pre-trained model files
-│   ├── runtime/         # ONNX models
-│   ├── tensorrt/        # TensorRT engines
-│   └── triton/          # Triton model repository
-├── eval/                # Evaluation benchmark scripts (calls modelflow.evaluators)
-├── samples/             # Usage examples using modelflow API
-├── llms/                # Language model evaluations (CLIP/OpenCLIP)
-└── assets/              # Assets and data scripts
+modelflow/
+├── core/           # ABCs, Registry, Types, ModelConfig
+│   ├── interfaces.py   # 7 base classes + InferencePipeline composition
+│   ├── registry.py     # Registry + 5 global singletons
+│   ├── types.py        # TaskType, BackendType, ProcessorType enums
+│   └── config.py       # ModelConfig dataclass
+├── backends/       # Inference backends
+│   ├── onnx.py         # OnnxBackend (auto CUDA provider selection)
+│   ├── tensorrt.py     # TensorrtBackend (CUDA buffer management)
+│   └── triton.py       # TritonBackend (gRPC/HTTP)
+├── processors/     # Pre/post-processors by task
+│   ├── classify/       # Resize+crop+normalize → softmax+top-k
+│   ├── detect/         # LetterBox → NMS+box decode (YOLOv5/v8/v11)
+│   ├── segment/        # LetterBox → NMS+proto mask decode
+│   ├── semantic_seg/   # Resize+normalize → argmax+colormap
+│   └── multimodal/     # CLIP preprocessing → similarity ranking
+├── pipelines/      # Factory functions (classify/detect/segment/semantic_seg)
+├── datasets/       # COCODetection, ClassifyDir, COCOSegment
+├── evaluators/     # ClassifyEvaluator, DetectEvaluator, SegmentEvaluator
+├── metrics/        # ClassificationMetrics (confusion matrix)
+├── cfgs/           # COCO (80 classes), ImageNet (1000 classes)
+├── viz/            # DetectVisualizer (draw boxes/labels/scores)
+└── utils/          # Logger (get_logger), Profiler (Profile context manager)
 ```
 
-### Key Architectural Patterns
+### Registry Mechanism
 
-1. **Unified Pipeline Pattern**: `modelflow/` provides the `InferencePipeline = Preprocessor + Backend + Postprocessor` abstraction with clear interfaces for all components.
+Five global registries in `modelflow/core/registry.py`:
 
-2. **Abstract Backend Interfaces**: `modelflow/backends/` provides `BaseBackend` with implementations for ONNX Runtime, TensorRT, and Triton through `OnnxBackend`, `TensorrtBackend`, `TritonBackend`.
+```python
+from modelflow.core import BACKENDS, PROCESSORS, DATASETS, METRICS, EVALUATORS
 
-3. **Task-Driven Processors**: `modelflow/processors/` organizes pre/post-processing by task type (classify, detect, segment), with `model_version` parameter for YOLO version differences.
+# Decorator pattern: register anything that implements the base ABC
+@BACKENDS.register("my_backend")
+class MyBackend(BaseBackend): ...
 
-4. **Registry Mechanism**: `modelflow/core/registry.py` provides `Registry` class that enables adding new backends/tasks/datasets without modifying core framework code.
+# Then build at runtime via the registry
+backend = BACKENDS.build("my_backend", model_path="...", class_list=[])
+```
 
-5. **Evaluator Framework**: `modelflow/evaluators/` orchestrates Pipeline + Dataset + Metrics; detection/segmentation metrics delegate to DataFlow-CV.
+The registry pattern allows adding new backends, tasks, datasets, metrics, or evaluators without modifying core framework code.
 
-### Key File Paths
+### Key Contracts
 
-- **Python Inference Package**: `/home/zjykzj/cc/ModelFlow/modelflow/`
-- **Export Module**: `/home/zjykzj/cc/ModelFlow/export/`
-- **Specifications**: `/home/zjykzj/cc/ModelFlow/specs/`
-- **Export Utilities**: `/home/zjykzj/cc/ModelFlow/export/`
-- **Evaluation Scripts**: `/home/zjykzj/cc/ModelFlow/eval/`
+- **Backend contract**: takes `np.ndarray` (NCHW float32 preprocessed), returns `List[np.ndarray]` (raw model outputs). No image processing inside backends.
+- **Pipeline contract**: `pipeline(image)` runs preprocess → infer → postprocess end-to-end. `pipeline.infer(tensor)` skips pre/post for direct backend access.
+- **Evaluator contract**: `evaluator.run()` iterates dataset, accumulates predictions, returns `Dict[str, float]` of metrics. Detection/segment evaluators delegate mAP to DataFlow-CV (gracefully fall back if not installed).
+
+### Export Depth Levels
+
+| Level | Output | Runtime |
+|-------|--------|---------|
+| L1 | `.onnx` | ONNX Runtime (CPU/GPU) |
+| L2 | `.onnx` + `.engine` | TensorRT GPU (FP16/INT8) |
+| L3 | `.onnx` + `.engine` + Triton config | Triton Inference Server |
 
 ## Development Notes
 
+### Version
+
+Package version: `modelflow/__init__.py` has `__version__ = "0.1.0"`; the CHANGELOG records project history from v0.3.0.
+
 ### Environment Setup
 
-- **No explicit dependency management** – likely uses system-wide Python packages
-- **Docker containers** are used for TensorRT and Triton development:
-  ```bash
-  # TensorRT development container
-  docker run -it --gpus all --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 -v /home/zjykzj:/workdir --workdir=/workdir --name ultra ultralytics/yolov5:v7.0 bash
+No `requirements.txt` or `pyproject.toml` — uses system-wide Python packages. Install dependencies per task:
 
-  # Triton server container
-  docker run --gpus=all -it -p 8000:8000 -p 8001:8001 -p 8002:8002 -v $(pwd):/workdir --workdir=/workdir nvcr.io/nvidia/tritonserver:23.10-py3 bash
-  ```
-- **PyCUDA installation** may be required for TensorRT calibration:
-  ```bash
-  pip3 install pycuda==2024.1.2
-  ```
-- **CUDA version**: The project targets CUDA 11.x (based on container tags).
+```bash
+# Core
+pip install torch torchvision onnx onnxruntime numpy
 
-### Git Commit Convention
+# Per-backend (install as needed)
+pip install tensorrt           # TensorRT
+pip install tritonclient[grpc] # Triton client
+pip install pycuda             # INT8 PyCUDA calibrator
 
-Follows conventional commits with prefixes: `perf`, `feat`, `docs`, `style`, etc.
+# Evaluation
+pip install pycocotools        # COCO evaluation utilities
 
-### Git Ignore Patterns
+# Visualization
+pip install opencv-python      # Required for viz module
+```
 
-The `.gitignore` file excludes large files and model artifacts:
-- Model files: `*.onnx`, `*.engine`, `*.plan`, `*.trt`
-- Output directories: `output/`, `outputs/`, `models/`
-- Calibration data directories: `export/cal_coco_src/`, `export/cal_imagenet_src/`
-- Python cache and environment directories
+### Test Suite (96 tests + export tests)
 
-Do not commit these files; they are generated during export/inference.
+All tests use pytest without external fixtures. No model files are required — backends test import/init only (not actual inference). Test coverage includes:
+
+- **Registry**: register, get, build, list, contains, dedup warnings
+- **Types**: enum values, ModelInfo dataclass
+- **Config**: defaults, serialization (to_dict/from_dict/from_json)
+- **Interfaces**: ABC subclassing, Pipeline composition, warmup cascade
+- **Processors**: shape/type/value constraints across all 5 task families; NMS correctness; empty-detection edge cases; CLIP similarity; colormap
+- **Metrics**: confusion matrix, perfect/imperfect accuracy, reset
+- **Datasets**: empty directories, getitem returns expected structure
+
+### Git Conventions
+
+- Conventional commits: `feat:`, `fix:`, `refactor:`, `docs:`, `chore:`, `perf:`, `test:`
+- Large model files (`.onnx`, `.engine`, `.plan`, `.trt`) are gitignored — do not commit them
+- Calibration data directories (`export/cal_coco_src/`, `export/cal_imagenet_src/`) are gitignored
+- Output directories (`output/`, `outputs/`, `models/`) are gitignored
 
 ### Important Considerations
 
-1. **Model paths**: Models are stored in `models/` directory with subdirectories per backend (`runtime/`, `tensorrt/`, `triton/`).
-2. **Dynamic shapes**: TensorRT engines may require specific input shapes during conversion.
-3. **Calibration data**: INT8 quantization requires calibration datasets (COCO, ImageNet subsets).
-4. **Triton model repository**: Requires specific directory structure and configuration files.
-
-### Missing Elements
-
-- No `requirements.txt` or `pyproject.toml` for dependency management
-- No test suite or CI/CD configuration
-- No Dockerfile for reproducible environment
+1. **Model paths**: Store models in `models/{runtime,tensorrt,triton}/` matching the backend.
+2. **Dynamic shapes**: TensorRT engines require fixed input shapes during conversion; use `--input_shape`.
+3. **Calibration data**: INT8 quantization requires calibration datasets (COCO or ImageNet subsets).
+4. **DataFlow-CV**: Optional dependency for detection/segmentation mAP. If absent, evaluators return `{"num_predictions": N}`.
+5. **C++ module**: `cpp/` is independently extractable (own CMakeLists.txt). Precision must align between Python and C++ backends.
+6. **Legacy samples**: `samples/yolov5/torch_util.py`, `samples/yolov8/torch_util.py`, `samples/yolov8_seg/torch_util.py` are pre-modelflow inference scripts retained for reference. Use `samples/infer.py` instead.
 
 ## References
 
-- Main documentation: `README.md`
-- Export instructions: `export/README.md`
-- Triton deployment: `eval/triton/README.md`
-- LLM evaluations: `llms/clip_samples/README.md` and `llms/openclip_samples/README.md`
+- `README.md` — project overview, install guide, and Python API examples
+- `specs/index.md` — architecture specification index
+- `specs/modules/` — detailed module design specs
+- `specs/export/` — ONNX/TensorRT/Triton knowledge layer
+- `export/README.md` — export module documentation
+- `modelflow/README.md` — modelflow package documentation
+- `llms/clip_samples/README.md` and `llms/openclip_samples/README.md` — CLIP evaluation docs
