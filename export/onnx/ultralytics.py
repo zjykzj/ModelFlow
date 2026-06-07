@@ -29,6 +29,7 @@ def get_latest_opset() -> int:
 
     使用 max - 1 而非最新版，确保稳定性（最新 opset 可能有未修复的 bug）。
     """
+    import torch
     opsets = [k for k in vars(torch.onnx) if k.startswith("symbolic_opset")]
     if not opsets:
         raise RuntimeError("Could not find supported ONNX opsets in torch.onnx.")
