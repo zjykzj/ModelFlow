@@ -3,7 +3,7 @@
 @Time    : 2026/6/7
 @File    : __init__.py
 @Author  : zj
-@Description: export2 core — 导出基础设施
+@Description: export core — 导出基础设施
 """
 
 from .base import BaseExporter

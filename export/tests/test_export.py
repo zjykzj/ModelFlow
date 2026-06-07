@@ -12,8 +12,8 @@
 - onnx/optimize.py 的 ONNX 优化
 
 运行：
-    python3 -m pytest export2/tests/test_export.py -v
-    python3 -m pytest export2/tests/test_export.py -v -k "preprocess"  # 仅预处理测试
+    python3 -m pytest export/tests/test_export.py -v
+    python3 -m pytest export/tests/test_export.py -v -k "preprocess"  # 仅预处理测试
 """
 
 import os
@@ -21,7 +21,7 @@ import tempfile
 import pytest
 import numpy as np
 
-from export2.core.utils import (
+from export.core.utils import (
     letterbox,
     classify_preprocess,
     detect_preprocess,
@@ -84,7 +84,7 @@ class TestTorchvisionExporter:
 
     def test_load_model(self):
         """测试模型加载"""
-        from export2.onnx.convert import load_torchvision_model
+        from export.onnx.convert import load_torchvision_model
         model = load_torchvision_model("efficientnet_b0")
         import torch.nn as nn
         assert isinstance(model, nn.Module)
@@ -92,7 +92,7 @@ class TestTorchvisionExporter:
 
     def test_export_onnx(self):
         """测试 ONNX 导出 + 输出对比"""
-        from export2.onnx import TorchvisionExporter
+        from export.onnx import TorchvisionExporter
 
         exporter = TorchvisionExporter("efficientnet_b0", opset=12)
 
@@ -112,7 +112,7 @@ class TestUltralyticsExporter:
     """Ultralytics 导出器集成测试（需要网络）"""
 
     def test_infer_task(self):
-        from export2.onnx.ultralytics import UltralyticsExporter
+        from export.onnx.ultralytics import UltralyticsExporter
         assert UltralyticsExporter._infer_task("yolov8s") == "detect"
         assert UltralyticsExporter._infer_task("yolov8s-seg") == "segment"
         assert UltralyticsExporter._infer_task("yolov8n-cls") == "classify"
@@ -120,7 +120,7 @@ class TestUltralyticsExporter:
         assert UltralyticsExporter._infer_task("yolo11n") == "detect"
 
     def test_get_latest_opset(self):
-        from export2.onnx.ultralytics import get_latest_opset
+        from export.onnx.ultralytics import get_latest_opset
         opset = get_latest_opset()
         assert isinstance(opset, int)
         assert opset >= 12
@@ -131,7 +131,7 @@ class TestValidation:
 
     def test_check_onnx_invalid_file(self):
         """检查不存在的 ONNX 文件"""
-        from export2.core.validation import check_onnx
+        from export.core.validation import check_onnx
         with pytest.raises(Exception):
             check_onnx("/tmp/nonexistent.onnx")
 

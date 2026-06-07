@@ -9,19 +9,19 @@
 底层依赖 Ultralytics 的 YOLO().export()，此模块提供 CLI 封装和 opset 策略。
 
 典型用法：
-    >>> from export2.onnx import UltralyticsExporter
+    >>> from export.onnx import UltralyticsExporter
     >>> exporter = UltralyticsExporter("yolov8s")
     >>> onnx_path = exporter.export_onnx("yolov8s.onnx")
 
 CLI:
-    python3 -m export2.onnx.ultralytics yolov8s
-    python3 -m export2.onnx.ultralytics yolov8s-seg --opset 12
+    python3 -m export.onnx.ultralytics yolov8s
+    python3 -m export.onnx.ultralytics yolov8s-seg --opset 12
 """
 
 import argparse
 from typing import Optional
 
-from export2.core.base import BaseExporter
+from export.core.base import BaseExporter
 
 
 def get_latest_opset() -> int:

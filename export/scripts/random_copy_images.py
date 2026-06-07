@@ -8,7 +8,7 @@
 用于从 COCO/ImageNet 数据集中随机抽样子集，作为 INT8 校准数据源。
 
 用法：
-    python3 export2/scripts/random_copy_images.py \\
+    python3 export/scripts/random_copy_images.py \\
         /path/to/source /path/to/target 100
 """
 

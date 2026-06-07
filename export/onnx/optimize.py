@@ -11,7 +11,7 @@
 - 消除无用 Cast 操作
 
 用法：
-    >>> from export2.onnx import optimize_onnx
+    >>> from export.onnx import optimize_onnx
     >>> optimize_onnx("model.onnx", "model_simplified.onnx")
 """
 

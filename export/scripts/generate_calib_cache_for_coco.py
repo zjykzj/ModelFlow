@@ -5,10 +5,10 @@
 @Author  : zj
 @Description: 生成 COCO 检测模型 TensorRT INT8 校准数据
 
-使用 export2.core.utils 提供的预处理管线（零外部依赖）。
+使用 export.core.utils 提供的预处理管线（零外部依赖）。
 
 用法：
-    python3 export2/scripts/generate_calib_cache_for_coco.py \\
+    python3 export/scripts/generate_calib_cache_for_coco.py \\
         --input_dir /path/to/coco_images \\
         --output_dir ./calib_coco_dst
 
@@ -22,7 +22,7 @@ from pathlib import Path
 
 import cv2
 
-from export2.core.utils import detect_preprocess, save_calib_data, collect_images
+from export.core.utils import detect_preprocess, save_calib_data, collect_images
 
 
 def main():
@@ -58,7 +58,7 @@ def main():
             if img is None:
                 raise ValueError("Cannot read image")
 
-            # 使用 export2 自包含预处理
+            # 使用 export 自包含预处理
             data, scale, pad = detect_preprocess(img, args.input_size)
 
             save_calib_data(data, output_path, img_path.stem, args.format)

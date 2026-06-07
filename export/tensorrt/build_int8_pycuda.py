@@ -9,7 +9,7 @@
 核心优势：极致轻量，无需 PyTorch，直接绑定 CUDA 驱动。
 
 用法：
-    >>> from export2.tensorrt import build_int8_engine_pycuda
+    >>> from export.tensorrt import build_int8_engine_pycuda
     >>> build_int8_engine_pycuda(
     ...     onnx_path="model.onnx",
     ...     calib_dir="calib_data",
@@ -17,7 +17,7 @@
     ... )
 
 CLI：
-    python3 -m export2.tensorrt.build_int8_pycuda \\
+    python3 -m export.tensorrt.build_int8_pycuda \\
         --onnx model.onnx \\
         --calib_dir ./calib_data \\
         --output model_int8.engine \\

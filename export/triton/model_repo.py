@@ -9,7 +9,7 @@
 并将模型文件（.onnx / .engine）放置到正确位置。
 
 用法：
-    >>> from export2.triton import ModelRepoBuilder
+    >>> from export.triton import ModelRepoBuilder
     >>> builder = ModelRepoBuilder("models/triton/")
     >>> builder.deploy(
     ...     model_name="Detect_COCO_YOLOv8s_TRT",

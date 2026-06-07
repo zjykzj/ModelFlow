@@ -8,13 +8,13 @@
 提供 trtexec 封装和 TensorRT Python API 两种构建方式。
 
 用法：
-    >>> from export2.tensorrt import build_fp16_engine
+    >>> from export.tensorrt import build_fp16_engine
     >>> build_fp16_engine("model.onnx", "model_fp16.engine")
     >>> build_fp16_engine("model.onnx", "model_fp16.engine",
     ...                   use_trtexec=False, workspace=4)
 
 CLI:
-    python3 -m export2.tensorrt.build_fp16 --onnx model.onnx --save model_fp16.engine
+    python3 -m export.tensorrt.build_fp16 --onnx model.onnx --save model_fp16.engine
 """
 
 import os

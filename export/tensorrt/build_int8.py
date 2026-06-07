@@ -9,7 +9,7 @@
 核心优势：无需安装 pycuda，利用现有 PyTorch 环境。
 
 用法：
-    >>> from export2.tensorrt import build_int8_engine_torch
+    >>> from export.tensorrt import build_int8_engine_torch
     >>> build_int8_engine_torch(
     ...     onnx_path="model.onnx",
     ...     calib_dir="calib_data",
@@ -18,7 +18,7 @@
     ... )
 
 CLI：
-    python3 -m export2.tensorrt.build_int8 \\
+    python3 -m export.tensorrt.build_int8 \\
         --onnx model.onnx \\
         --calib_dir ./calib_data \\
         --output model_int8.engine \\

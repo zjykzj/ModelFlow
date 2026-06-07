@@ -5,10 +5,10 @@
 @Author  : zj
 @Description: 生成 ImageNet 分类模型 TensorRT INT8 校准数据
 
-使用 export2.core.utils 提供的预处理管线（零外部依赖）。
+使用 export.core.utils 提供的预处理管线（零外部依赖）。
 
 用法：
-    python3 export2/scripts/generate_calib_cache_for_imagenet.py \\
+    python3 export/scripts/generate_calib_cache_for_imagenet.py \\
         --input_dir /path/to/imagenet_val \\
         --output_dir ./calib_imagenet_dst
 
@@ -22,7 +22,7 @@ from pathlib import Path
 
 import cv2
 
-from export2.core.utils import classify_preprocess, save_calib_data, collect_images
+from export.core.utils import classify_preprocess, save_calib_data, collect_images
 
 
 def main():
@@ -59,7 +59,7 @@ def main():
             if img is None:
                 raise ValueError("Cannot read image")
 
-            # 使用 export2 自包含预处理
+            # 使用 export 自包含预处理
             data = classify_preprocess(img, args.crop_size, args.resize_size)
 
             save_calib_data(data, output_path, img_path.stem, args.format)

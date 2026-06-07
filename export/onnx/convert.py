@@ -9,7 +9,7 @@
 MNASNet, DenseNet, VGG, ConvNeXt, ViT 等主流分类模型。
 
 典型用法：
-    >>> from export2.onnx import TorchvisionExporter
+    >>> from export.onnx import TorchvisionExporter
     >>> exporter = TorchvisionExporter("efficientnet_b0")
     >>> onnx_path = exporter.export_onnx("model.onnx", img_size=224)
 """
@@ -26,8 +26,8 @@ import torch
 import torch.nn as nn
 from torchvision import models
 
-from export2.core.base import BaseExporter
-from export2.core.validation import check_onnx, compare_output
+from export.core.base import BaseExporter
+from export.core.validation import check_onnx, compare_output
 
 
 # ==================== torchvision 版本兼容 ====================

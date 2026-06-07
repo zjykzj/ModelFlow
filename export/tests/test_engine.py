@@ -6,8 +6,8 @@
 @Description: TensorRT 引擎构建与推理测试（需要 GPU 环境）
 
 运行：
-    python3 -m pytest export2/tests/test_engine.py -v
-    python3 -m pytest export2/tests/test_engine.py -v -k "calibrator"
+    python3 -m pytest export/tests/test_engine.py -v
+    python3 -m pytest export/tests/test_engine.py -v -k "calibrator"
 """
 
 import os
@@ -61,7 +61,7 @@ class TestCalibrator:
     @requires_gpu
     def test_torch_calibrator_init(self, calib_dir):
         """TorchCalibrator 初始化"""
-        from export2.tensorrt.calibrator import TorchCalibrator
+        from export.tensorrt.calibrator import TorchCalibrator
 
         calib = TorchCalibrator(
             calib_data_dir=calib_dir,
@@ -74,7 +74,7 @@ class TestCalibrator:
     @requires_gpu
     def test_torch_calibrator_get_batch(self, calib_dir):
         """TorchCalibrator 获取 batch"""
-        from export2.tensorrt.calibrator import TorchCalibrator
+        from export.tensorrt.calibrator import TorchCalibrator
 
         calib = TorchCalibrator(
             calib_data_dir=calib_dir,
@@ -89,7 +89,7 @@ class TestCalibrator:
     @pytest.mark.skipif(not HAS_PYCUDA, reason="Requires pycuda")
     def test_pycuda_calibrator_init(self, calib_dir):
         """PyCudaCalibrator 初始化"""
-        from export2.tensorrt.calibrator import PyCudaCalibrator
+        from export.tensorrt.calibrator import PyCudaCalibrator
 
         calib = PyCudaCalibrator(
             calib_data_dir=calib_dir,
@@ -100,7 +100,7 @@ class TestCalibrator:
 
     def test_calibrator_empty_dir(self):
         """空目录应抛出异常"""
-        from export2.tensorrt.calibrator import BaseCalibrator
+        from export.tensorrt.calibrator import BaseCalibrator
 
         with tempfile.TemporaryDirectory() as tmpdir:
             with pytest.raises(FileNotFoundError):
@@ -111,7 +111,7 @@ class TestCalibrator:
 
     def test_calibrator_nonexistent_dir(self):
         """不存在的目录应抛出异常"""
-        from export2.tensorrt.calibrator import BaseCalibrator
+        from export.tensorrt.calibrator import BaseCalibrator
 
         with pytest.raises(FileNotFoundError):
             BaseCalibrator(
@@ -126,7 +126,7 @@ class TestTRTBuild:
     @requires_gpu
     def test_build_fp16_invalid_onnx(self):
         """无效 ONNX 文件应返回 False"""
-        from export2.tensorrt.build_fp16 import build_fp16_engine
+        from export.tensorrt.build_fp16 import build_fp16_engine
 
         result = build_fp16_engine(
             onnx_path="/tmp/nonexistent.onnx",
@@ -138,7 +138,7 @@ class TestTRTBuild:
     @requires_gpu
     def test_triton_config_generation(self):
         """Triton 配置生成"""
-        from export2.triton import TritonConfigGenerator
+        from export.triton import TritonConfigGenerator
 
         gen = TritonConfigGenerator(
             model_name="Test_Detect",

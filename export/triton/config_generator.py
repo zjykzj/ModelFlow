@@ -9,7 +9,7 @@
 任务自动感知（detect / classify / segment / pose）→ 自动设置输入输出 dims。
 
 用法：
-    >>> from export2.triton import TritonConfigGenerator
+    >>> from export.triton import TritonConfigGenerator
     >>> gen = TritonConfigGenerator(
     ...     model_name="Detect_COCO_YOLOv8s_TRT",
     ...     backend="tensorrt",
