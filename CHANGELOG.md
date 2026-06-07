@@ -5,6 +5,13 @@ All notable changes to ModelFlow are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
+## [0.4.2] - 2026-06-07
+
+### Changed
+
+- **SDD Agent 工作流**：修复 checklist 中架构硬约束计数不一致（"3 条" → "6 条"）
+- **CLAUDE.md**：移除硬编码版本号，改为指向 `modelflow/__init__.py`，避免版本 bump 时多文件同步
+
 ## [0.4.1] - 2026-06-07
 
 ### Added
