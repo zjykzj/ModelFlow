@@ -99,57 +99,61 @@ Evaluation scripts are in `llms/clip_samples/` and `llms/openclip_samples/`.
 
 ```
 ModelFlow/
-├── core/                    # Core framework modules
-│   ├── backends/           # Inference backend implementations
-│   │   ├── onnx_model.py   # ONNX Runtime backend
-│   │   ├── trt_model.py    # TensorRT backend
-│   │   └── triton_model.py # Triton Server backend
-│   ├── cfgs/               # Configuration files
-│   │   ├── coco_cfg.py     # COCO dataset classes
-│   │   └── imagenet_cfg.py # ImageNet classes
-│   ├── npy/                # NumPy-based pre/post-processing
-│   ├── tch/                # PyTorch-based pre/post-processing
-│   └── utils/              # Utility functions and helpers
-├── eval/                   # Model evaluation benchmarks
-│   ├── runtime/           # ONNX Runtime evaluations
-│   ├── trt/              # TensorRT evaluations
-│   └── triton/           # Triton Server evaluations
-├── export/                # Model export and conversion
-│   ├── scripts/          # Calibration and data preparation
-│   ├── pytorch_to_onnx.py
-│   ├── safe_int8_build_by_torch.py
-│   └── safe_int8_build_by_pycuda.py
+├── modelflow/             # Python inference/evaluation/visualization core package
+│   ├── core/             # Infrastructure: interfaces, registry, types, config
+│   ├── cfgs/             # Dataset class configurations (COCO, ImageNet)
+│   ├── backends/         # Inference backends (ONNX Runtime, TensorRT, Triton)
+│   ├── processors/       # Pre/post-processors by task (classify, detect, segment)
+│   ├── pipelines/        # Pre-built InferencePipeline factories
+│   ├── datasets/         # Dataset loaders (COCO, classification)
+│   ├── evaluators/       # Evaluation orchestrators
+│   ├── metrics/          # Local metric implementations
+│   ├── viz/              # Visualization (DataFlow-CV bridge + local)
+│   └── utils/            # Logger, profiler
+├── export/                # Model export and conversion (pt → onnx → tensorrt/triton)
+│   ├── core/             # Export infrastructure (base class, validation, preprocessing)
+│   ├── onnx/             # PT→ONNX for torchvision and Ultralytics
+│   ├── tensorrt/         # TensorRT engine builders (FP16/INT8)
+│   ├── triton/           # Triton config generation and model repo management
+│   ├── scripts/          # Calibration data preparation utilities
+│   └── tests/            # Unit and integration tests
 ├── models/               # Pre-trained model files
 │   ├── runtime/         # ONNX models
 │   ├── tensorrt/        # TensorRT engines
 │   └── triton/          # Triton model repository
-├── samples/             # Example inference scripts
-│   ├── yolov5/         # YOLOv5 samples
-│   ├── yolov8/         # YOLOv8 samples
-│   └── yolov8_seg/     # YOLOv8 segmentation samples
-├── llms/               # Language model evaluations
-│   ├── clip_samples/   # CLIP model evaluations
-│   └── openclip_samples/ # OpenCLIP evaluations
-└── assets/             # Assets and data scripts
+├── core/                 # Legacy inference/evaluation implementations (being migrated)
+│   ├── backends/        # Backend implementations (ONNX, TRT, Triton)
+│   ├── npy/             # NumPy-based pre/post-processing
+│   ├── tch/             # PyTorch-based pre/post-processing
+│   ├── cfgs/            # COCO/ImageNet class lists
+│   └── utils/           # Logging and utilities
+├── eval/                # Evaluation benchmark scripts (legacy)
+├── samples/             # Example inference scripts (legacy, being migrated to modelflow)
+│   ├── yolov5/
+│   ├── yolov8/
+│   └── yolov8_seg/
+├── llms/                # Language model evaluations (CLIP/OpenCLIP)
+└── assets/              # Assets and data scripts
 ```
 
 ### Key Architectural Patterns
 
-1. **Unified Backend Abstraction**: `core/backends/` provides consistent interfaces (`ONNXModel`, `TRTModel`, `TritonModel`) for different inference engines with common methods (`__call__`, `forward`, `infer`).
+1. **Unified Pipeline Pattern**: `modelflow/` provides the `InferencePipeline = Preprocessor + Backend + Postprocessor` abstraction with clear interfaces for all components.
 
-2. **Separate Pre/Post-processing**:
-   - `npy/` – NumPy-based implementations for lightweight deployment
-   - `tch/` – PyTorch-based implementations for flexibility
+2. **Abstract Backend Interfaces**: `modelflow/backends/` provides `BaseBackend` with implementations for ONNX Runtime, TensorRT, and Triton through `OnnxBackend`, `TensorrtBackend`, `TritonBackend`.
 
-3. **Modular Evaluation Framework**: Separate evaluation scripts for different backends and models in `eval/` directory.
+3. **Task-Driven Processors**: `modelflow/processors/` organizes pre/post-processing by task type (classify, detect, segment), with `model_version` parameter for YOLO version differences.
 
-4. **Configuration-Driven**: Dataset classes and configurations in `core/cfgs/` (COCO, ImageNet).
+4. **Registry Mechanism**: `modelflow/core/registry.py` provides `Registry` class that enables adding new backends/tasks/datasets without modifying core framework code.
+
+5. **Evaluator Framework**: `modelflow/evaluators/` orchestrates Pipeline + Dataset + Metrics; detection/segmentation metrics delegate to DataFlow-CV.
 
 ### Key File Paths
 
-- **Core Backends**: `/home/zjykzj/cc/ModelFlow/core/backends/`
-- **Configuration**: `/home/zjykzj/cc/ModelFlow/core/cfgs/`
-- **Sample Inference**: `/home/zjykzj/cc/ModelFlow/samples/yolov5/infer.py`
+- **Python Inference Package**: `/home/zjykzj/cc/ModelFlow/modelflow/`
+- **Export Module**: `/home/zjykzj/cc/ModelFlow/export/`
+- **Legacy Backends**: `/home/zjykzj/cc/ModelFlow/core/backends/`
+- **Specifications**: `/home/zjykzj/cc/ModelFlow/specs/`
 - **Export Utilities**: `/home/zjykzj/cc/ModelFlow/export/`
 - **Evaluation Scripts**: `/home/zjykzj/cc/ModelFlow/eval/`
 

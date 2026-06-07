@@ -1,0 +1,11 @@
+# -*- coding: utf-8 -*-
+"""
+@Time    : 2026/6/7
+@File    : __init__.py
+@Author  : zj
+@Description: 数据集
+"""
+
+from .base import BaseDataset
+
+__all__ = ["BaseDataset"]
