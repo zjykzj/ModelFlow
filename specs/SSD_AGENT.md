@@ -220,7 +220,7 @@ specs/
 ├── SSD_AGENT.md                  # 本文档 — SSD Agent 开发指南
 │
 ├── modules/                      # HOW — 内部模块架构
-│   ├── index.md                  # Modules 层概览（TODO: 待创建）
+│   ├── index.md                  # Modules 层概览
 │   ├── spec_architecture.md      # 架构总览：三模块 + Pipeline 模式
 │   ├── spec_python.md            # Python 包：ABCs、后端、处理器、评估器、注册表
 │   ├── spec_export.md            # 导出模块：Pipeline、深度等级、精度验证
