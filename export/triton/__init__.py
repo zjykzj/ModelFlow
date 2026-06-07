@@ -6,10 +6,18 @@
 @Description: Triton 配置生成子模块
 """
 
-from .config_generator import TritonConfigGenerator
-from .model_repo import ModelRepoBuilder
-
 __all__ = [
     "TritonConfigGenerator",
     "ModelRepoBuilder",
 ]
+
+
+def __getattr__(name):
+    """惰性导入：避免 python -m export.triton.config_generator 触发 runpy 警告。"""
+    if name == "TritonConfigGenerator":
+        from .config_generator import TritonConfigGenerator
+        return TritonConfigGenerator
+    if name == "ModelRepoBuilder":
+        from .model_repo import ModelRepoBuilder
+        return ModelRepoBuilder
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
