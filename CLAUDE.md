@@ -15,6 +15,32 @@ across multiple inference backends:
 Architecture: `InferencePipeline = Preprocessor + Backend + Postprocessor` — a unified, task-driven Pipeline pattern
 handling everything from image loading to metric computation.
 
+## Specifications
+
+The `specs/` directory contains the **canonical specifications** — the single source of truth for SSD Agent development. It is organized into two layers:
+
+```
+specs/
+├── modules/                        # HOW — internal module architecture & interface contracts
+│   ├── spec_architecture.md        # Architecture: three modules + Pipeline pattern
+│   ├── spec_python.md              # Python package: ABCs, backends, processors, evaluators
+│   ├── spec_export.md              # Export module: pipeline stages, depth levels, validation
+│   └── spec_cpp.md                 # C++ inference module (planned)
+│
+└── export/                         # WHAT — export format principles & conversion knowledge
+    ├── index.md                    # Export knowledge layer overview
+    ├── onnx_export.md              # ONNX export principles
+    ├── tensorrt_conversion.md      # TensorRT conversion & quantization
+    └── triton_deployment.md        # Triton deployment configuration
+```
+
+### Specs vs CLAUDE.md
+
+- **Specs** define "what is correct" — the behavioral contract. Stable; change only when requirements change.
+- **CLAUDE.md** describes "how the code works" — architecture, patterns, known gotchas. Evolves with the codebase.
+- For SSD Agent development, specs are the **compliance benchmark**; CLAUDE.md is the **development context**.
+- The full SSD Agent development workflow is documented in [`specs/SSD_AGENT.md`](specs/SSD_AGENT.md).
+
 ## Common Commands
 
 ### Running Tests
@@ -142,6 +168,48 @@ bash assets/get_coco128.sh
 | `export/` | PyTorch → ONNX → TensorRT → Triton pipeline | `export/tests/` |
 | `cpp/` | C++ inference (OpenCV + ONNX Runtime / TensorRT) | — |
 
+### Architecture Constraint Diagram
+
+```
+                    ┌─────────────────┐
+                    │     samples/     │
+                    │ (infer / eval)   │
+                    └──────┬──────────┘
+                           │  calls pipeline factories & evaluators
+                           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                         modelflow/                                │
+│  ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────────┐  │
+│  │pipelines │──>│processors│   │ backends │   │ evaluators   │  │
+│  │(factory) │   │(pre/post)│   │(infer)   │   │ (metrics)    │  │
+│  └──────────┘   └──────────┘   └──────────┘   └──────────────┘  │
+│       │              │              │               │            │
+│       │              │   ZERO      │               │            │
+│       │              │   CROSS-    │               │            │
+│       │              │   DEPENDENCY│               │            │
+│       │              │              │               │            │
+│       └──────┬───────┘              │               │            │
+│              │                      │               │            │
+│              ▼                      ▼               ▼            │
+│         ┌────────────────────────────────────────────────────┐   │
+│         │                    core/                            │   │
+│         │  interfaces.py + registry.py + types.py + config.py │   │
+│         └────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                       export/ (ZERO dependency on modelflow/)    │
+│  core/ → onnx/ → tensorrt/ → triton/                            │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Hard constraints:**
+1. **`export/` → `modelflow/`**: Zero dependency. `export/` uses its own self-contained preprocessing in `export/core/utils.py`.
+2. **Backend → Preprocessor/Postprocessor**: Zero reference. Backends never import or call processors.
+3. **Processor → Backend**: Zero direct call. Pipeline is the sole orchestrator.
+4. **Evaluator → Pipeline**: Only through pipeline's public interface (`pipeline(image)` / `pipeline.infer(tensor)`).
+5. **pipelines/ → core/**: Factories import ABCs and types from core, then compose processor + backend + postprocessor.
+
 ### modelflow Package Structure
 
 ```
@@ -193,6 +261,62 @@ The registry pattern allows adding new backends, tasks, datasets, metrics, or ev
 - **Pipeline contract**: `pipeline(image)` runs preprocess → infer → postprocess end-to-end. `pipeline.infer(tensor)` skips pre/post for direct backend access.
 - **Evaluator contract**: `evaluator.run()` iterates dataset, accumulates predictions, returns `Dict[str, float]` of metrics. Detection/segment evaluators delegate mAP to DataFlow-CV (gracefully fall back if not installed).
 
+### Critical Implementation Details
+
+#### Backend Input/Output Contract
+
+```
+Input:  np.ndarray, shape=(N, C, H, W), dtype=float32, range=[-1, 1] or [0, 1]
+        (already preprocessed — no image-level transformations in backend)
+Output: List[np.ndarray] — raw model outputs, one per output tensor
+
+OnnxBackend:      auto-selects CUDAExecutionProvider if CUDA available
+TensorrtBackend:  manages CUDA page-locked host + device buffers; __del__ frees them
+TritonBackend:    supports both gRPC (default localhost:8001) and HTTP (8000)
+```
+
+#### YOLO Version Differences in Postprocessing
+
+YOLOv5 and YOLOv8/v11 output different tensor shapes, handled by `model_version` param:
+
+| Version | Output Shape | Decode Logic |
+|---------|-------------|--------------|
+| v5 | `(1, 25200, 85)` | Each row is `[cx, cy, w, h, conf, cls1..cls80]`; decode directly |
+| v8/v11 | `(1, 84, 8400)` | Transpose to `(1, 8400, 84)`; `[cx, cy, w, h, conf, cls1..cls80]` |
+
+Both paths converge on the same NMS + coordinate scaling pipeline.
+
+#### Segment Postprocessor Mask Decode
+
+1. Detection output (84 channels: 4 bbox + 80 cls + 32 mask coeffs)
+2. Proto mask output: `(1, 32, 160, 160)` — 32 prototype masks
+3. `process_mask`: `sigmoid(tensordot(mask_coeffs, proto_masks))` → resize to bbox → crop
+
+#### Evaluator DataFlow-CV Bridge
+
+Detection and segmentation evaluators delegate mAP to `dataflow.evaluate.DetectionEvaluator`:
+
+```python
+# DetectEvaluator internally:
+# 1. Runs inference loop, collects predictions in COCO format
+# 2. Saves pred JSON (optional, via save_pred_json)
+# 3. If gt_json and DataFlow-CV available:
+#    gt_coco = COCO(gt_json)
+#    dt_coco = gt_coco.loadRes(pred_json)
+#    evaluator = DetectionEvaluator()
+#    result = evaluator.evaluate(gt_coco, dt_coco)
+# 4. Fallback: return {"num_predictions": N}
+```
+
+#### Triton Model Naming Convention
+
+From `specs/export/triton_deployment.md`:
+
+```
+<Task>_<Dataset>_<ModelArch>_<Backend>
+Example: Detect_COCO_YOLOv8s_ONNX, Classify_ImageNet_EfficientNetB0_TRT
+```
+
 ### Export Depth Levels
 
 | Level | Output | Runtime |
@@ -229,8 +353,26 @@ pip install opencv-python      # Required for viz module
 
 ### Test Suite (96 tests + export tests)
 
-All tests use pytest without external fixtures. No model files are required — backends test import/init only (not actual inference). Test coverage includes:
+All tests use pytest without external fixtures. No model files are required — backends test import/init only (not actual inference).
 
+#### Test Structure
+
+```
+tests/                          # modelflow package tests
+├── test_core.py                # Registry, Types, Config, Interfaces, Pipeline
+├── test_backends.py            # OnnxBackend, TensorrtBackend, TritonBackend init
+├── test_pipelines.py           # Factory functions reject invalid backends
+├── test_processors.py          # All 5 processor families + detect ops
+├── test_metrics.py             # ClassificationMetrics (confusion matrix)
+├── test_datasets.py            # COCODetection, ClassifyDir, COCOSegment
+└── test_cfgs.py                # COCO 80 classes, ImageNet 1000 classes
+
+export/tests/                   # export module tests
+├── test_export.py              # Preprocessing, exporters, validation
+└── test_engine.py              # TRT calibrators, FP16 build, Triton config
+```
+
+Test coverage includes:
 - **Registry**: register, get, build, list, contains, dedup warnings
 - **Types**: enum values, ModelInfo dataclass
 - **Config**: defaults, serialization (to_dict/from_dict/from_json)
@@ -239,12 +381,55 @@ All tests use pytest without external fixtures. No model files are required — 
 - **Metrics**: confusion matrix, perfect/imperfect accuracy, reset
 - **Datasets**: empty directories, getitem returns expected structure
 
-### Git Conventions
+### Known Gotchas
 
-- Conventional commits: `feat:`, `fix:`, `refactor:`, `docs:`, `chore:`, `perf:`, `test:`
-- Large model files (`.onnx`, `.engine`, `.plan`, `.trt`) are gitignored — do not commit them
-- Calibration data directories (`export/cal_coco_src/`, `export/cal_imagenet_src/`) are gitignored
-- Output directories (`output/`, `outputs/`, `models/`) are gitignored
+1. **Backend must not do image processing**: Pre-processing (resize, normalize, letterbox) must happen in Preprocessor, not in Backend. Backend's sole job is `np.ndarray` in → `List[np.ndarray]` out.
+2. **YOLO v5 vs v8/v11 output shape**: The two versions have different output tensor shapes (`(1, 25200, 85)` vs `(1, 84, 8400)`). The `model_version` parameter controls which decode path is used. Mixing them up silently produces garbage results.
+3. **Empty detection handling**: Postprocessor must handle the case where no detections pass the confidence threshold. Return empty arrays with correct dtypes (shape `(0, 4)` for boxes, `(0,)` for scores/class_ids), not None.
+4. **DataFlow-CV optional dependency**: Detection and segmentation evaluators gracefully degrade when DataFlow-CV is not installed. Always guard `import dataflow` with try/except — never fail hard.
+5. **TensorRT device buffer cleanup**: `TensorrtBackend.__del__` frees CUDA device buffers. If the backend object is not properly garbage-collected (e.g., circular references), GPU memory leaks. Use explicit `del backend` or `with` context patterns.
+6. **OnnxRuntime provider fallback**: `OnnxBackend` auto-selects CUDAExecutionProvider when CUDA is available. On systems without CUDA, it silently falls back to CPU. Set `providers` explicitly to force a specific provider.
+7. **Triton model name confusion**: In `TritonBackend`, `model_path` doubles as the Triton model name (not an actual file path). This differs from OnnxBackend and TensorrtBackend where model_path is a file path.
+8. **CLIP mean/std values differ**: CLIP preprocessor uses different mean/std from standard ImageNet normalization. Using ImageNet normalize on CLIP inputs produces incorrect results.
+9. **Export module zero-dependency**: `export/` contains its own copy of letterbox and preprocessing utilities in `export/core/utils.py`. Never import from `modelflow/` inside `export/`.
+10. **NMS NumPy implementation**: The NMS in `modelflow/processors/detect/ops.py` is a pure NumPy implementation. It does not use `torchvision.ops.nms` or any CUDA acceleration. Large batches may be slow.
+11. **Triton gRPC vs HTTP**: `TritonBackend` defaults to gRPC (port 8001). HTTP uses port 8000. The `protocol` parameter controls this. Mixing them up silently fails with connection refused.
+12. **Segment proto mask dimensions**: The prototype mask output is always `(1, 32, 160, 160)` regardless of input size. The mask decode logic (`process_mask`) must account for this fixed spatial dimension.
+
+### Git Commits
+
+When creating git commits, use the following format:
+
+```bash
+git commit -m "$(cat <<'EOF'
+<type>(<scope>): <subject>
+
+<body if needed>
+
+Co-Authored-By: DeepSeek-V4.0 <noreply@deepseek.com>
+EOF
+)"
+```
+
+The Co-Authored-By line is optional and can be omitted.
+
+Follow conventional commit style:
+- `feat`: New feature
+- `fix`: Bug fix
+- `docs`: Documentation changes
+- `refactor`: Code change that neither fixes a bug nor adds a feature
+- `test`: Adding missing tests or correcting existing tests
+- `style`: Changes that do not affect the meaning of the code
+- `perf`: Code change that improves performance
+- `chore`: Other changes that don't modify src or test files
+
+The AI model used in this project is **DeepSeek-V4.0**, not Claude Opus.
+
+### Git Ignore
+
+Large model files (`.onnx`, `.engine`, `.plan`, `.trt`) are gitignored — do not commit them.
+Calibration data directories (`export/cal_coco_src/`, `export/cal_imagenet_src/`) are gitignored.
+Output directories (`output/`, `outputs/`, `models/`) are gitignored.
 
 ### Important Considerations
 
@@ -258,6 +443,7 @@ All tests use pytest without external fixtures. No model files are required — 
 ## References
 
 - `README.md` — project overview, install guide, and Python API examples
+- `specs/SSD_AGENT.md` — **SSD Agent development methodology (start here for development)**
 - `specs/index.md` — architecture specification index
 - `specs/modules/` — detailed module design specs
 - `specs/export/` — ONNX/TensorRT/Triton knowledge layer
