@@ -9,7 +9,7 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- **SSD Agent 开发方法论**：`specs/SSD_AGENT.md` — 面向 AI Agent 的规范驱动开发指南
+- **SDD Agent 开发方法论**：`specs/SDD_AGENT.md` — 面向 AI Agent 的规范驱动开发指南
   - 三层体系（Specs → CLAUDE.md → 代码）和开发铁律
   - 完整开发工作流：确定影响范围 → 按模块读 spec → 对照 CLAUDE.md → 写代码 → 提交前检查
   - 架构硬约束（5 条）、Backend/Processor/Evaluator 契约速查
