@@ -55,7 +55,7 @@ def create_detect_pipeline(
     Returns:
         InferencePipeline 实例
     """
-    preprocessor = DetectPreprocessor(input_size=input_size, model_version=model_version)
+    preprocessor = DetectPreprocessor(input_size=input_size)
 
     if backend == "onnxruntime":
         bk = OnnxBackend(model_path, class_list, task_type="detect",

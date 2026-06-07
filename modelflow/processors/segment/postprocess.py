@@ -136,6 +136,7 @@ class SegmentPostprocessor(BasePostprocessor):
             "boxes": boxes,
             "scores": scores,
             "class_ids": class_ids.astype(int),
+            "masks": None,
         }
 
         if self.class_list is not None:
