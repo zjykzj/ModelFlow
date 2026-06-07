@@ -5,3 +5,8 @@
 @Author  : zj
 @Description: 语义分割处理器
 """
+
+from .preprocess import SemanticSegPreprocessor
+from .postprocess import SemanticSegPostprocessor
+
+__all__ = ["SemanticSegPreprocessor", "SemanticSegPostprocessor"]
