@@ -9,9 +9,9 @@
 ## 一、核心理念
 
 ```
-Specs（什么是对的）→ CLAUDE.md（代码怎么写）→ 代码实现
-     ↑                                              |
-     └──────────── 测试验证 ←────────────────────────┘
+Specs（什么是对的）→ CLAUDE.md（代码怎么写）→ 制定计划 → 代码实现
+     ↑         ← （行为变化时回写）                       |
+     └─────────── 测试验证 + 文档同步 ←───────────────────┘
 ```
 
 **SDD（Spec-Driven Development）Agent 开发的三层体系：**
@@ -22,7 +22,9 @@ Specs（什么是对的）→ CLAUDE.md（代码怎么写）→ 代码实现
 | **CLAUDE.md** | `CLAUDE.md` | 开发上下文——描述"代码怎么写的" | 随代码演进 |
 | **Code** | `modelflow/` `export/` `samples/` | 实现——实际运行的代码 | 日常 |
 
-**开发铁律**：Specs 是最高权威。如果代码行为与 specs 冲突，以 specs 为准，改代码。
+**开发铁律**：
+- Specs 是最高权威。如果代码行为与 specs 冲突，以 specs 为准，改代码。
+- Specs 是活文档。需求变更或 specs 不充分时，优先更新 specs，再动手。
 
 ---
 
@@ -37,7 +39,14 @@ Specs（什么是对的）→ CLAUDE.md（代码怎么写）→ 代码实现
 2. 涉及哪个 Pipeline 阶段？（Preprocessor / Backend / Postprocessor）
 3. 涉及哪个任务类型？（Classify / Detect / Segment / SemanticSeg / Multimodal）
 
-**第二步：按影响范围读 spec（按此顺序）**
+**第二步：读 spec，评估充分性（按此顺序）**
+
+> ⚠️ **Specs 是活文档。** 读 spec 时带着批判眼光：
+> - Specs 是否覆盖了当前场景？定义是否清晰无歧义？
+> - Specs 的行为定义是否合理、内部是否一致？
+> - **如果不充分或不合理 → 优先更新 specs，再往下走。** 不在不稳固的基础上盖楼。
+
+按改动类型找对应 spec：
 
 | 改动类型 | 必读 spec |
 |----------|-----------|
@@ -57,6 +66,17 @@ Specs（什么是对的）→ CLAUDE.md（代码怎么写）→ 代码实现
 读 CLAUDE.md 的相关章节，重点关注：
 - **Known Gotchas**（常见陷阱）
 - **Critical Implementation Details**（Backend 契约、Processor 数据流）
+
+**第四步：制定开发计划**
+
+读完 specs（知道"什么是对的"）和 CLAUDE.md（知道"代码怎么写的"）之后，**显式制定开发计划**再写代码：
+
+1. **列出涉及的所有文件**：哪些需要创建、修改、删除
+2. **确定改动顺序**：按依赖关系排定先后（先改基础接口，再改上层调用）
+3. **识别风险点**：可能影响哪些现有功能？哪个环节最容易出错？
+4. **复杂任务用 Plan**：跨模块改动或新增任务类型时，使用 `EnterPlanMode` / `Plan` agent 生成完整方案
+
+> 先计划，再实现——避免在实现中途发现架构冲突、推倒重来。
 
 ### 2.2 动手写代码时
 
@@ -149,9 +169,16 @@ pytest tests/ -v
 
 # 2. 如果改了 export 相关代码，跑 export 测试
 pytest export/tests/ -v
-
-# 3. 如果改了 spec 相关行为，确认 spec 文档是否需要同步更新
 ```
+
+**文档同步检查（每次改动必做）：**
+
+| 优先级 | 文档 | 检查条件 | 操作 |
+|--------|------|---------|------|
+| **P0** | `specs/` | 行为发生变化（接口、契约、数据流） | **必须**同步更新 |
+| **P1** | `CLAUDE.md` | 新增架构细节、新陷阱、新硬约束、新关键实现 | 更新 Known Gotchas 或 Critical Details |
+| **P1** | `README.md` | API 变化、新增功能入口、安装步骤变化 | 同步更新用户文档 |
+| **P2** | `samples/` | 用户 API 变化、新增 task 类型、调用方式变化 | 更新示例代码（`samples/infer.py` 等） |
 
 **Git commit 格式：**
 
@@ -304,7 +331,10 @@ specs/
 - [ ] Evaluator 在 DataFlow-CV 不可用时优雅降级
 - [ ] 新增函数/类有对应的测试
 - [ ] `pytest tests/ -v` 全部通过
-- [ ] 如果行为变化影响 spec，已同步更新 spec 文档
+- [ ] 行为变化已同步更新 specs（P0）
+- [ ] 新增架构细节/陷阱已同步更新 CLAUDE.md（P1）
+- [ ] API / 功能入口变化已同步更新 README.md（P1）
+- [ ] 用户接口变化已同步更新 samples/ 示例代码（P2）
 
 ---
 

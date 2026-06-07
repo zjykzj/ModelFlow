@@ -5,6 +5,34 @@ All notable changes to ModelFlow are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
+## [0.4.1] - 2026-06-07
+
+### Added
+
+- **ONNX 导出验证**：`UltralyticsExporter.export_onnx()` 新增 ONNX 模型校验步骤
+
+### Changed
+
+- **SDD Agent 工作流优化**：`specs/SDD_AGENT.md`
+  - 加入显式"制定计划"环节，形成四步工作流
+  - 明确 specs 为"活文档"——不充分时优先更新再动手
+  - 扩展提交前文档同步检查：P0(specs) → P1(CLAUDE.md/README.md) → P2(samples)
+
+### Fixed
+
+- **Export 模块规范合规**：惰性导入 TensorRT / pycuda（避免无 GPU 环境导入报错）
+- **Export 模块规范合规**：segment proto 输出修正、letterbox 边界处理
+- **Export 模块惰性导入**：`__init__.py` 使用惰性导入避免 `runpy` 警告
+- **Export 模块**：`get_latest_opset()` 补充缺失的 `torch` 导入
+- **Export 模块**：模块和文档中的 `Export2` → `Export` 引用修正
+- **版本检测**：使用 `torchvision.__version__` 替代废弃的 `models.__version__`
+- **文档**：修正 `SSD` → `SDD`（Spec-Driven Development）拼写错误
+
+### Docs
+
+- **Specs**：修正过时引用，添加 TensorRT 10.x 版本约束说明
+- **Export README**：迁移到 `docs/export/`，扩展按任务类型的使用指南
+
 ## [0.4.0] - 2026-06-07
 
 ### Added
