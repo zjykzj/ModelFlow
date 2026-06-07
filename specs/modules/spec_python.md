@@ -14,8 +14,11 @@ modelflow/
 │   ├── registry.py         # 注册机制
 │   ├── types.py            # 枚举 + ModelInfo
 │   └── config.py           # 配置管理
+├── cfgs/                   # 数据集类别配置
+│   ├── coco.py             # COCO 类别列表（detect/segment）
+│   └── imagenet.py         # ImageNet 类别列表（classify）
 ├── backends/               # 推理后端
-│   ├── base.py             # BaseBackend
+│   ├── base.py             # BaseBackend（含 task_type/class_list）
 │   ├── onnx.py             # OnnxBackend
 │   ├── tensorrt.py         # TensorrtBackend
 │   └── triton.py           # TritonBackend
@@ -30,7 +33,7 @@ modelflow/
 │   └── *_pipeline.py
 ├── datasets/               # 数据集
 │   └── *.py
-├── evaluators/             # 评估器
+├── evaluators/             # 评估编排（benchmark/eval 脚本调用此层）
 │   └── *.py
 ├── metrics/                # 指标
 │   └── *.py
@@ -51,10 +54,15 @@ class InferencePipeline:
     """
     推理管线 = Preprocessor + Backend + Postprocessor
 
+    完整的数据流：
+        image (HWC, BGR) → Preprocessor → tensor (NCHW) → Backend → raw (List[ndarray])
+            ├── __call__: raw → Postprocessor → StructuredResult (dict)
+            └── infer:     仅返回 raw（评估场景用，Evaluator 自行后处理）
+
     用法:
         pipeline = InferencePipeline(preprocessor, backend, postprocessor)
-        result = pipeline(image, conf_thres=0.25, iou_thres=0.45)  # 端到端
-        raw = pipeline.infer(tensor)  # 仅推理（评估用）
+        result = pipeline(image, conf_thres=0.25, iou_thres=0.45)  # 端到端推理
+        raw = pipeline.infer(tensor)  # 仅后端推理（评估循环内使用）
     """
     def __init__(self, preprocessor, backend, postprocessor): ...
     def __call__(self, image, **kwargs) -> Any: ...
@@ -62,11 +70,37 @@ class InferencePipeline:
     def warmup(self): ...
 ```
 
+**Pipeline 生命周期：**
+
+```
+Evaluator
+    │
+    ├── 迭代 Dataset（每张图）
+    │   ├── preprocessor(image)           → tensor
+    │   ├── backend(tensor)               → raw List[ndarray]
+    │   ├── postprocessor(raw, **kwargs)  → StructuredResult
+    │   └── metrics.update(result, ground_truth)
+    │
+    └── metrics.compute() → Dict[str, float]
+```
+
 ### 2.2 BaseBackend
+
+后端的职责是**纯张量推理**，从预处理好的张量到原始输出。它需要知道任务类型和类别列表以正确解释输出：
 
 ```python
 class BaseBackend(ABC):
     """推理后端。纯张量推理，不处理图像。"""
+    def __init__(
+        self,
+        model_path: str,
+        class_list: List[str],
+        task_type: Optional[str] = None,   # classify / detect / segment
+        half: bool = False,
+        device: Optional[str] = None,
+        **kwargs
+    ): ...
+
     @abstractmethod
     def __call__(self, input_data: np.ndarray) -> List[np.ndarray]: ...
     def warmup(self): ...
@@ -82,6 +116,8 @@ class BaseBackend(ABC):
 | `TritonBackend` | Triton Server | gRPC/HTTP client |
 
 ### 2.3 BasePreprocessor / BasePostprocessor
+
+预处理和后处理根据任务类型（classify/detect/segment）有不同的实现：
 
 ```python
 class BasePreprocessor(ABC):
@@ -189,11 +225,30 @@ class TritonBackend(BaseBackend):
 
 ### 4.2 Detect
 
+检测任务的预处理和后处理需要处理**YOLO 版本差异**（YOLOv5 vs YOLOv8/YOLO11）。差异主要体现在：
+- **输出结构**：v5 维度排列为 `(1, num_dets, 5+nc)`、v8 为 `(1, 84, 8400)` 转置
+- **NMS 逻辑**：anchor-based (v5) vs anchor-free (v8)
+- **预处理**：letterbox 的 auto pad 参数略有不同
+
+通过 `model_version` 参数区分，避免为每个版本重复实现：
+
+```python
+@PROCESSORS.register("detect_preprocess")
+class DetectPreprocessor(BasePreprocessor):
+    def __init__(self, input_size=640, model_version="v8", half=False):
+        # model_version: "v5", "v8", "v11"（v8 和 v11 兼容）
+        if model_version in ("v8", "v11"):
+            self.auto_pad = True
+        else:  # v5
+            self.auto_pad = False
+    def __call__(self, image, **kwargs) -> np.ndarray: ...
+```
+
 | 组件 | 实现 | 说明 |
 |------|------|------|
-| `DetectPreprocessor` | npy (OpenCV letterbox) / tch (letterbox) | stride 对齐、pad |
-| `DetectPostprocessor` | npy NMS / tch NMS | NMS + scale_boxes + clip_boxes |
-| `detect/ops.py` | 共享算子 | xywh2xyxy, scale_boxes, clip_boxes |
+| `DetectPreprocessor` | npy (OpenCV letterbox) / tch (letterbox) | stride 对齐、pad，支持 model_version 参数 |
+| `DetectPostprocessor` | npy NMS / tch NMS | NMS + scale_boxes + clip_boxes，适配 v5/v8 输出格式差异 |
+| `detect/ops.py` | 共享算子 | xywh2xyxy, scale_boxes, clip_boxes, nms 等 |
 
 ### 4.3 Segment（实例分割）
 
@@ -219,7 +274,28 @@ class TritonBackend(BaseBackend):
 
 ## 5. 评估与 DataFlow-CV 桥接
 
-### 5.1 评估桥接
+### 5.1 评估分层架构
+
+`modelflow/evaluators/` 是评估**框架层**，提供统一接口编排推理循环；
+`eval/` 目录下的脚本是 **benchmark 入口**，调用 evaluators 完成特定后端的评估。
+
+```
+eval/runtime/bench_yolov8_onnx_npy.py  ← 入口脚本（可独立运行）
+    └── 调用 → modelflow/evaluators/detect.py  ← 评估编排
+                    ├── Pipeline(DetectPreprocessor + OnnxBackend + DetectPostprocessor)
+                    ├── Dataset(COCO)
+                    └── DataFlow-CV Evaluator(mAP)
+```
+
+**职责划分：**
+
+| 层 | 目录 | 职责 | 是否可独立运行 |
+|----|------|------|:-------------:|
+| 入口 | `eval/<backend>/bench_*.py` | 组装参数、启动评估 | ✅ |
+| 框架 | `modelflow/evaluators/` | 编排推理循环、收集结果、调用 metric | ❌ |
+| 指标 | `modelflow/metrics/` 或 DataFlow-CV | 具体指标计算 | ❌ |
+
+### 5.2 评估桥接
 
 Detection 和 Segmentation 评估**委托 DataFlow-CV 实现**：
 
@@ -243,7 +319,7 @@ class DetectEvaluator(BaseEvaluator):
         return self._to_metrics(result)
 ```
 
-### 5.2 可视化桥接
+### 5.3 可视化桥接
 
 Detection 和 Segmentation 可视化**委托 DataFlow-CV 实现**：
 
@@ -263,7 +339,7 @@ class DetectVisualizer(BaseVisualizer):
         return result.data
 ```
 
-### 5.3 本地实现
+### 5.4 本地实现
 
 Classification 和 Semantic Segmentation 的 metrics 在 `modelflow/metrics/` 本地实现（DataFlow-CV 暂无）：
 
