@@ -322,7 +322,7 @@ specs/
 
 每次改动后自查：
 
-- [ ] 3 条架构硬约束未被违反（modelflow↔export 零依赖、Backend 单一职责、Processor 数据流正确）
+- [ ] 6 条架构硬约束未被违反（详见 2.2 节：模块零交叉依赖、Backend 零引用/单一职责、Processor 不直调 Backend、Pipeline 为唯一编排者、Evaluator 仅用公开接口、Export 不导入 modelflow）
 - [ ] Backend 未做图像预处理或后处理
 - [ ] Preprocessor 输出正确的 NCHW float32 格式
 - [ ] Postprocessor 正确处理空检测（无目标时返回空数组）
