@@ -132,7 +132,8 @@ def load_torchvision_model(model_name: str) -> nn.Module:
         )
 
     model_entry = models.__dict__[model_name]
-    tv_version = version.parse(models.__version__)
+    import torchvision
+    tv_version = version.parse(torchvision.__version__)
 
     if tv_version >= version.parse("0.13"):
         weights = _find_weights_class(model_name)
