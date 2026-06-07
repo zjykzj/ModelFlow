@@ -138,7 +138,7 @@ docker run -it --gpus all --ipc=host --ulimit memlock=-1 --ulimit stack=67108864
 
 # Triton server
 docker run --gpus=all -it -p 8000:8000 -p 8001:8001 -p 8002:8002 \
-  -v $(pwd):/workdir --workdir=/workdir nvcr.io/nvidia/tritonserver:23.10-py3 \
+  -v $(pwd):/workdir --workdir=/workdir nvcr.io/nvidia/tritonserver:24.06-py3 \
   tritonserver --model-repository=./models/triton/
 ```
 

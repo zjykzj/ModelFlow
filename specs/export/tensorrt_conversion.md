@@ -4,6 +4,25 @@
 > **Version:** 0.1
 > **前置阅读:** [`specs/export/onnx_export.md`](onnx_export.md)（ONNX 导出规范），TensorRT 基础概念
 
+## 0. 版本要求
+
+本模块基于 **TensorRT 10.x** API 实现，关键 API 差异：
+
+| API | TensorRT 8.x | TensorRT 10.x |
+|-----|-------------|---------------|
+| 工作空间配置 | `config.max_workspace_size = N` | `config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, N)` |
+| 校准器接口 | `IInt8EntropyCalibrator2`（同） | `IInt8EntropyCalibrator2`（同） |
+| 引擎构建 | `builder.build_serialized_network(network, config)` | 同 |
+
+**安装：**
+```bash
+pip install tensorrt
+# 或从 NVIDIA 官网下载对应 CUDA 版本的 .whl：
+# https://developer.nvidia.com/tensorrt/download
+```
+
+> **注意：** TensorRT 10.x 构建的 `.engine` 文件无法在 TensorRT 8.x 环境中加载。部署时需确保 Triton Server 版本 ≥ 24.06（内置 TRT 10.x）。
+
 ## 1. TensorRT 工作原理
 
 TensorRT 是 NVIDIA 的高性能深度学习推理优化器。它将训练好的模型（ONNX）转换为经过**图优化**和**内核调优**的推理引擎。

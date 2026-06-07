@@ -23,7 +23,8 @@ PyTorch (.pt) ──▶ ONNX (.onnx) ──▶ TensorRT (.engine) FP16 / INT8
 |---|------|------|---------|
 | 1 | **零外部依赖** | `export/` 下的代码不得 import 项目根目录 `core/`、`modelflow/`、`cpp/` 或任何其他模块 | ❌ `from core.npy.yolov8_preprocess import ImgPrepare` |
 | 2 | **预处理自包含** | 校准数据准备脚本（`scripts/`）中的预处理逻辑必须自实现，或使用 `export/core/` 提供的工具 | |
-| 3 | **仅引用 PyTorch 和标准库** | 允许的第三方依赖：`torch`、`onnx`、`onnxruntime`、`tensorrt`、`pycuda`（可选）、`ultralytics`（可选） | |
+| 3 | **依赖版本约束** | 允许的第三方依赖：`torch`、`onnx`、`onnxruntime`、`tensorrt` (>=10.0)、`pycuda`（可选）、`ultralytics`（可选） | |
+| 4 | **可选拔件懒加载** | `tensorrt`、`pycuda`、`ultralytics` 等可选依赖不得在模块级别 `import`，必须在使用处按需导入并捕获 `ImportError` 给出安装指引 | ❌ 模块级 `import tensorrt as trt` 阻断不依赖 tensorrt 的子模块（如 `build_fp16` 无法在无 TRT 环境运行） |
 
 **背景：** 此约束确保 `export/` 模块可独立开发、独立测试，不因项目其他模块的变更而阻塞。当需要复用在 `modelflow/` 或项目 `core/` 中已有的预处理逻辑时，应将其**复制或重构**到 `export/core/` 中，而非直接引用原位置代码。
 

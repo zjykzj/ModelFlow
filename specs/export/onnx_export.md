@@ -58,7 +58,7 @@ ONNX opset 定义了可用的算子集合，版本越高支持的算子越多：
 
 **选择原则：**
 - **默认 opset=12**，这是当前最稳健的选择
-- TensorRT 7.X 对 opset 12 支持最佳
+- TensorRT 10.x 对 opset 12 支持良好
 - 如果遇到不支持的算子，可尝试升级 opset 版本
 - 更高的 opset 不一定更好——可能降低目标后端的兼容性
 
@@ -198,14 +198,11 @@ OpenCV (BGR) ──▶ LetterBox(640) ──▶ BGR→RGB ──▶ Normalize(÷
 
 ```bash
 # Ultralytics 导出（自动下载预训练权重）
-python3 -m export.onnx.ultralytics \
-    --weights yolov8s \
-    --save models/runtime/yolov8s.onnx \
-    --opset 12
+python3 -m export.onnx.ultralytics yolov8s \
+    --save models/runtime/yolov8s.onnx
 
 # 分割模型
-python3 -m export.onnx.ultralytics \
-    --weights yolov8s-seg \
+python3 -m export.onnx.ultralytics yolov8s-seg \
     --save models/runtime/yolov8s-seg.onnx
 ```
 
