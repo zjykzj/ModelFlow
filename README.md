@@ -1,103 +1,171 @@
-<!-- <div align="right">
-  Language:
-    🇺🇸
-  <a title="Chinese" href="./README.zh-CN.md">🇨🇳</a>
-</div> -->
-
- <div align="center"><a title="" href="git@github.com:zjykzj/ModelFlow.git"><img align="center" src="./assets/logos/ModelFlow.svg"></a></div>
+<div align="center"><a title="" href="git@github.com:zjykzj/ModelFlow.git"><img align="center" src="./assets/logos/ModelFlow.svg"></a></div>
 
 <p align="center">
-  Model Eval & Export & Infer
+  Model Eval & Export & Infer — 计算机视觉模型部署工具集
 <br>
 <br>
   <a href="https://github.com/RichardLitt/standard-readme"><img src="https://img.shields.io/badge/standard--readme-OK-green.svg?style=flat-square"></a>
   <a href="https://conventionalcommits.org"><img src="https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg"></a>
-  <a href="http://commitizen.github.io/cz-cli/"><img src="https://img.shields.io/badge/commitizen-friendly-brightgreen.svg"></a>
 </p>
 
-## Table of Contents
+## 简介
 
-- [Table of Contents](#table-of-contents)
-- [Background](#background)
-- [Maintainers](#maintainers)
-- [Thanks](#thanks)
-- [Contributing](#contributing)
-- [License](#license)
+ModelFlow 是一个计算机视觉模型部署工具集，聚焦 **模型评估、导出与推理**。
+支持多种视觉任务、多种推理后端，以 **Pipeline** 模式统一各模块接口。
 
-## Background
+```
+InferencePipeline = Preprocessor + Backend + Postprocessor
+```
 
-<!-- 本仓库的目的是为了更好的部署计算机视觉算法，特别是目标分类、目标检测以及实例分割算法的实现。
+### 核心特性
 
-最开始我想要设计统一的架构，通过模块化范式来适配不同的前后处理、不同的网络模块实现以及不同的推理引擎，类似于常用的热门仓库。但是这种方式很难推进下去，每次想要加入新的算法，我需要经常反复的思考如何将该算法按照目前架构进行拆分，如何适配每个模块的输入输出。这些问题让我心力憔悴，有一段时间甚至对仓库优化都丧失了热情。
+- **统一 Pipeline 模式**：预处理 + 推理后端 + 后处理 三段式解耦
+- **多后端支持**：ONNX Runtime / TensorRT (FP16/INT8) / Triton Inference Server
+- **模型导出管线**：PyTorch → ONNX → TensorRT → Triton 全链路
+- **评估框架**：分类/检测/分割评估，DataFlow-CV 桥接 mAP
+- **注册机制**：新增后端/任务/数据集无需改核心框架
 
-我思考了很久，确认我应该是陷入了某种开发困境，为了追求设计上的完美无限增大了工程开发的复杂度，在意识到过度设计的问题后，我打算重新开始。在新的开发中，我会尽可能的聚焦于这个仓库的目标：模型转换以及模型推理，尽量减少架构设计的内容。把主要精力集中在算法部署上。
+## 架构
 
-注：之前的实现备份在[v0.1.0](https://github.com/zjykzj/ModelFlow/tree/v0.1.0)。 -->
+```
+modelflow/           # Python 推理/评估/可视化核心包
+  ├── core/          # 抽象基类、注册机制、类型枚举
+  ├── backends/      # ONNX / TensorRT / Triton 推理后端
+  ├── processors/    # 前/后处理器（classify/detect/segment/multimodal）
+  ├── pipelines/     # Pipeline 工厂函数
+  ├── datasets/      # 数据集加载器
+  ├── evaluators/    # 评估编排器（DataFlow-CV 桥接）
+  ├── metrics/       # 本地指标实现
+  └── viz/           # 可视化
 
-The purpose of this repository is to better deploy computer vision algorithms, especially the implementation of object
-classification, object detection, and instance segmentation algorithms.
+export/              # 模型导出（pt → onnx → tensorrt → triton）
+  ├── onnx/          # torchvision + Ultralytics ONNX 导出
+  ├── tensorrt/      # FP16/INT8 引擎构建（PyTorch/PyCUDA 校准器）
+  ├── triton/        # Triton 配置生成 + 仓库管理
+  └── scripts/       # 校准数据生成
 
-At first, I wanted to design a unified architecture that would adapt to different pre-processing and post-processing,
-network module implementations, and inference engines through a modular paradigm, similar to commonly used popular
-repositories. But this approach is difficult to push forward. Every time I want to add a new algorithm, I need to
-repeatedly think about how to split the algorithm according to the current architecture and how to adapt the input and
-output of each module. These issues have left me exhausted and even lost my passion for warehouse optimization for a
-period of time.
+specs/               # 规格文档
+  ├── modules/       # 模块架构设计
+  └── export/        # ONNX/TensorRT/Triton 知识层
+```
 
-I have thought for a long time and confirmed that I may have fallen into some kind of development dilemma. In order to
-pursue design perfection, the complexity of engineering development has been infinitely increased. After realizing the
-problem of Over-Engineering, I plan to start over. In the new development, I will focus as much as possible on the goals
-of this repository: model transformation and model inference, and minimize the content of architecture design. Focus the
-main energy on algorithm deployment.
+详细架构文档见 [`specs/`](specs/index.md)。
 
-Note: The previous implementation was in [v0.1.0](https://github.com/zjykzj/ModelFlow/tree/v0.1.0).
+## 快速开始
 
-## YOLOv5/YOLOv8 Eval
+### 安装
 
-| Model      | Inference Backend | Pre/Post-processing | Implementation File              | Implemented |
-|------------|-------------------|---------------------|----------------------------------|-------------|
-| YOLOv5     | ONNX Runtime      | PyTorch             | `yolov5_runtime_w_torch.py`      | ✅           |
-| YOLOv5     | ONNX Runtime      | NumPy               | `yolov5_runtime_w_numpy.py`      | ✅           |
-| YOLOv5     | TensorRT          | NumPy               | `yolov5_tensorrt_w_numpy.py`     | ✅           |
-| YOLOv5     | Triton Server     | NumPy               | `yolov5_triton_w_numpy.py`       | ✅           |
-| YOLOv8     | ONNX Runtime      | PyTorch             | `yolov8_runtime_w_torch.py`      | ✅           |
-| YOLOv8     | ONNX Runtime      | NumPy               | `yolov8_runtime_w_numpy.py`      | ✅           |
-| YOLOv8     | TensorRT          | NumPy               | `yolov8_tensorrt_w_numpy.py`     | ✅           |
-| YOLOv8     | Triton Server     | NumPy               | `yolov8_triton_w_numpy.py`       | ✅           |
-| YOLOv8-seg | ONNX Runtime      | PyTorch             | `yolov8_seg_runtime_w_torch.py`  | ✅           |
-| YOLOv8-seg | ONNX Runtime      | NumPy               | `yolov8_seg_runtime_w_numpy.py`  | ✅           |
-| YOLOv8-seg | TensorRT          | NumPy               | `yolov8_seg_tensorrt_w_numpy.py` | ✅           |
-| YOLOv8-seg | Triton Server     | NumPy               | `yolov8_seg_triton_w_numpy.py`   | ✅           |
+```bash
+# 基础依赖
+pip install torch torchvision onnx onnxruntime
 
-## CLIP/OpenCLIP Eval
+# 可选后端
+pip install tensorrt           # TensorRT
+pip install tritonclient[grpc] # Triton
+pip install pycuda             # INT8 PyCUDA 校准器
+```
 
-CLIP 和 OpenCLIP 模型在 CIFAR-10 和 CIFAR-100 上的 Zero-Shot 和 Linear Probe 评估结果
+### 分类推理
 
-### CIFAR-10 数据集
+```python
+from modelflow.pipelines import create_classify_pipeline
 
-| 方法 / 分类头                     | 模型       | 准确率 (Accuracy) | 提升（对比 Zero-Shot 单模板） |
-|------------------------------|----------|----------------|----------------------|
-| **Zero-Shot（单模板）**           | CLIP     | 88.80%         | —                    |
-| **Zero-Shot（20模板集成）**        | CLIP     | 89.52%         | +0.72%               |
-| **Linear Probe + LR**        | CLIP     | 94.32%         | +5.52%               |
-| **Zero-Shot（单模板）**           | OpenCLIP | 88.66%         | —                    |
-| **Zero-Shot（20模板集成）**        | OpenCLIP | 88.88%         | +0.22%               |
-| **Linear Probe + LR**        | OpenCLIP | **94.85%**     | **+6.19%**           |
-| **Linear Probe + KNN (k=1)** | OpenCLIP | 91.91%         | +3.25%               |
-| **Linear Probe + KNN (k=5)** | OpenCLIP | 93.56%         | +4.90%               |
+pipeline = create_classify_pipeline(
+    model_path="efficientnet_b0.onnx",
+    class_list=["cat", "dog", "bird"],
+    backend="onnxruntime",
+)
+result = pipeline(image)
+print(result["class_ids"], result["scores"])  # top-5
+```
 
-### CIFAR-100 数据集
+### 检测推理
 
-| 方法 / 分类头                     | 模型       | 准确率 (Accuracy) | 提升（对比 Zero-Shot 单模板） |
-|------------------------------|----------|----------------|----------------------|
-| **Zero-Shot（单模板）**           | CLIP     | 61.70%         | —                    |
-| **Zero-Shot（20模板集成）**        | CLIP     | 63.96%         | +2.26%               |
-| **Linear Probe + LR**        | CLIP     | 75.62%         | +13.92%              |
-| **Zero-Shot（单模板）**           | OpenCLIP | 67.02%         | —                    |
-| **Zero-Shot（20模板集成）**        | OpenCLIP | 67.90%         | +0.88%               |
-| **Linear Probe + LR**        | OpenCLIP | **78.70%**     | **+11.68%**          |
-| **Linear Probe + KNN (k=1)** | OpenCLIP | 70.83%         | +3.81%               |
-| **Linear Probe + KNN (k=5)** | OpenCLIP | 73.32%         | +6.30%               |
+```python
+from modelflow.pipelines import create_detect_pipeline
+from modelflow.cfgs.coco import class_list
+
+pipeline = create_detect_pipeline(
+    model_path="yolov8s.onnx",
+    class_list=class_list,
+    backend="onnxruntime",
+)
+result = pipeline(image, conf_thres=0.25, iou_thres=0.45)
+# {"boxes": ndarray(N,4), "scores": ndarray(N,), "class_ids": ndarray(N,)}
+```
+
+### 模型导出
+
+```bash
+# L1: PT → ONNX
+python3 -m export.onnx.convert --model efficientnet_b0 --save model.onnx
+python3 -m export.onnx.ultralytics yolov8s --save yolov8s.onnx
+
+# L2: ONNX → TensorRT FP16
+python3 -m export.tensorrt.build_fp16 --onnx model.onnx --save model_fp16.engine
+
+# L3: + Triton 配置
+python3 -m export.triton.config_generator \
+    --model-name Detect_COCO_YOLOv8s_TRT \
+    --backend tensorrt --task detect --save ./models/triton/
+```
+
+### 评估
+
+```python
+from modelflow.evaluators import DetectEvaluator
+from modelflow.datasets import COCODetectionDataset
+from modelflow.cfgs.coco import class_list
+
+dataset = COCODetectionDataset("val2017/", class_list, anno_json="annotations.json")
+evaluator = DetectEvaluator(pipeline, dataset, gt_json="annotations.json")
+metrics = evaluator.run()
+# {"mAP": 0.437, "AP50": 0.602, ...}
+```
+
+详细使用见 [`modelflow/README.md`](modelflow/README.md)。
+
+## 支持的任务与模型
+
+| 任务 | Preprocessor | Backend | Postprocessor |
+|------|-------------|---------|---------------|
+| Classification | Resize+Crop+Normalize | ONNX/TRT/Triton | softmax top-5 |
+| Detection | LetterBox → /255 | ONNX/TRT/Triton | NMS + coordinate scaling |
+| Instance Segmentation | LetterBox → /255 | ONNX/TRT/Triton | NMS + proto mask |
+| Semantic Segmentation | Resize+Normalize | ONNX/TRT/Triton | argmax + colormap |
+| Multi-modal (CLIP) | CLIP standard | ONNX/TRT/Triton | similarity ranking |
+
+### 模型来源
+
+| 来源 | 任务 | 模型示例 |
+|------|------|---------|
+| torchvision | Classification | ResNet, EfficientNet, MobileNet, ViT, ConvNeXt |
+| Ultralytics | Detection | YOLOv5, YOLOv8, YOLO11 |
+| Ultralytics | Segmentation | YOLOv8-seg |
+| Ultralytics | Pose | YOLOv8-pose |
+| OpenAI | Multi-modal | CLIP, OpenCLIP |
+
+## 导出深度等级
+
+| 等级 | 产出 | 推理方式 |
+|------|------|---------|
+| **L1** | `.onnx` | ONNX Runtime (CPU/GPU) |
+| **L2** | `.onnx` + `.engine` | TensorRT GPU (FP16/INT8) |
+| **L3** | `.onnx` + `.engine` + Triton config | Triton Server |
+
+## 项目结构
+
+```
+ModelFlow/
+├── modelflow/           # Python 推理/评估核心包
+├── export/              # 模型导出管线
+├── specs/               # 规格文档
+├── eval/                # 评估基准入口
+├── samples/             # 使用示例
+├── llms/                # CLIP/OpenCLIP 评估
+├── models/              # 预训练模型文件
+└── assets/              # 测试资源
+```
 
 ## Maintainers
 
