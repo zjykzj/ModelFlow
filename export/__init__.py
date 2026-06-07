@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
-
 """
-@Time    : 2025/9/13 15:07
-@File    : __init__.py.py
+@Time    : 2026/6/7
+@File    : __init__.py
 @Author  : zj
-@Description: 
+@Description: ModelFlow Export2 — 模型导出管线
 """

@@ -1,0 +1,155 @@
+# -*- coding: utf-8 -*-
+"""
+@Time    : 2026/6/7
+@File    : test_engine.py
+@Author  : zj
+@Description: TensorRT 引擎构建与推理测试（需要 GPU 环境）
+
+运行：
+    python3 -m pytest export2/tests/test_engine.py -v
+    python3 -m pytest export2/tests/test_engine.py -v -k "calibrator"
+"""
+
+import os
+import tempfile
+import pytest
+import numpy as np
+
+# ==================== 全局跳过条件 ====================
+
+try:
+    import pycuda.driver as cuda
+    import pycuda.autoinit
+    HAS_PYCUDA = True
+except ImportError:
+    HAS_PYCUDA = False
+
+try:
+    import torch
+    HAS_TORCH_CUDA = torch.cuda.is_available()
+except ImportError:
+    HAS_TORCH_CUDA = False
+
+try:
+    import tensorrt as trt
+    HAS_TRT = True
+except ImportError:
+    HAS_TRT = False
+
+requires_gpu = pytest.mark.skipif(
+    not (HAS_TRT and (HAS_TORCH_CUDA or HAS_PYCUDA)),
+    reason="Requires GPU with TensorRT and either PyTorch CUDA or PyCUDA",
+)
+
+
+class TestCalibrator:
+    """INT8 校准器单元测试（文件扫描、数据自愈、shape 校验）"""
+
+    @pytest.fixture
+    def calib_dir(self):
+        """创建包含虚拟校准数据的临时目录"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # 创建 5 个有效的 .bin 文件
+            for i in range(5):
+                data = np.random.randn(3 * 640 * 640).astype(np.float32)
+                data.tofile(os.path.join(tmpdir, f"img_{i:04d}.bin"))
+            # 创建一个大小不匹配的（异常文件）
+            bad_data = np.random.randn(100).astype(np.float32)
+            bad_data.tofile(os.path.join(tmpdir, "bad_img.bin"))
+            yield tmpdir
+
+    @requires_gpu
+    def test_torch_calibrator_init(self, calib_dir):
+        """TorchCalibrator 初始化"""
+        from export2.tensorrt.calibrator import TorchCalibrator
+
+        calib = TorchCalibrator(
+            calib_data_dir=calib_dir,
+            input_shape=(1, 3, 640, 640),
+            cache_file="/tmp/test_calib_torch.cache",
+        )
+        assert calib.total == 5  # 坏文件在 get_batch 时跳过
+        assert calib.get_batch_size() == 1
+
+    @requires_gpu
+    def test_torch_calibrator_get_batch(self, calib_dir):
+        """TorchCalibrator 获取 batch"""
+        from export2.tensorrt.calibrator import TorchCalibrator
+
+        calib = TorchCalibrator(
+            calib_data_dir=calib_dir,
+            input_shape=(1, 3, 640, 640),
+        )
+        ptr = calib.get_batch(None)
+        assert ptr is not None
+        assert isinstance(ptr, list)
+        assert len(ptr) == 1
+        assert isinstance(ptr[0], int)
+
+    @pytest.mark.skipif(not HAS_PYCUDA, reason="Requires pycuda")
+    def test_pycuda_calibrator_init(self, calib_dir):
+        """PyCudaCalibrator 初始化"""
+        from export2.tensorrt.calibrator import PyCudaCalibrator
+
+        calib = PyCudaCalibrator(
+            calib_data_dir=calib_dir,
+            input_shape=(1, 3, 640, 640),
+            cache_file="/tmp/test_calib_pycuda.cache",
+        )
+        assert calib.total == 5
+
+    def test_calibrator_empty_dir(self):
+        """空目录应抛出异常"""
+        from export2.tensorrt.calibrator import BaseCalibrator
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with pytest.raises(FileNotFoundError):
+                BaseCalibrator(
+                    calib_data_dir=tmpdir,
+                    input_shape=(1, 3, 640, 640),
+                )
+
+    def test_calibrator_nonexistent_dir(self):
+        """不存在的目录应抛出异常"""
+        from export2.tensorrt.calibrator import BaseCalibrator
+
+        with pytest.raises(FileNotFoundError):
+            BaseCalibrator(
+                calib_data_dir="/tmp/nonexistent_calib",
+                input_shape=(1, 3, 640, 640),
+            )
+
+
+class TestTRTBuild:
+    """TensorRT 引擎构建测试（需要 GPU + TensorRT）"""
+
+    @requires_gpu
+    def test_build_fp16_invalid_onnx(self):
+        """无效 ONNX 文件应返回 False"""
+        from export2.tensorrt.build_fp16 import build_fp16_engine
+
+        result = build_fp16_engine(
+            onnx_path="/tmp/nonexistent.onnx",
+            output_path="/tmp/nonexistent.engine",
+            use_trtexec=False,
+        )
+        assert result is False
+
+    @requires_gpu
+    def test_triton_config_generation(self):
+        """Triton 配置生成"""
+        from export2.triton import TritonConfigGenerator
+
+        gen = TritonConfigGenerator(
+            model_name="Test_Detect",
+            backend="tensorrt",
+            task="detect",
+        )
+        config = gen.generate()
+        assert 'name: "Test_Detect"' in config
+        assert 'platform: "tensorrt_plan"' in config
+        assert "dims: [84, 8400]" in config
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])
