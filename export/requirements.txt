@@ -1,0 +1,39 @@
+# ============================================================================
+# Export Module Dependencies
+# ============================================================================
+# Install:
+#   pip install -r requirements.txt                     # L1 only (ONNX export)
+#   pip install -r requirements.txt tensorrt             # L2 (TensorRT GPU)
+#   pip install -r requirements.txt tritonclient[grpc]   # L3 (Triton deploy)
+# ============================================================================
+
+# ---- L1: Core (required) ----
+torch>=1.10.0                 # paired with torchvision 0.11 (torch.onnx.export opset=12)
+torchvision>=0.11.0           # models.efficientnet_b0 (earliest model family in test suite)
+onnx>=1.7.0                   # onnx.checker.check_model (opset 12 support)
+onnxruntime>=1.5.1            # InferenceSession(providers=[...]) (opset 12 support)
+numpy>=1.17.0                 # np.testing.assert_allclose, basic array ops
+opencv-python>=4.1.0          # cv2.copyMakeBorder / cv2.INTER_LINEAR / cv2.cvtColor
+packaging>=17.0               # packaging.version.parse (torchvision compat check)
+
+# ---- L1: ONNX graph optimization (optional) ----
+#   Gracefully degrades if missing. Uncomment to enable:
+# onnx-simplifier>=0.3.0       # onnxsim.simplify(model)
+
+# ---- L2: TensorRT engine build (optional, GPU only) ----
+#   build_fp16.py defaults to trtexec CLI (no Python tensorrt needed).
+#   Python API (--no-trtexec) and INT8 calibration require this:
+#   Must match the TensorRT SDK version on your system.
+# tensorrt>=8.0.0              # trt.IInt8EntropyCalibrator2 / trt.Builder
+
+# ---- L2: PyCUDA INT8 calibrator (optional, Jetson/embedded only) ----
+#   Only needed for build_int8_pycuda.py. TorchCalibrator does NOT need pycuda.
+# pycuda>=2020.1
+
+# ---- L3: Triton deployment (optional) ----
+#   export/triton/ only generates config.pbtxt and copies model files —
+#   it does NOT import tritonclient. Only needed if running Triton inference.
+# tritonclient[grpc]>=2.0.0
+
+# ---- Dev: testing (optional) ----
+# pytest>=6.0.0

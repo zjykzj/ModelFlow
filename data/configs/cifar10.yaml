@@ -1,0 +1,40 @@
+# CIFAR-10 Classification Dataset Configuration
+# ModelFlow data module
+#
+# Expected directory structure:
+#   datasets/cifar10/
+#     val/
+#       airplane/      ← subdirectory name must match names below
+#         image1.png
+#       automobile/
+#         image1.png
+#       ...
+#
+# To convert CIFAR-10 binary/Python format to directory structure:
+#   python3 -c "
+#   import torchvision, os, cv2
+#   ds = torchvision.datasets.CIFAR10(root='/tmp', train=False, download=True)
+#   for name in ds.classes:
+#       os.makedirs(f'datasets/cifar10/val/{name}', exist_ok=True)
+#   for i, (img, label) in enumerate(ds):
+#       cv2.imwrite(f'datasets/cifar10/val/{ds.classes[label]}/{i:05d}.png', img.numpy().transpose(1,2,0)[...,::-1])
+#   "
+
+name: cifar10
+task: classify
+path: datasets/cifar10
+
+val: val
+
+# CIFAR-10: 10 classes, 32×32 images, 10k test images
+names:
+  0: airplane
+  1: automobile
+  2: bird
+  3: cat
+  4: deer
+  5: dog
+  6: frog
+  7: horse
+  8: ship
+  9: truck

@@ -1,0 +1,19 @@
+# ============================================================================
+# Eval Module Dependencies
+# ============================================================================
+# Install:
+#   pip install -r requirements.txt                           # Classification eval
+#   pip install -r requirements.txt dataflow-cv               # Detection/Segment eval
+# ============================================================================
+
+# ---- Core (required) ----
+numpy>=1.17.0                  # confusion matrix, array ops, xywh2xyxy
+tqdm>=4.50.0                   # evaluation progress bars
+
+# ---- DataFlow-CV bridge (optional) ----
+#   Detection and segmentation evaluators delegate mAP to DataFlow-CV.
+#   Gracefully degrades if missing — returns {"num_predictions": N}.
+# pip install dataflow-cv
+
+# ---- Dev: testing (optional) ----
+# pytest>=6.0.0

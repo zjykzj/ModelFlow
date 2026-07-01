@@ -1,0 +1,46 @@
+# =============================================================================
+# ModelFlow — modelflow/ Python inference package dependencies
+# =============================================================================
+# Install: pip install -r requirements.txt
+#
+# Categorized by necessity level:
+#   [core]      Always required
+#   [optional]  Gracefully degrades if missing
+#   [backend]   Only needed for specific inference backend
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# [core] 核心依赖 — 所有场景必需
+# ---------------------------------------------------------------------------
+
+numpy>=1.21                             # 数组运算（所有 processor / backend 共用）
+opencv-python>=4.5                      # 图像 I/O（BGR→RGB、resize、letterbox 等预处理）
+
+# ---------------------------------------------------------------------------
+# [optional] 可选依赖 — 缺失时降级运行
+# ---------------------------------------------------------------------------
+
+# torchvision — 仅用于 get_imagenet_classes() 获取 ImageNet 1K 类别名。
+# 未安装时返回占位符 ["n00000000", "n00000001", ...]，不影响推理结果。
+# torchvision
+
+# ---------------------------------------------------------------------------
+# [backend] 推理后端 — 按需安装一个即可
+# ---------------------------------------------------------------------------
+
+# --- ONNX Runtime (CPU / GPU) ---
+# CPU 环境:
+# onnxruntime>=1.16
+#
+# GPU 环境 (CUDA):
+# onnxruntime-gpu>=1.16
+
+# --- TensorRT (NVIDIA GPU only) ---
+# tensorrt          # 不在 PyPI，需从 NVIDIA TensorRT SDK 安装
+# pycuda            # CUDA Python 绑定，仅 TensorrtBackend 使用
+
+# --- Triton Inference Server client ---
+# tritonclient[all]>=2.40   # 同时包含 gRPC + HTTP 客户端
+# 或者按协议选择:
+# tritonclient[grpc]>=2.40
+# tritonclient[http]>=2.40
