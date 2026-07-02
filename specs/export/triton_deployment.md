@@ -151,13 +151,7 @@ output [
 
 ## 4. Starting Triton Server
 
-```bash
-docker run --gpus=all -it \
-    -p 8000:8000 -p 8001:8001 -p 8002:8002 \
-    -v $(pwd)/models/triton:/models \
-    nvcr.io/nvidia/tritonserver:24.06-py3 \
-    tritonserver --model-repository=/models
-```
+Triton Server is started via Docker with the model repository mounted at `/models`. The server exposes three ports: 8000 (HTTP), 8001 (gRPC), 8002 (Prometheus metrics).
 
 **Port Reference:**
 

@@ -120,39 +120,9 @@ class SegmentationEvaluator(BaseEvaluator):
 
 ### 3.4 ModelFlow eval/ Module Integration
 
-```python
-from dataflow.evaluate import DetectionEvaluator, SegmentationEvaluator
-from dataflow.util.logging import LogConfig
+ModelFlow evaluators construct DataFlow-CV evaluators with `LogConfig` (when available) and call `evaluate(gt_json, predictions)`. The returned `EvaluationResult` dataclass provides `metrics` (12 COCO standard metrics) and `per_class` (per-category breakdown when verbose).
 
-# Detection
-df_eval = DetectionEvaluator(log_config=LogConfig(name="eval", verbose=True))
-result = df_eval.evaluate(gt_json, predictions)
-
-# Segmentation
-df_eval = SegmentationEvaluator(log_config=LogConfig(name="eval", verbose=True))
-result = df_eval.evaluate(gt_json, predictions)
-
-# Extract metrics from EvaluationResult dataclass
-if result.success and result.metrics:
-    return {
-        "mAP": result.metrics.ap,
-        "AP50": result.metrics.ap50,
-        "AP75": result.metrics.ap75,
-        "AP_small": result.metrics.ap_small,
-        "AP_medium": result.metrics.ap_medium,
-        "AP_large": result.metrics.ap_large,
-        "AR_max_1": result.metrics.ar_max_1,
-        "AR_max_10": result.metrics.ar_max_10,
-        "AR_max_100": result.metrics.ar_max_100,
-        "AR_small": result.metrics.ar_small,
-        "AR_medium": result.metrics.ar_medium,
-        "AR_large": result.metrics.ar_large,
-    }
-```
-
-### 3.5 DT Source Type Resolution
-
-The `dt_source` parameter in `evaluate()` accepts both a list (in-memory) and a string/Path (file). DataFlow-CV resolves them differently:
+The `dt_source` parameter accepts both a list (in-memory) and a string/Path (file):
 
 | `dt_source` type | DataFlow-CV behavior |
 |-----------------|---------------------|
@@ -166,14 +136,6 @@ ModelFlow's `DetectEvaluator.run()` uses `save_pred_json or predictions` — whe
 
 ### 4.1 Import Failure
 
-```python
-try:
-    from dataflow.evaluate import DetectionEvaluator
-except ImportError:
-    logger.warning("DataFlow-CV not installed. Returning raw predictions count.")
-    return {"num_predictions": len(predictions)}
-```
-
 **Mandatory behavior:**
 - Catch `ImportError` specifically (not bare `except`)
 - Log a warning message
@@ -181,12 +143,6 @@ except ImportError:
 - Do NOT crash or raise
 
 ### 4.2 Missing GT
-
-```python
-if not self.gt_json:
-    logger.warning("No gt_json provided. Returning raw predictions count.")
-    return {"num_predictions": len(predictions)}
-```
 
 **Mandatory behavior:**
 - Return `{"num_predictions": N}` when GT is absent
@@ -256,6 +212,5 @@ constructor injection and orchestrates inference internally.
 
 ## 8. See Also
 
-- [`specs/SDD_GUIDE.md`](../SDD_GUIDE.md) — full change history
 - [`specs/modules/spec_eval.md`](../modules/spec_eval.md) — eval module architecture
 - [DataFlow-CV](https://github.com/zjykzj/DataFlow-CV) — metric computation engine

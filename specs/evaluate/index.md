@@ -40,8 +40,6 @@ specs/
 ├── modules/                        # HOW — module architecture
 │   ├── spec_python.md              #   Evaluator base class, evaluation flow
 │   └── ...
-│
-└── SDD_GUIDE.md                   # Development guide
 ```
 
 ## Documents

@@ -36,26 +36,11 @@ injection. This is **dependency inversion**: `eval/` depends on the interface pr
                samples/eval_segment.py
 ```
 
-### 1.2 Directory Structure
+### 1.2 Module Structure
 
-```
-eval/
-├── __init__.py               # Public API exports
-├── interfaces.py             # BaseEvaluator(pipeline, dataset, ...), BaseMetrics ABCs
-├── evaluators/               # Evaluator implementations (direct construction)
-│   ├── __init__.py
-│   ├── base.py               # Re-export BaseEvaluator from interfaces
-│   ├── classify.py           # ClassifyEvaluator(pipeline, dataset, metrics, config)
-│   ├── detect.py             # DetectEvaluator(pipeline, dataset, metrics, config, gt_json)
-│   └── segment.py            # SegmentEvaluator(pipeline, dataset, metrics, config, gt_json)
-├── metrics/                  # Local metric implementations
-│   ├── __init__.py
-│   └── classification.py     # ClassificationMetrics(num_classes)
-└── tests/
-    ├── __init__.py
-    ├── test_eval.py           # BaseEvaluator/BaseMetrics ABC tests
-    └── test_metrics.py        # ClassificationMetrics tests
-```
+The `eval/` module is organized into evaluators/ and metrics/ subpackages, with `interfaces.py` defining ABCs at the package root. No Registry, no decorators — evaluators use direct construction.
+
+See `spec_architecture.md` for module dependency rules.
 
 ## 2. Core Interfaces
 
@@ -158,30 +143,6 @@ results = evaluator.run(save_pred_json="preds.json")
 | `config` | dict | no | Optional evaluation config |
 | `gt_json` | str | no | Path to COCO GT JSON (or auto-detected via `dataset.get_gt_json()`) |
 
-**Internal flow:**
-
-```
-run(save_pred_json=None)
-    │
-    ├── 1. _run_inference()
-    │       Iterate dataset: image, gt = dataset[idx]
-    │       preprocess → backend infer → decode raw outputs
-    │       Convert to COCO prediction format:
-    │         {"image_id": int, "category_id": int, "bbox": [x,y,w,h], "score": float}
-    │       Return List[dict]
-    │
-    ├── 2. Save predictions (if save_pred_json)
-    │
-    ├── 3. Delegate to DataFlow-CV
-    │       from dataflow.evaluate import DetectionEvaluator
-    │       df_eval = DetectionEvaluator(log_config=LogConfig(name="eval", verbose=True))
-    │       result = df_eval.evaluate(gt_json, predictions)
-    │       Return _to_metrics(result)
-    │
-    └── 4. Fallback (no gt_json or DataFlow-CV unavailable)
-            Return {"num_predictions": len(predictions)}
-```
-
 **Returns:** `Dict[str, float]` — 12 COCO standard metrics:
 
 ```python
@@ -214,10 +175,10 @@ results = evaluator.run()
 | `dataset` | Dataset | yes | Dataset returning `(image, gt)` tuples |
 | `gt_json` | str | no | Path to COCO GT JSON (or auto-detected) |
 
-**Internal flow:** Same pattern as `DetectEvaluator`, but:
-1. Uses `pipeline(image, conf_thres=0.001, iou_thres=0.5)` for full postprocessing
-2. Adds `"segmentation"` field: `{"size": [h, w], "counts": mask.tolist()}` (binary mask as list)
-3. Delegates to `dataflow.evaluate.SegmentationEvaluator` (not DetectionEvaluator)
+**Behavioral contract:** Same pattern as `DetectEvaluator`, but:
+1. Uses `pipeline(image, conf_thres=0.001, iou_thres=0.5)` for full postprocessing (including mask decode)
+2. Adds `"segmentation"` field to COCO predictions
+3. Delegates to `dataflow.evaluate.SegmentationEvaluator` (`iouType='segm'`), not `DetectionEvaluator`
 
 ### 3.4 ClassificationMetrics
 
@@ -242,56 +203,26 @@ m.reset()
 
 ## 4. DataFlow-CV Bridge
 
-Detection and segmentation evaluators delegate mAP computation to DataFlow-CV via a guarded import pattern:
-
-```python
-try:
-    from dataflow.evaluate import DetectionEvaluator  # or SegmentationEvaluator
-    from dataflow.util.logging import LogConfig
-
-    df_eval = DetectionEvaluator(
-        log_config=LogConfig(name="eval", verbose=True)
-    )
-    result = df_eval.evaluate(gt_json, predictions)
-    return _to_metrics(result)
-except ImportError:
-    logger.warning("DataFlow-CV not installed. ...")
-    return {"num_predictions": len(predictions)}
-```
+Detection and segmentation evaluators delegate mAP computation to DataFlow-CV via a guarded import pattern.
 
 Key design decisions:
 - **Classification** uses local `ClassificationMetrics` — DataFlow-CV has no classification module
 - **Detection** delegates to `dataflow.evaluate.DetectionEvaluator`
 - **Segmentation** delegates to `dataflow.evaluate.SegmentationEvaluator` (separate class, `iouType='segm'`)
-- **Guarded import** — `from dataflow.evaluate import ...` is always inside try/except
+- **Guarded import** — `from dataflow.evaluate import ...` is always inside `try/except ImportError`
 - **Fallback** — returns `{"num_predictions": N}` when DataFlow-CV is not installed
 
 See `specs/evaluate/spec_evaluate_bridge.md` for the full DataFlow-CV interface contract.
 
-## 5. Extension
+## 5. Extension Contract
 
 Evaluators use direct construction — no Registry, no decorators:
 
-```python
-# Adding a new evaluator:
-# 1. Create eval/evaluators/pose.py
-class PoseEvaluator(BaseEvaluator):
-    def __init__(self, pipeline, dataset, metrics=None, config=None,
-                 gt_json=None):
-        super().__init__(pipeline, dataset, metrics, config)
-        self.gt_json = gt_json
+- Create evaluator file in `eval/evaluators/`, inheriting from `BaseEvaluator` and implementing `run()`
+- Register in `eval/evaluators/__init__.py`
+- Use directly: `evaluator = NewEvaluator(pipeline, dataset)`
 
-    def run(self) -> Dict[str, float]:
-        # ... inference + metrics logic
-        ...
-
-# 2. Register in eval/evaluators/__init__.py
-from .pose import PoseEvaluator
-
-# 3. Use directly
-evaluator = PoseEvaluator(pipeline, dataset)
-results = evaluator.run()
-```
+Constructor must accept `pipeline` and `dataset` as duck-typed parameters (not imported from `modelflow` or `data`).
 
 ## 6. Dependency Contract
 
@@ -324,6 +255,5 @@ Evaluators accept `pipeline` and `dataset` as constructor parameters. These are 
 
 ## 7. See Also
 
-- [`specs/SDD_GUIDE.md`](../SDD_GUIDE.md) — full change history
 - [`specs/evaluate/spec_evaluate_bridge.md`](../evaluate/spec_evaluate_bridge.md) — DataFlow-CV bridge contract
 - [`spec_architecture.md`](spec_architecture.md) — module architecture, dependency contract

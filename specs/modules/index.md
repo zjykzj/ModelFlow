@@ -79,7 +79,7 @@ spec_architecture.md  (inter-module relationships, Pipeline pattern definition)
 
 | Reader | Recommended Order |
 |--------|-------------------|
-| **New developer / AI Agent** | [`SDD_METHODOLOGY.md`](../SDD_METHODOLOGY.md) → [`SDD_GUIDE.md`](../SDD_GUIDE.md) → this document |
+| **New developer / AI Agent** | `CLAUDE.md` → this document |
 | **Overall architecture understanding** | `spec_architecture.md` → `spec_python.md` |
 | **Python inference development** | `spec_python.md` → `spec_architecture.md` |
 | **Evaluation development** | `spec_eval.md` → [`specs/evaluate/spec_evaluate_bridge.md`](../evaluate/spec_evaluate_bridge.md) → `spec_architecture.md` |

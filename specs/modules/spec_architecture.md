@@ -157,21 +157,9 @@ Model file → build_pipeline() → measure_*_latency() → mean/p95 ms, FPS
 | Semantic Segmentation | ✅ | ✅ | Not yet implemented |
 | Multi-modal (CLIP) | ✅ (in `vlms/`) | ✅ | Not yet implemented |
 
-## 6. Implementation Roadmap
+## 6. Module Dependency Contract
 
-| Phase | Content | Deliverables |
-|-------|---------|-------------|
-| 1 | Infrastructure | interfaces, types, config, Pipeline core |
-| 2 | Classification inference + evaluation | OnnxBackend, ClassifyProcessor, ClassifyEvaluator |
-| 3 | Detection inference + evaluation | TensorrtBackend, TritonBackend, DetectProcessor, DataFlow-CV bridge |
-| 4 | Segmentation + semantic segmentation | SegmentProcessor, SemanticSegProcessor |
-| 5 | Multi-modal | CLIP Processor (in `vlms/`) |
-| 6 | Export module | pt→onnx, onnx→trt, triton config |
-| 7 | Model analysis tooling | Model metadata collection, latency profiling, standalone parse script |
-
-## 7. Module Dependency Contract
-
-### 7.1 Cross-Module Import Rules
+### 6.1 Cross-Module Import Rules
 
 ```
 utils/

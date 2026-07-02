@@ -347,7 +347,7 @@ python3 samples/eval_detect.py --model models/yolov8s.onnx --data /path/to/coco
 | [`data/README.md`](data/README.md) | Data module — YAML configs, datasets, factory API |
 | [`samples/README.md`](samples/README.md) | Sample scripts — infer, eval, analyze, bench |
 | [`vlms/README.md`](vlms/README.md) | Vision-Language Models — CLIP, OpenCLIP |
-| [`specs/SDD_GUIDE.md`](specs/SDD_GUIDE.md) | SDD development guide (entry point for contributors) |
+| [`CLAUDE.md`](CLAUDE.md) | Development guide, architecture reference, and spec navigation (entry point for contributors) |
 | [`specs/modules/`](specs/modules/) | Module architecture specifications |
 
 ---

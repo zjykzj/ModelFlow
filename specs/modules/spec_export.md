@@ -30,33 +30,7 @@ PyTorch (.pt) ──▶ ONNX (.onnx) ──▶ TensorRT (.engine) FP16 / INT8
 
 ## 2. Directory Structure
 
-`export/` is organized by the three stages of the export pipeline, with common infrastructure placed directly at the module root (prefixed with `_` to indicate internal shared code):
-
-```
-export/
-├── _base.py                       # BaseExporter abstract base class
-├── _validation.py                 # ONNX format validation + PT vs ONNX output comparison
-├── _utils.py                      # Self-contained preprocessing pipeline (NumPy implementation, zero external dependencies)
-├── onnx/                          # L1: PyTorch → ONNX
-│   ├── convert.py                 # torchvision classification model export
-│   ├── ultralytics.py             # Ultralytics YOLO export (detection/segmentation/classification/pose)
-│   └── optimize.py                # ONNX graph optimization (onnx-simplifier wrapper)
-├── tensorrt/                      # L2: ONNX → TensorRT (FP16 / INT8)
-│   ├── build_fp16.py              # FP16 engine build (trtexec + Python API dual path)
-│   ├── build_int8.py              # INT8 engine build (PyTorch calibrator)
-│   ├── build_int8_pycuda.py       # INT8 engine build (PyCUDA calibrator, Jetson/embedded)
-│   ├── calibrator.py              # INT8 calibrator (BaseCalibrator + TorchCalibrator + PyCudaCalibrator)
-│   └── scripts/                   # Calibration data generation scripts
-│       ├── generate_calib_cache_for_coco.py
-│       ├── generate_calib_cache_for_imagenet.py
-│       └── random_copy_images.py
-├── triton/                        # L3: Triton deployment configuration
-│   ├── config_generator.py        # config.pbtxt auto-generation (task-aware)
-│   └── model_repo.py              # Model repository directory construction + model deployment
-└── tests/
-    ├── test_export.py
-    └── test_engine.py
-```
+`export/` is organized by the three stages of the export pipeline, with common infrastructure placed directly at the module root (prefixed with `_` to indicate internal shared code).
 
 **Structure description:**
 
@@ -168,6 +142,5 @@ Export's `_utils.py` duplicates some preprocessing logic from `modelflow/process
 
 ## 8. See Also
 
-- [`specs/SDD_GUIDE.md`](../SDD_GUIDE.md) — full change history
 - [`specs/export/`](../export/index.md) — export knowledge layer (format principles, conversion specifications)
 - [`spec_architecture.md`](spec_architecture.md) — module architecture, dependency contract

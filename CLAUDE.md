@@ -20,10 +20,8 @@ The `specs/` directory contains the **canonical specifications** — the single 
 
 ```
 specs/
-├── SDD_METHODOLOGY.md             # Universal SDD methodology (project-agnostic)
-├── SDD_GUIDE.md                   # ModelFlow-specific development guide (entry point)
-│
 ├── modules/                       # HOW — internal module architecture & interface contracts
+│   ├── index.md                    # Modules layer overview + dependency diagram
 │   ├── spec_architecture.md        # Architecture: all modules + Pipeline pattern
 │   ├── spec_python.md              # Python package: ABCs, backends, processors, pipelines
 │   ├── spec_eval.md                # eval module: evaluator ABCs, constructor injection, DataFlow-CV bridge
@@ -42,14 +40,81 @@ specs/
 
 ### Specs vs CLAUDE.md
 
-- **Specs** define "what is correct" — the behavioral contract. Stable; change only when requirements change.
-- **CLAUDE.md** describes "how the code works" — architecture, patterns, known gotchas. Evolves with the codebase.
-- For SDD Agent development, specs are the **compliance benchmark**; CLAUDE.md is the **development context**.
-- The SDD methodology is documented in [`specs/SDD_METHODOLOGY.md`](specs/SDD_METHODOLOGY.md) (universal) and [`specs/SDD_GUIDE.md`](specs/SDD_GUIDE.md) (ModelFlow-specific). Start at [`specs/SDD_GUIDE.md`](specs/SDD_GUIDE.md).
+- **Specs** define "what is correct" — the behavioral contract. Stable; change only when requirements change. Specs are loaded **on demand** for specific tasks.
+- **CLAUDE.md** (this file) is loaded automatically every session — it carries **high-frequency rules** needed for every code change: architecture constraints, critical gotchas, development scenarios. It is the **always-online** reference.
+- CLAUDE.md and specs serve **different consumption modes**: one is always in context, the other is looked up when needed. Neither replaces the other.
+- When a spec and code disagree, **the spec wins** — fix the code.
+
+### Spec Maintenance
+
+**Specs serve two readers:**
+
+| Reader | Needs from specs |
+|--------|-----------------|
+| **Agent** (Claude Code) | Behavioral contracts — "what is correct" to verify compliance |
+| **Human developer** | Understanding — "why" a contract exists and "what are the boundaries" |
+
+Both readers matter. Content that explains a contract (not just defines it) should be kept.
+
+**Classification principle — for each section, ask two questions:**
+
+1. *Agent question:* "When would I read this while writing code?"
+2. *Human question:* "Does this content help someone understand a behavioral contract?"
+
+| Answer | Action |
+|--------|--------|
+| Read on "every change" | Belongs in CLAUDE.md — move it there |
+| Read for "specific task" OR helps understand a contract | Belongs in specs — keep |
+| Neither | Delete |
+
+**What belongs in CLAUDE.md:** Architecture hard constraints, critical implementation details, known gotchas, development scenarios, code review checklist.
+
+**What belongs in specs:**
+- `export/` (WHAT): External format definitions — ONNX export principles, TensorRT conversion knowledge, Triton deployment configuration
+- `evaluate/` (WHAT): Evaluation bridge contract — ModelFlow ↔ DataFlow-CV integration contract
+- `modules/` (HOW): Module interface contracts — public API signatures, design constraints, dependency rules
+
+**What does NOT belong in specs — delete on sight:**
+1. **Change History** — version changelogs belong in git log / CHANGELOG.md
+2. **Implementation pseudocode** — "Step 1: validate dir, Step 2: scan files..." is code documentation, not a contract
+3. **CLI --help output copies** — the executable is the authority
+4. **Migration guides / legacy API tables** — one-time docs, delete after migration
+5. **Directory tree file listings** — `ls` is the authority
+6. **Standalone tutorials / how-to guides** — task selection guides, workflow recipes that don't define any contract
+
+**Extra check for `modules/` specs — is it interface contract or implementation description?**
+
+| Interface contract → keep | Implementation description → delete |
+|---------------------------|-------------------------------------|
+| Public API signatures, return types | Step-by-step internal flow pseudocode |
+| Design constraints and rules | Parameter-passing code snippets |
+| Option/parameter definition tables | Internal helper function descriptions |
+| Exception types and exit codes | Directory tree file listings |
+
+**Before deleting, always double-check:** "Does this content help explain a behavioral contract — even if it reads like education or FAQ?" If yes, keep it. Contract-defining clarifications should be preserved — they define the contract by explaining its boundaries.
+
+**Outdated framing ≠ outdated content:** Before deleting a section that seems "about the old architecture", check whether the *substance* is still correct but the *framing* is stale. Fix the framing, don't delete the content.
+
+### Spec Mapping Table
+
+Find the corresponding spec by change type:
+
+| Change Type | Required Spec Reading |
+|-------------|----------------------|
+| Add/modify inference backend | `specs/modules/spec_python.md` (Backend interface) |
+| Add/modify preprocessing/postprocessing | `specs/modules/spec_python.md` (Processor specs) |
+| Add/modify Pipeline | `specs/modules/spec_python.md` (InferencePipeline) |
+| Add/modify evaluator | `specs/modules/spec_eval.md` → `specs/evaluate/spec_evaluate_bridge.md` |
+| Add/modify dataset | `data/README.md` → `specs/modules/spec_architecture.md` |
+| Add ONNX export | `specs/modules/spec_export.md` → `specs/export/onnx_export.md` |
+| Add TensorRT export | `specs/modules/spec_export.md` → `specs/export/tensorrt_conversion.md` |
+| Add Triton deployment | `specs/modules/spec_export.md` → `specs/export/triton_deployment.md` |
+| Cross-module changes | `specs/modules/spec_architecture.md` (architecture constraint diagram) |
+| Unclear scope of impact | `specs/modules/spec_architecture.md` (global overview) |
 
 ### Pre-Change Classification (MANDATORY)
 
-Before creating, modifying, or deleting any file, classify the change against [`specs/SDD_METHODOLOGY.md`](specs/SDD_METHODOLOGY.md) §2.2:
+Before creating, modifying, or deleting any file, classify the change:
 
 | Priority | Document | Trigger | Action |
 |----------|----------|---------|--------|
@@ -160,10 +225,17 @@ bash assets/get_coco128.sh
 ```
 
 **Hard constraints:**
-1. **`export/` → `modelflow/`**: Zero dependency. `export/` uses its own self-contained preprocessing in `export/_utils.py`.
-2. **Backend → Preprocessor/Postprocessor**: Zero reference. Backends never import or call processors.
-3. **Processor → Backend**: Zero direct call. Pipeline is the sole orchestrator.
-4. **Pipeline → Backend**: Direct construction via `_build_backend(name, ...)` with lazy imports (`_ensure_backend`). Each backend only needs its own runtime installed.
+
+| # | Constraint | Violation Consequence |
+|---|------------|----------------------|
+| 1 | **`export/` → `modelflow/`: zero cross-dependency**. `export/` uses its own self-contained preprocessing in `export/_utils.py`. | Module coupling, unable to develop independently |
+| 2 | **Backend → Preprocessor/Postprocessor: zero reference**. Backends never import or call processors. | Backend should not be aware of image preprocessing |
+| 3 | **Backend only receives `np.ndarray`, only returns `List[np.ndarray]`**. No image processing inside backends. | Breaks Pipeline abstraction |
+| 4 | **Processor → Backend: no direct calls**. Pipeline is the sole orchestrator. Direct construction via `_build_backend()` with lazy imports. | Bypasses Pipeline contract |
+| 5 | **`modelflow/` is a pure inference engine** — zero dependency on `data/`, `eval/`, or DataFlow-CV. | Inference code entangled with evaluation/data loading |
+| 6 | **`eval/` is a pure evaluation module** — zero import dependency on `modelflow/` or `data/` (dependencies injected via constructor). | Evaluation code entangled with inference/data loading |
+| 7 | **`eval/` → DataFlow-CV: import guarded** by try/except ImportError. | Crash when DataFlow-CV not installed |
+| 8 | **`export/` → `modelflow/`: zero imports**. Export uses self-contained `export/_utils.py` preprocessing. | Export module coupled to inference engine |
 
 ### modelflow Package Structure
 
@@ -388,6 +460,126 @@ Test coverage includes:
 11. **Triton gRPC vs HTTP**: `TritonBackend` defaults to gRPC (port 8001). HTTP uses port 8000. The `protocol` parameter controls this. Mixing them up silently fails with connection refused.
 12. **Segment proto mask dimensions**: The prototype mask output is always `(1, 32, 160, 160)` regardless of input size. The mask decode logic (`process_mask`) must account for this fixed spatial dimension.
 
+### Where Do I Find What?
+
+```
+"What is the Pipeline calling flow?"
+  → specs/modules/spec_python.md (InferencePipeline section)
+
+"What is the Backend __call__ contract?"
+  → specs/modules/spec_python.md (Backend Interface)
+
+"How is NMS implemented?"
+  → specs/modules/spec_python.md (DetectPostprocessor)
+
+"How is mask decoding done?"
+  → specs/modules/spec_python.md (SegmentPostprocessor)
+
+"How do I add a new backend?"
+  → specs/modules/spec_python.md (Backend section) + Common Development Scenarios below
+
+"What format should COCO predictions be in?"
+  → specs/evaluate/spec_evaluate_bridge.md (Prediction Format)
+
+"How does ModelFlow integrate with DataFlow-CV for mAP?"
+  → specs/evaluate/index.md → specs/evaluate/spec_evaluate_bridge.md
+
+"What are the steps for ONNX export?"
+  → specs/modules/spec_export.md (Export Pipeline)
+
+"How do I choose between FP16 and INT8 for TensorRT?"
+  → specs/export/tensorrt_conversion.md (quantization strategy)
+
+"What is the directory structure of a Triton model repository?"
+  → specs/export/triton_deployment.md (Model Repository Structure)
+
+"What are the dependency relationships between modules?"
+  → specs/modules/spec_architecture.md (Architecture Constraint diagram)
+```
+
+### Common Development Scenarios
+
+**Add a New Inference Backend:**
+1. Confirm the Backend Interface contract in `specs/modules/spec_python.md`
+2. Create `your_backend.py` in `modelflow/backends/`, inheriting from `BaseBackend`
+3. Add lazy-import + construction entries in each pipeline factory's `_ensure_backend()` / `_build_backend()`
+4. Add tests in `modelflow/tests/test_backends.py` and `test_pipelines.py`
+
+**Add a New Task Type (e.g., pose):**
+1. Create a `pose/` sub-package in `modelflow/processors/` (preprocess.py + postprocess.py)
+2. Create a `pose.py` factory in `modelflow/pipelines/`
+3. Add a corresponding evaluator in `eval/evaluators/` (constructor injection, zero import dep)
+4. Add task branch in `samples/infer.py` and `samples/eval_*.py`
+5. Confirm export pipeline support in `export/`
+
+**Modify YOLO Postprocessing (e.g., support a new version):**
+1. Find the code in `modelflow/processors/detect/postprocess.py`
+2. YOLOv5 and YOLOv8/v11 have different output formats — differentiate via `model_version`
+3. Confirm test coverage in `modelflow/tests/test_processors.py`
+
+**Fix a Bug:**
+1. Determine whether it's a spec issue or code issue
+2. Spec issue: modify spec → change code → update tests
+3. Code issue: find the behavioral definition in the spec → change code → run tests
+4. Check whether a new entry is needed in Known Gotchas
+
+**Add a New Export Pipeline:**
+1. Inherit from `BaseExporter` in `export/_base.py`, implement `export_onnx()`
+2. Create export script in `export/onnx/`
+3. Use validation methods from `export/_validation.py`
+4. Add downstream conversion in `export/tensorrt/` or `export/triton/`
+
+### Code Review Checklist
+
+Self-check after every change:
+
+- [ ] All 8 hard architecture constraints are not violated (see Architecture §Hard constraints)
+- [ ] Backend does not perform image preprocessing or postprocessing
+- [ ] Preprocessor outputs correct NCHW float32 format
+- [ ] Postprocessor correctly handles empty detections (empty arrays, not None)
+- [ ] YOLO `model_version` parameter is correctly passed through to postprocessing
+- [ ] NMS `max_det`, `conf_thres`, `iou_thres` parameters are correctly passed through
+- [ ] Evaluator gracefully degrades when DataFlow-CV is unavailable (guarded import)
+- [ ] `eval/` does NOT import from `modelflow/` or `data/`
+- [ ] COCO prediction format: `[x1, y1, x2, y2]` → `[x, y, w, h]`, `category_id` is 1-indexed
+- [ ] New functions/classes have corresponding tests
+- [ ] `pytest modelflow/tests/ eval/tests/ data/tests/ -v` all pass
+- [ ] Behavior changes synced to specs (P0)
+- [ ] New architecture details/gotchas synced to CLAUDE.md (P1)
+- [ ] API/feature entry point changes synced to README.md (P1)
+- [ ] User interface changes synced to samples/ (P2)
+
+### Document Language Strategy
+
+**Core principle:** Terms must match code (English), explanations can be in the developer's native language.
+
+| Content Type | Language | Reason |
+|-------------|----------|--------|
+| Terms, field names, API signatures | English | Must match symbols in code precisely |
+| Formulas, algorithm descriptions | English | Math/code symbols are not translatable |
+| Code references (class names, paths) | English | `BoundingBox` not `边界框`, otherwise unsearchable |
+| Explanations, background, "why" | Free | Prioritize comprehension |
+| Notes, warnings, trap alerts | Free | Clarity first; cost of errors outweighs uniformity |
+
+**Anti-pattern vs Good pattern:**
+```
+❌ All-native-language terms — unsearchable, ambiguous mapping to code
+✅ Terms in English, explanations in native language — every term is grepable
+```
+
+### Known Gotchas Writing Guide
+
+Entry format: `N. **Keyword**: symptom + correct approach.`
+
+| Source | Trigger |
+|--------|---------|
+| Bug fixes | After each fix, check: could this have been prevented? Yes → add Gotcha |
+| Newcomer onboarding | Every obstacle a newcomer hits is a potential Gotcha |
+| Code review | Issues repeatedly flagged in review |
+| Architecture decisions | Constraints with severe violation consequences |
+
+Sort by frequency (most-stepped-on first). If a Gotcha's bug has been eliminated by a refactor, delete it. If exceeding 20, consider upgrading some to Critical Implementation Details.
+
 ### CHANGELOG Policy
 
 - **CHANGELOG.md is a historical release log** — only append new entries when cutting a version.
@@ -438,9 +630,9 @@ Output directories (`output/`, `outputs/`, `models/`) are gitignored.
 ## References
 
 - `README.md` — project overview, install guide, and Python API examples
-- `specs/SDD_GUIDE.md` — **ModelFlow-specific SDD development guide (start here for development)**
 - `specs/modules/` — detailed module design specs
 - `specs/export/` — ONNX/TensorRT/Triton knowledge layer
+- `specs/evaluate/` — evaluation bridge contract
 - `export/README.md` — export module documentation
 - `modelflow/README.md` — modelflow package documentation
 - `samples/README.md` — samples usage guide

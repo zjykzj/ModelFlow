@@ -4,24 +4,7 @@
 > **Version:** 0.1
 > **Prerequisite Reading:** [`specs/export/onnx_export.md`](onnx_export.md) (ONNX Export Specification), TensorRT fundamentals
 
-## 0. Version Requirements
-
-This module is implemented based on the **TensorRT 10.x** API. Key API differences:
-
-| API | TensorRT 8.x | TensorRT 10.x |
-|-----|-------------|---------------|
-| Workspace configuration | `config.max_workspace_size = N` | `config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, N)` |
-| Calibrator interface | `IInt8EntropyCalibrator2` (same) | `IInt8EntropyCalibrator2` (same) |
-| Engine build | `builder.build_serialized_network(network, config)` | Same |
-
-**Installation:**
-```bash
-pip install tensorrt
-# Or download the .whl matching your CUDA version from the NVIDIA website:
-# https://developer.nvidia.com/tensorrt/download
-```
-
-> **Note:** `.engine` files built with TensorRT 10.x cannot be loaded in TensorRT 8.x environments. When deploying, ensure the Triton Server version is >= 24.06 (bundles TRT 10.x).
+> **Note:** This module is implemented based on the TensorRT 10.x API. `.engine` files built with TensorRT 10.x cannot be loaded in TensorRT 8.x environments. When deploying, ensure the Triton Server version is >= 24.06 (bundles TRT 10.x).
 
 ## 1. How TensorRT Works
 

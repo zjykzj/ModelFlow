@@ -4,29 +4,9 @@
 > **Status:** Implemented
 > **Dependencies:** `spec_architecture.md` (Pipeline pattern, module relationships), `spec_eval.md` (evaluation module)
 
-## 1. Directory Structure
+## 1. Module Structure
 
-```
-modelflow/
-├── __init__.py              # Version info + re-exports
-├── interfaces.py            # BaseBackend, BasePreprocessor, BasePostprocessor, InferencePipeline
-├── types.py                 # ModelInfo dataclass
-├── config.py                # ModelConfig dataclass + COCO / ImageNet class constants
-├── backends/                # Inference backends
-│   ├── onnx.py              # OnnxBackend
-│   ├── tensorrt.py          # TensorrtBackend
-│   └── triton.py            # TritonBackend
-├── processors/              # Preprocessing + Postprocessing by task
-│   ├── classify/
-│   ├── detect/
-│   ├── segment/
-│   └── semantic_seg/
-├── pipelines/               # Pipeline factories with lazy backend loading
-│   ├── classify.py
-│   ├── detect.py
-│   ├── segment.py
-│   └── semantic_seg.py
-```
+`modelflow/` is organized into backends, processors, and pipelines subpackages. `interfaces.py`, `types.py`, and `config.py` sit at the package root (flattened — no `core/` subpackage).
 
 > **Note:** Evaluation and metrics have been extracted to the standalone `eval/` module. See `specs/modules/spec_eval.md`. Datasets have been extracted to the standalone `data/` module. `modelflow/` is now a **pure inference engine**.
 
@@ -143,31 +123,31 @@ These ABCs are defined in the `eval/` module (not `modelflow/`). See `specs/modu
 
 ```python
 class OnnxBackend(BaseBackend):
-    def __init__(self, model_path: str, config: dict = None):
-        # config: providers, half, device, ...
-    def __call__(self, input_data) -> List[np.ndarray]:
-        # ort_session.run(output_names, feed_dict)
+    def __init__(self, model_path: str, config: dict = None): ...
+    def __call__(self, input_data) -> List[np.ndarray]: ...
 ```
+
+Auto-selects CUDAExecutionProvider if CUDA available; silently falls back to CPU.
 
 ### 3.2 TensorrtBackend
 
 ```python
 class TensorrtBackend(BaseBackend):
-    def __init__(self, engine_path: str, config: dict = None):
-        # config: device, max_batch_size, half, ...
-    def __call__(self, input_data) -> List[np.ndarray]:
-        # H2D → execute_async_v2 → D2H
+    def __init__(self, engine_path: str, config: dict = None): ...
+    def __call__(self, input_data) -> List[np.ndarray]: ...
 ```
+
+Manages CUDA page-locked host buffers + device buffers; `__del__` frees them.
 
 ### 3.3 TritonBackend
 
 ```python
 class TritonBackend(BaseBackend):
-    def __init__(self, model_name: str, config: dict = None):
-        # config: server_url, protocol(grpc/http), ...
-    def __call__(self, input_data) -> List[np.ndarray]:
-        # grpcclient.InferInput → client.infer → response.as_numpy
+    def __init__(self, model_name: str, config: dict = None): ...
+    def __call__(self, input_data) -> List[np.ndarray]: ...
 ```
+
+`model_path` doubles as Triton model name (not an actual file path). Supports gRPC (default, port 8001) and HTTP (port 8000).
 
 ## 4. Processors
 
@@ -191,14 +171,11 @@ Distinguished via the `model_version` parameter to avoid duplicating implementat
 
 ```python
 class DetectPreprocessor(BasePreprocessor):
-    def __init__(self, input_size=640, model_version="v8", half=False):
-        # model_version: "v5", "v8", "v11" (v8 and v11 are compatible)
-        if model_version in ("v8", "v11"):
-            self.auto_pad = True
-        else:  # v5
-            self.auto_pad = False
+    def __init__(self, input_size=640, model_version="v8", half=False): ...
     def __call__(self, image, **kwargs) -> np.ndarray: ...
 ```
+
+`model_version` distinguishes v5 vs v8/v11 behavior: v5 disables auto_pad; v8/v11 enable it.
 
 | Component | Implementation | Notes |
 |------|------|------|
@@ -242,107 +219,21 @@ Evaluation orchestration and metric computation are implemented in the standalon
 Pipeline factories use **direct construction with lazy backend imports** — no Registry, no decorators.
 Each backend module is imported only when the user requests it, so only that backend's dependencies are needed.
 
-```python
-# modelflow/pipelines/detect.py
+**Design contract:**
+- `_ensure_backend(name)`: triggers lazy import of the requested backend module
+- `_build_backend(name, model_path, class_list, task_type, half, device)`: direct construction, returns `BaseBackend`
+- Each pipeline factory (`create_detect_pipeline`, etc.) composes preprocessor + backend + postprocessor into an `InferencePipeline`
 
-def _ensure_backend(name: str) -> None:
-    """Lazy-import the requested backend module."""
-    if name == "onnxruntime":
-        from modelflow.backends.onnx import OnnxBackend  # noqa: F401
-    elif name == "tensorrt":
-        from modelflow.backends.tensorrt import TensorrtBackend  # noqa: F401
-    elif name == "triton":
-        from modelflow.backends.triton import TritonBackend  # noqa: F401
+To add a new backend: create the backend file, add entries in `_ensure_backend` and `_build_backend`. No Registry, no decorators — each backend is independently extractable.
 
-def _build_backend(name: str, model_path: str, class_list: List[str],
-                   task_type: str, half: bool, device: Optional[str]) -> BaseBackend:
-    """Direct construction — no Registry indirection."""
-    if name == "onnxruntime":
-        from modelflow.backends.onnx import OnnxBackend
-        return OnnxBackend(model_path, class_list, task_type=task_type,
-                           half=half, device=device)
-    elif name == "tensorrt":
-        from modelflow.backends.tensorrt import TensorrtBackend
-        return TensorrtBackend(model_path, class_list, task_type=task_type,
-                               half=half, device=device)
-    elif name == "triton":
-        from modelflow.backends.triton import TritonBackend
-        return TritonBackend(model_path, class_list, task_type=task_type,
-                             half=half, device=device)
-    raise ValueError(f"Unsupported backend: {name}")
+**Extension contract for adding a new backend:**
+1. Create backend file in `modelflow/backends/`, inheriting from `BaseBackend` and implementing `__call__`
+2. Add lazy-import + construction entries in each pipeline factory's `_ensure_backend()` / `_build_backend()`
 
-def create_detect_pipeline(
-    model_path: str,
-    class_list: List[str],
-    backend: str = "onnxruntime",
-    processor: str = "numpy",
-    model_version: str = "v8",
-    input_size: int = 640,
-    conf_thres: float = 0.25,
-    iou_thres: float = 0.45,
-    max_det: int = 300,
-    half: bool = False,
-    device: Optional[str] = None,
-) -> InferencePipeline:
-    preprocessor = DetectPreprocessor(input_size=input_size)
-
-    _ensure_backend(backend)  # triggers lazy import
-    bk = _build_backend(backend, model_path, class_list,
-                        task_type="detect", half=half, device=device)
-
-    postprocessor = DetectPostprocessor(
-        model_version=model_version, class_list=class_list,
-        conf_thres=conf_thres, iou_thres=iou_thres, max_det=max_det,
-        input_shape=(input_size, input_size),
-    )
-    return InferencePipeline(preprocessor, bk, postprocessor)
-
-# Usage
-pipeline = create_detect_pipeline(
-    backend="onnxruntime",
-    model_path="yolov8s.onnx",
-    class_list=["person", "car"],
-)
-result = pipeline(image, conf_thres=0.25, iou_thres=0.45)
-# result = { "boxes": ndarray(N,4), "scores": ndarray(N,), "class_ids": ndarray(N,) }
-```
-
-### 6.1 Extension Example: Adding a New Backend
-
-```python
-# 1. Create modelflow/backends/openvino.py
-class OpenVINOBackend(BaseBackend):
-    def __call__(self, input_data):
-        ...
-
-# 2. Add an entry in _ensure_backend() and _build_backend() of each pipeline factory
-# _ensure_backend:
-elif name == "openvino":
-    from modelflow.backends.openvino import OpenVINOBackend  # noqa: F401
-# _build_backend:
-elif name == "openvino":
-    from modelflow.backends.openvino import OpenVINOBackend
-    return OpenVINOBackend(model_path, class_list, task_type=task_type,
-                           half=half, device=device)
-```
-
-### 6.2 Extension Example: Adding a New Vision Task
-
-```python
-# 1. Processors (in modelflow/processors/pose/)
-class PosePreprocessor(BasePreprocessor): ...
-class PosePostprocessor(BasePostprocessor): ...
-
-# 2. Pipeline factory (in modelflow/pipelines/pose.py)
-def create_pose_pipeline(...) -> InferencePipeline:
-    preprocessor = PosePreprocessor(...)
-    _ensure_backend(backend)
-    bk = _build_backend(backend, ...)
-    postprocessor = PosePostprocessor(...)
-    return InferencePipeline(preprocessor, bk, postprocessor)
-
-# 3. Evaluation (in eval/ — see spec_eval.md)
-```
+**Extension contract for adding a new vision task:**
+1. Create processor pair in `modelflow/processors/<task>/` (preprocessor + postprocessor)
+2. Create pipeline factory in `modelflow/pipelines/<task>.py`
+3. Add evaluator in `eval/evaluators/` (constructor injection, zero import dependency — see `spec_eval.md`)
 
 ## 7. Data Types
 
@@ -423,6 +314,5 @@ Evaluator error handling is defined in the `eval/` module. See `specs/modules/sp
 
 ## 10. See Also
 
-- [`specs/SDD_GUIDE.md`](../SDD_GUIDE.md) — full change history
 - [`spec_architecture.md`](spec_architecture.md) — module architecture, Pipeline pattern
 - [`spec_eval.md`](spec_eval.md) — evaluation module

@@ -125,13 +125,7 @@ OpenCV (BGR) ──▶ BGR->RGB ──▶ Resize(256) ──▶ CenterCrop(224) 
 
 ### 3.5 Usage
 
-```bash
-# torchvision pretrained model (auto-download weights)
-python3 -m export.onnx.convert \
-    --model efficientnet_b0 \
-    --save models/runtime/efficientnet_b0.onnx \
-    --img-size 224
-```
+Export via `export.onnx.convert` module. Accepts `--model` (torchvision model name), `--save` (output path), and `--img-size` (input resolution). Weights are auto-downloaded.
 
 ## 4. Exporting Ultralytics Models
 
@@ -197,15 +191,7 @@ OpenCV (BGR) ──▶ LetterBox(640) ──▶ BGR->RGB ──▶ Normalize(/25
 
 ### 4.5 Usage
 
-```bash
-# Ultralytics export (auto-download pretrained weights)
-python3 -m export.onnx.ultralytics yolov8s \
-    --save models/runtime/yolov8s.onnx
-
-# Segmentation model
-python3 -m export.onnx.ultralytics yolov8s-seg \
-    --save models/runtime/yolov8s-seg.onnx
-```
+Export via `export.onnx.ultralytics` module. Accepts model name (e.g., `yolov8s`, `yolov8s-seg`) and `--save` for output path. Weights are auto-downloaded.
 
 ## 5. torchvision vs Ultralytics Export Comparison
 
@@ -236,14 +222,6 @@ After export, a numerical comparison is mandatory to ensure the ONNX output matc
 |--------|------|---------|
 | PT vs ONNX (FP32) | Same random input | `rtol=1e-3, atol=1e-5` |
 | Multi-output matching (segmentation) | Compare output by output | Same as above |
-
-```python
-# Pseudocode flow
-input_tensor = torch.randn(1, 3, 640, 640)
-torch_output = model(input_tensor)
-onnx_output = ort_session.run(None, {"image": input_tensor.numpy()})
-np.testing.assert_allclose(torch_output, onnx_output, rtol=1e-3, atol=1e-5)
-```
 
 ## 7. ONNX Optimization
 
