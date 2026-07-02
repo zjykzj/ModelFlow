@@ -189,7 +189,8 @@ bash assets/get_coco128.sh
 | `modelflow/` | Python inference pipeline (lazy-import, direct construction) | `tests/` (5 test files) |
 | `eval/` | Evaluation orchestration — constructor injection, DataFlow-CV bridge | `tests/` |
 | `export/` | PyTorch → ONNX → TensorRT → Triton pipeline | `export/tests/` |
-| `data/` | Dataset loading, YAML configs, BaseDataset ABC | — |
+| `data/` | Dataset loading, YAML configs, BaseDataset ABC | `tests/` |
+| `vlms/` | Vision-Language Models — CLIP/OpenCLIP processors, evaluation | `vlms/clip/tests/` |
 
 ### Architecture Constraint Diagram
 
