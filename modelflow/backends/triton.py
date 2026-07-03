@@ -80,6 +80,15 @@ class TritonBackend(BaseBackend):
         if not self.client.is_model_ready(self.model_name):
             logger.warning(f"Model {self.model_name} not ready on {self.server_url}")
 
+    def _check_server(self):
+        """检查 Triton 服务器是否可达"""
+        try:
+            self.client.is_server_live()
+        except Exception as e:
+            raise ConnectionError(
+                f"Triton server unreachable at {self.server_url}: {e}"
+            ) from e
+
     def _init_io_info(self):
         """从 Triton 服务端获取模型元信息"""
         config = self.client.get_model_config(self.model_name, as_json=True)
@@ -131,6 +140,18 @@ class TritonBackend(BaseBackend):
         return mapping.get(np_dtype, "TYPE_FP32")
 
     def __call__(self, input_data: np.ndarray) -> List[np.ndarray]:
+        try:
+            return self._infer(input_data)
+        except Exception as e:
+            # 检查是否是连接错误（服务器不可达）
+            error_msg = str(e).lower()
+            if "connect" in error_msg or "unreachable" in error_msg or "refused" in error_msg:
+                raise ConnectionError(
+                    f"Triton server unreachable at {self.server_url}: {e}"
+                ) from e
+            raise
+
+    def _infer(self, input_data: np.ndarray) -> List[np.ndarray]:
         if self.protocol == "grpc":
             import tritonclient.grpc as grpcclient
 
@@ -146,14 +167,22 @@ class TritonBackend(BaseBackend):
                 for name in self._output_names
             ]
 
-            response = self.client.infer(
-                model_name=self.model_name,
-                inputs=[infer_input],
-                outputs=infer_outputs,
-                timeout=self.timeout,
-            )
+            try:
+                response = self.client.infer(
+                    model_name=self.model_name,
+                    inputs=[infer_input],
+                    outputs=infer_outputs,
+                    timeout=self.timeout,
+                )
+            except Exception as e:
+                if "timeout" in str(e).lower() or "deadline" in str(e).lower():
+                    raise TimeoutError(
+                        f"Triton inference timeout after {self.timeout}s "
+                        f"for model {self.model_name} at {self.server_url}"
+                    ) from e
+                raise
 
-            return [response.as_numpy(name) for name in self._output_names]
+            result = [response.as_numpy(name) for name in self._output_names]
         else:
             import tritonclient.http as httpclient
 
@@ -164,15 +193,30 @@ class TritonBackend(BaseBackend):
             )
             infer_input.set_data_from_numpy(input_data)
 
-            response = self.client.infer(
-                model_name=self.model_name,
-                inputs=[infer_input],
-                outputs=[httpclient.InferRequestedOutput(name)
-                         for name in self._output_names],
-                timeout=self.timeout,
-            )
+            try:
+                response = self.client.infer(
+                    model_name=self.model_name,
+                    inputs=[infer_input],
+                    outputs=[httpclient.InferRequestedOutput(name)
+                             for name in self._output_names],
+                    timeout=self.timeout,
+                )
+            except Exception as e:
+                if "timeout" in str(e).lower() or "deadline" in str(e).lower():
+                    raise TimeoutError(
+                        f"Triton inference timeout after {self.timeout}s "
+                        f"for model {self.model_name} at {self.server_url}"
+                    ) from e
+                raise
 
-            return [response.as_numpy(name) for name in self._output_names]
+            result = [response.as_numpy(name) for name in self._output_names]
+
+        if len(result) != len(self._output_names):
+            raise ValueError(
+                f"Output tensor count mismatch: expected {len(self._output_names)}, "
+                f"got {len(result)}"
+            )
+        return result
 
     def get_input_info(self) -> ModelInfo:
         return self._input_infos[0]

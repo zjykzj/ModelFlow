@@ -71,16 +71,25 @@ class DetectPreprocessor(BasePreprocessor):
     """检测预处理（NumPy 实现）
 
     所有 YOLO 版本（v5/v8/v11）的推理预处理一致：LetterBox 填充到正方形输入。
-    YOLO 版本差异体现在后处理的输出格式解析中，不影响预处理。
+    model_version 参数提供 API 兼容性，不影响推理预处理行为。
+    YOLO 版本差异体现在后处理的输出格式解析中。
 
     Args:
         input_size: 输入尺寸（默认 640）
+        model_version: YOLO 版本（"v5", "v8", "v11"），不影响预处理
     """
 
-    def __init__(self, input_size: int = 640):
+    def __init__(self, input_size: int = 640, model_version: str = "v8"):
         self.input_size = input_size
+        self.model_version = model_version
+        if model_version not in ("v5", "v8", "v11"):
+            raise ValueError(f"Unknown model_version {model_version!r}. Options: 'v5', 'v8', 'v11'")
 
     def __call__(self, image: np.ndarray, **kwargs) -> np.ndarray:
+        if image.size == 0:
+            raise ValueError("Empty input image")
+        if image.ndim != 3 or image.shape[2] != 3:
+            raise ValueError(f"Expected 3-channel BGR image, got shape {image.shape}")
         padded, scale, pad = letterbox(image, self.input_size)
         rgb = cv2.cvtColor(padded, cv2.COLOR_BGR2RGB)
         chw = np.transpose(rgb, (2, 0, 1))

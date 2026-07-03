@@ -13,6 +13,7 @@
     outputs = backend(input_tensor)
 """
 
+import os
 from typing import List, Optional, Dict, Union, Any
 
 import numpy as np
@@ -40,6 +41,9 @@ class OnnxBackend(BaseBackend):
     ):
         super().__init__(model_path, class_list, task_type, half, device, **kwargs)
 
+        if not os.path.isfile(self.model_path):
+            raise FileNotFoundError(f"Model file not found: {self.model_path}")
+
         # 自动选择 provider
         if providers is None:
             if device and "cuda" in device.lower():
@@ -47,7 +51,13 @@ class OnnxBackend(BaseBackend):
             else:
                 providers = ["CPUExecutionProvider"]
 
-        self.session = ort.InferenceSession(self.model_path, providers=providers)
+        try:
+            self.session = ort.InferenceSession(self.model_path, providers=providers)
+        except Exception as e:
+            raise RuntimeError(
+                f"ONNX Runtime session creation failed for {self.model_path} "
+                f"with providers={providers}: {e}"
+            ) from e
         self._init_io_info()
         self.warmup()
 
@@ -100,6 +110,11 @@ class OnnxBackend(BaseBackend):
     def __call__(self, input_data: np.ndarray) -> List[np.ndarray]:
         feed = self._prepare_input(input_data)
         outputs = self.session.run(self._output_names, feed)
+        if len(outputs) != len(self._output_names):
+            raise ValueError(
+                f"Output tensor count mismatch: expected {len(self._output_names)}, "
+                f"got {len(outputs)}"
+            )
         return list(outputs)
 
     def warmup(self):

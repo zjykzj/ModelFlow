@@ -62,13 +62,11 @@ def build_int8_engine_torch(
         True on successful build.
     """
     if not os.path.exists(onnx_path):
-        print(f"[TRT INT8] ❌ ONNX not found: {onnx_path}")
-        return False
+        raise FileNotFoundError(f"ONNX model not found: {onnx_path}")
 
     import torch
     if not torch.cuda.is_available():
-        print("[TRT INT8] ❌ CUDA not available")
-        return False
+        raise RuntimeError("CUDA not available for INT8 engine build")
 
     device = torch.cuda.get_device_name(0)
     print("=" * 60)
@@ -89,9 +87,10 @@ def build_int8_engine_torch(
     # Parse ONNX model
     with open(onnx_path, "rb") as f:
         if not parser.parse(f.read()):
-            for i in range(parser.num_errors):
-                print(parser.get_error(i))
-            return False
+            errors = [parser.get_error(i) for i in range(parser.num_errors)]
+            raise RuntimeError(
+                f"ONNX parsing failed for {onnx_path}: {errors}"
+            )
     print("[TRT INT8] ✅ ONNX parsed")
 
     # Configure INT8
@@ -112,12 +111,15 @@ def build_int8_engine_torch(
     try:
         serialized = builder.build_serialized_network(network, config)
     except Exception as e:
-        print(f"[TRT INT8] ❌ Build failed: {e}")
-        return False
+        raise RuntimeError(
+            f"TensorRT INT8 build failed for {onnx_path}: {e}"
+        ) from e
 
     if serialized is None:
-        print("[TRT INT8] ❌ Build returned None")
-        return False
+        raise RuntimeError(
+            f"TensorRT INT8 build returned None for {onnx_path} "
+            f"(likely insufficient calibration data)"
+        )
 
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
     with open(output_path, "wb") as f:

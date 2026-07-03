@@ -136,7 +136,7 @@ Export's `_utils.py` duplicates some preprocessing logic from `modelflow/process
 | ONNX model validation failed | Raise `ValueError` with checker error details |
 | PT vs ONNX output mismatch | Log warning with max difference; do not abort |
 | TensorRT build failed (unsupported layer) | Raise `RuntimeError` with layer info |
-| INT8 calibration data insufficient | Log warning; fall back to FP16 if possible |
+| INT8 calibration data insufficient | Raise `RuntimeError` with details (insufficient calibration data makes INT8 quantization unreliable) |
 | Triton config generation — unknown task | Raise `ValueError` with supported task list |
 | Dynamic shape suppression failed | Log warning; the engine will only accept fixed shapes |
 

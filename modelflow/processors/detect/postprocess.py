@@ -41,6 +41,8 @@ class DetectPostprocessor(BasePostprocessor):
         input_shape=(640, 640),
         original_shape=None,
     ):
+        if model_version not in ("v5", "v8", "v11"):
+            raise ValueError(f"Unknown model_version {model_version!r}. Options: 'v5', 'v8', 'v11'")
         self.model_version = model_version
         self.class_list = class_list
         self.conf_thres = conf_thres
@@ -50,7 +52,16 @@ class DetectPostprocessor(BasePostprocessor):
         self.original_shape = original_shape
 
     def __call__(self, raw: List[np.ndarray], **kwargs) -> dict:
+        if not raw:
+            raise ValueError("Empty raw output list — expected at least 1 output tensor")
         pred = raw[0]  # 取第一个输出
+
+        if self.model_version in ("v8", "v11"):
+            if pred.ndim != 3:
+                raise ValueError(
+                    f"Expected v8/v11 output shape (1, C, N), got {pred.shape}"
+                )
+        # v5: expect ndim >= 2; shape is (1, N, C)
 
         # 运行时 original_shape 优先（Pipeline 自动传入）
         original_shape = kwargs.get("original_shape", self.original_shape)

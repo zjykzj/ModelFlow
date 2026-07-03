@@ -45,8 +45,13 @@ class TensorrtBackend(BaseBackend):
         # 加载引擎
         self.logger = trt.Logger(trt.Logger.WARNING)
         self.runtime = trt.Runtime(self.logger)
-        with open(self.model_path, "rb") as f:
-            self.engine = self.runtime.deserialize_cuda_engine(f.read())
+        try:
+            with open(self.model_path, "rb") as f:
+                self.engine = self.runtime.deserialize_cuda_engine(f.read())
+        except Exception as e:
+            raise RuntimeError(
+                f"TensorRT engine deserialization failed for {self.model_path}: {e}"
+            ) from e
         self.context = self.engine.create_execution_context()
 
         self._init_io_info()
@@ -103,15 +108,19 @@ class TensorrtBackend(BaseBackend):
         # D2H
         outputs = []
         for name in self._output_names:
-            cuda.memcpy_dtod(self._host_buffers[name],
-                             self._device_buffers[name],
-                             self._host_buffers[name].nbytes)
+            cuda.memcpy_dtoh(self._host_buffers[name],
+                             self._device_buffers[name])
             out = self._host_buffers[name].copy()
             # 恢复原始 shape
             info = self._output_infos[self._output_names.index(name)]
             shape = [1 if d == -1 else d for d in info.shape]
             outputs.append(out.reshape(shape))
 
+        if len(outputs) != len(self._output_names):
+            raise ValueError(
+                f"Output tensor count mismatch: expected {len(self._output_names)}, "
+                f"got {len(outputs)}"
+            )
         return outputs
 
     def warmup(self):
@@ -131,4 +140,9 @@ class TensorrtBackend(BaseBackend):
     def __del__(self):
         if hasattr(self, "_device_buffers"):
             for buf in self._device_buffers.values():
-                buf.free()
+                try:
+                    buf.free()
+                except Exception:
+                    pass  # CUDA context may already be destroyed at GC time
+        if hasattr(self, "_host_buffers"):
+            self._host_buffers.clear()

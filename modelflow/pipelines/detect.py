@@ -84,7 +84,7 @@ def create_detect_pipeline(
     Returns:
         InferencePipeline 实例
     """
-    preprocessor = DetectPreprocessor(input_size=input_size)
+    preprocessor = DetectPreprocessor(input_size=input_size, model_version=model_version)
 
     _ensure_backend(backend)
     bk = _build_backend(backend, model_path, class_list,

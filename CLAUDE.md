@@ -80,61 +80,6 @@ Before creating, modifying, or deleting any file, classify the change:
 - Do NOT add usage commands (e.g., `python3 samples/xxx.py`) to CLAUDE.md — those belong in module READMEs.
 - Do NOT update CLAUDE.md for P2 sample-script refactors unless they introduce a new gotcha or architecture constraint.
 
-## Common Commands
-
-General development workflows (test, lint, typecheck) are defined as a project skill — use `/dev` for generic patterns. This section documents ModelFlow-specific commands.
-
-### Running Tests
-
-```bash
-# Run all modelflow tests
-pytest modelflow/tests/ -v
-
-# Run all eval tests
-pytest eval/tests/ -v
-
-# Run all data tests
-pytest data/tests/ -v
-
-# Run a single test file
-pytest modelflow/tests/test_processors.py -v
-
-# Run a single test
-pytest modelflow/tests/test_processors.py::test_detect_postprocess_nms -v
-
-# Run export tests
-pytest export/tests/ -v
-
-# Run full suite (all modules)
-pytest modelflow/tests/ eval/tests/ data/tests/ export/tests/ vlms/clip/tests/ -v
-```
-
-### Docker Environments
-
-```bash
-# TensorRT development (ultralytics/yolov5:v7.0 image)
-docker run -it --gpus all --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 \
-  -v /home/zjykzj:/workdir --workdir=/workdir --name ultra ultralytics/yolov5:v7.0 bash
-
-# Triton server
-docker run --gpus=all -it -p 8000:8000 -p 8001:8001 -p 8002:8002 \
-  -v $(pwd):/workdir --workdir=/workdir nvcr.io/nvidia/tritonserver:24.06-py3 \
-  tritonserver --model-repository=./models/triton/
-```
-
-### Utilities
-
-```bash
-# Test TensorRT engine
-trtexec --loadEngine=models/tensorrt/yolov8s_fp16.engine --iterations=100
-
-# Download COCO dataset
-bash assets/get_coco.sh
-
-# Download COCO128 dataset
-bash assets/get_coco128.sh
-```
-
 ## Architecture
 
 ### Module Independence (five modules, no cross-dependencies)
@@ -194,96 +139,13 @@ bash assets/get_coco128.sh
 | 7 | **`eval/` → DataFlow-CV: import guarded** by try/except ImportError. | Crash when DataFlow-CV not installed |
 | 8 | **`export/` → `modelflow/`: zero imports**. Export uses self-contained `export/_utils.py` preprocessing. | Export module coupled to inference engine |
 
-### modelflow Package Structure
+### Package Structures
 
-```
-modelflow/
-├── __init__.py       # Package version + re-exports (ModelInfo, BaseBackend, etc.)
-├── interfaces.py     # ABCs: InferencePipeline, BaseBackend, BasePreprocessor, BasePostprocessor
-├── types.py          # ModelInfo dataclass
-├── config.py         # ModelConfig + COCO (80 classes), ImageNet (1000 classes)
-├── backends/         # Inference backends (lazy-import, direct construction)
-│   ├── onnx.py           # OnnxBackend (auto CUDA provider selection)
-│   ├── tensorrt.py       # TensorrtBackend (CUDA buffer management)
-│   └── triton.py         # TritonBackend (gRPC/HTTP)
-├── processors/       # Pre/post-processors by task
-│   ├── classify/         # Resize+crop+normalize → softmax+top-k
-│   ├── detect/           # LetterBox → NMS+box decode (YOLOv5/v8/v11)
-│   ├── segment/          # LetterBox → NMS+proto mask decode
-│   ├── semantic_seg/     # Resize+normalize → argmax+colormap
-├── pipelines/        # Factory functions (_ensure_backend + _build_backend)
-│   ├── classify.py
-│   ├── detect.py
-│   ├── segment.py
-│   └── semantic_seg.py
-```
-
-### export Package Structure
-
-```
-export/
-├── _base.py                       # BaseExporter ABC
-├── _validation.py                 # ONNX format check + PT vs ONNX comparison
-├── _utils.py                      # Self-contained preprocessing (NumPy, zero external deps)
-├── onnx/                          # L1: PyTorch → ONNX
-│   ├── convert.py                 #   TorchvisionExporter (30+ architectures)
-│   ├── ultralytics.py             #   UltralyticsExporter (YOLOv8/v11, detect/seg/cls/pose)
-│   └── optimize.py                #   onnx-simplifier wrapper
-├── tensorrt/                      # L2: ONNX → TensorRT (FP16 / INT8)
-│   ├── build_fp16.py              #   FP16 engine (trtexec + Python API dual path)
-│   ├── build_int8.py              #   INT8 engine (PyTorch calibrator)
-│   ├── build_int8_pycuda.py       #   INT8 engine (PyCUDA calibrator, Jetson/embedded)
-│   ├── calibrator.py              #   BaseCalibrator + TorchCalibrator + PyCudaCalibrator
-│   └── scripts/                   #   Calibration data generation
-│       ├── generate_calib_cache_for_coco.py
-│       ├── generate_calib_cache_for_imagenet.py
-│       └── random_copy_images.py
-├── triton/                        # L3: Triton deployment config
-│   ├── config_generator.py        #   config.pbtxt auto-generation (task-aware)
-│   └── model_repo.py              #   Model repository builder + model deployment
-└── tests/
-    ├── test_export.py
-    └── test_engine.py
-```
-
-See [`export/README.md`](export/README.md) for the full L1/L2/L3 usage guide.
+Full directory trees are authoritative in specs: [`spec_python.md` §1](specs/modules/spec_python.md) for `modelflow/`, [`spec_export.md` §2](specs/modules/spec_export.md) for `export/`. See [`export/README.md`](export/README.md) for the L1/L2/L3 usage guide.
 
 ### Pipeline Factories (Lazy Import + Direct Construction)
 
-All backends are lazy-imported — each only needs its own runtime installed.
-Pipeline factories use direct construction via `_build_backend()`:
-
-```python
-# modelflow/pipelines/detect.py
-
-def _ensure_backend(name: str) -> None:
-    """Lazy-import the requested backend module."""
-    if name == "onnxruntime":
-        from modelflow.backends.onnx import OnnxBackend  # noqa: F401
-    elif name == "tensorrt":
-        from modelflow.backends.tensorrt import TensorrtBackend  # noqa: F401
-    elif name == "triton":
-        from modelflow.backends.triton import TritonBackend  # noqa: F401
-
-def _build_backend(name, model_path, class_list, task_type, half, device):
-    """Direct construction — no Registry indirection."""
-    if name == "onnxruntime":
-        from modelflow.backends.onnx import OnnxBackend
-        return OnnxBackend(model_path, class_list, task_type=task_type,
-                           half=half, device=device)
-    elif name == "tensorrt":
-        from modelflow.backends.tensorrt import TensorrtBackend
-        return TensorrtBackend(model_path, class_list, task_type=task_type,
-                               half=half, device=device)
-    elif name == "triton":
-        from modelflow.backends.triton import TritonBackend
-        return TritonBackend(model_path, class_list, task_type=task_type,
-                             half=half, device=device)
-    raise ValueError(f"Unsupported backend: {name}")
-```
-
-To add a new backend: create the backend file, add entries in `_ensure_backend` and `_build_backend`.
-No Registry, no decorators — each backend is independently extractable.
+All backends are lazy-imported — each only needs its own runtime installed. Pipeline factories use `_ensure_backend()` (lazy import) + `_build_backend()` (direct construction). No Registry, no decorators. To add a new backend: create the backend file, add entries in both functions. Full code contract: [`spec_python.md` §6](specs/modules/spec_python.md).
 
 ### Key Contracts
 
@@ -337,6 +199,61 @@ Example: Detect_COCO_YOLOv8s_ONNX, Classify_ImageNet_EfficientNetB0_TRT
 | L1 | `.onnx` | ONNX Runtime (CPU/GPU) |
 | L2 | `.onnx` + `.engine` | TensorRT GPU (FP16/INT8) |
 | L3 | `.onnx` + `.engine` + Triton config | Triton Inference Server |
+
+## Common Commands
+
+General development workflows (test, lint, typecheck) are defined as a project skill — use `/dev` for generic patterns. This section documents ModelFlow-specific commands.
+
+### Running Tests
+
+```bash
+# Run all modelflow tests
+pytest modelflow/tests/ -v
+
+# Run all eval tests
+pytest eval/tests/ -v
+
+# Run all data tests
+pytest data/tests/ -v
+
+# Run a single test file
+pytest modelflow/tests/test_processors.py -v
+
+# Run a single test
+pytest modelflow/tests/test_processors.py::test_detect_postprocess_nms -v
+
+# Run export tests
+pytest export/tests/ -v
+
+# Run full suite (all modules)
+pytest modelflow/tests/ eval/tests/ data/tests/ export/tests/ vlms/clip/tests/ -v
+```
+
+### Docker Environments
+
+```bash
+# TensorRT development (ultralytics/yolov5:v7.0 image)
+docker run -it --gpus all --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 \
+  -v /home/zjykzj:/workdir --workdir=/workdir --name ultra ultralytics/yolov5:v7.0 bash
+
+# Triton server
+docker run --gpus=all -it -p 8000:8000 -p 8001:8001 -p 8002:8002 \
+  -v $(pwd):/workdir --workdir=/workdir nvcr.io/nvidia/tritonserver:24.06-py3 \
+  tritonserver --model-repository=./models/triton/
+```
+
+### Utilities
+
+```bash
+# Test TensorRT engine
+trtexec --loadEngine=models/tensorrt/yolov8s_fp16.engine --iterations=100
+
+# Download COCO dataset
+bash assets/get_coco.sh
+
+# Download COCO128 dataset
+bash assets/get_coco128.sh
+```
 
 ## Development Notes
 
@@ -417,74 +334,14 @@ Test coverage includes:
 11. **Triton gRPC vs HTTP**: `TritonBackend` defaults to gRPC (port 8001). HTTP uses port 8000. The `protocol` parameter controls this. Mixing them up silently fails with connection refused.
 12. **Segment proto mask dimensions**: The prototype mask output is always `(1, 32, 160, 160)` regardless of input size. The mask decode logic (`process_mask`) must account for this fixed spatial dimension.
 
-### Where Do I Find What?
-
-```
-"What is the Pipeline calling flow?"
-  → specs/modules/spec_python.md (InferencePipeline section)
-
-"What is the Backend __call__ contract?"
-  → specs/modules/spec_python.md (Backend Interface)
-
-"How is NMS implemented?"
-  → specs/modules/spec_python.md (DetectPostprocessor)
-
-"How is mask decoding done?"
-  → specs/modules/spec_python.md (SegmentPostprocessor)
-
-"How do I add a new backend?"
-  → specs/modules/spec_python.md (Backend section) + Common Development Scenarios below
-
-"What format should COCO predictions be in?"
-  → specs/evaluate/spec_evaluate_bridge.md (Prediction Format)
-
-"How does ModelFlow integrate with DataFlow-CV for mAP?"
-  → specs/evaluate/index.md → specs/evaluate/spec_evaluate_bridge.md
-
-"What are the steps for ONNX export?"
-  → specs/modules/spec_export.md (Export Pipeline)
-
-"How do I choose between FP16 and INT8 for TensorRT?"
-  → specs/export/tensorrt_conversion.md (quantization strategy)
-
-"What is the directory structure of a Triton model repository?"
-  → specs/export/triton_deployment.md (Model Repository Structure)
-
-"What are the dependency relationships between modules?"
-  → specs/modules/spec_architecture.md (Architecture Constraint diagram)
-```
-
 ### Common Development Scenarios
 
-**Add a New Inference Backend:**
-1. Confirm the Backend Interface contract in `specs/modules/spec_python.md`
-2. Create `your_backend.py` in `modelflow/backends/`, inheriting from `BaseBackend`
-3. Add lazy-import + construction entries in each pipeline factory's `_ensure_backend()` / `_build_backend()`
-4. Add tests in `modelflow/tests/test_backends.py` and `test_pipelines.py`
+Step-by-step guides for adding backends, task types, and export pipelines are in their respective module specs. Quick pointers:
 
-**Add a New Task Type (e.g., pose):**
-1. Create a `pose/` sub-package in `modelflow/processors/` (preprocess.py + postprocess.py)
-2. Create a `pose.py` factory in `modelflow/pipelines/`
-3. Add a corresponding evaluator in `eval/evaluators/` (constructor injection, zero import dep)
-4. Add task branch in `samples/infer.py` and `samples/eval_*.py`
-5. Confirm export pipeline support in `export/`
-
-**Modify YOLO Postprocessing (e.g., support a new version):**
-1. Find the code in `modelflow/processors/detect/postprocess.py`
-2. YOLOv5 and YOLOv8/v11 have different output formats — differentiate via `model_version`
-3. Confirm test coverage in `modelflow/tests/test_processors.py`
-
-**Fix a Bug:**
-1. Determine whether it's a spec issue or code issue
-2. Spec issue: modify spec → change code → update tests
-3. Code issue: find the behavioral definition in the spec → change code → run tests
-4. Check whether a new entry is needed in Known Gotchas
-
-**Add a New Export Pipeline:**
-1. Inherit from `BaseExporter` in `export/_base.py`, implement `export_onnx()`
-2. Create export script in `export/onnx/`
-3. Use validation methods from `export/_validation.py`
-4. Add downstream conversion in `export/tensorrt/` or `export/triton/`
+- **New backend**: `BaseBackend` contract → `modelflow/backends/` → `_ensure_backend()` + `_build_backend()` in each pipeline factory. Spec: [`spec_python.md` §6](specs/modules/spec_python.md).
+- **New task type**: processor pair in `modelflow/processors/<task>/` → pipeline factory → evaluator in `eval/evaluators/`. Specs: [`spec_python.md` §4](specs/modules/spec_python.md), [`spec_eval.md`](specs/modules/spec_eval.md).
+- **New export pipeline**: inherit `BaseExporter` in `export/_base.py` → implement `export_onnx()`. Spec: [`spec_export.md`](specs/modules/spec_export.md).
+- **Bug fix**: determine spec vs code issue → spec-first if behavior change → add Gotcha entry if preventable.
 
 ### Code Review Checklist
 

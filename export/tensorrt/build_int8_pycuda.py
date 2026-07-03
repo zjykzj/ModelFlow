@@ -64,8 +64,7 @@ def build_int8_engine_pycuda(
         True if the build succeeded.
     """
     if not os.path.exists(onnx_path):
-        print(f"[TRT INT8] ❌ ONNX not found: {onnx_path}")
-        return False
+        raise FileNotFoundError(f"ONNX model not found: {onnx_path}")
 
     print("=" * 60)
     print(f"[TRT INT8] Building INT8 engine (PyCUDA calibrator)")
@@ -85,9 +84,10 @@ def build_int8_engine_pycuda(
     # Parse ONNX
     with open(onnx_path, "rb") as f:
         if not parser.parse(f.read()):
-            for i in range(parser.num_errors):
-                print(parser.get_error(i))
-            return False
+            errors = [parser.get_error(i) for i in range(parser.num_errors)]
+            raise RuntimeError(
+                f"ONNX parsing failed for {onnx_path}: {errors}"
+            )
     print("[TRT INT8] ✅ ONNX parsed")
 
     # Configure INT8
@@ -108,12 +108,15 @@ def build_int8_engine_pycuda(
     try:
         serialized = builder.build_serialized_network(network, config)
     except Exception as e:
-        print(f"[TRT INT8] ❌ Build failed: {e}")
-        return False
+        raise RuntimeError(
+            f"TensorRT INT8 build failed for {onnx_path}: {e}"
+        ) from e
 
     if serialized is None:
-        print("[TRT INT8] ❌ Build returned None")
-        return False
+        raise RuntimeError(
+            f"TensorRT INT8 build returned None for {onnx_path} "
+            f"(likely insufficient calibration data)"
+        )
 
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
     with open(output_path, "wb") as f:

@@ -57,8 +57,9 @@ def _build_via_trtexec(
     result = subprocess.run(cmd, capture_output=False)
 
     if result.returncode != 0:
-        print(f"[TRT FP16] ❌ trtexec failed with code {result.returncode}")
-        return False
+        raise RuntimeError(
+            f"trtexec failed with code {result.returncode} for {onnx_path}"
+        )
     return True
 
 
@@ -91,9 +92,10 @@ def _build_via_python_api(
     # Parse ONNX
     with open(onnx_path, "rb") as f:
         if not parser.parse(f.read()):
-            for i in range(parser.num_errors):
-                print(parser.get_error(i))
-            return False
+            errors = [parser.get_error(i) for i in range(parser.num_errors)]
+            raise RuntimeError(
+                f"ONNX parsing failed for {onnx_path}: {errors}"
+            )
 
     config = builder.create_builder_config()
     config.set_flag(trt.BuilderFlag.FP16)
@@ -103,8 +105,7 @@ def _build_via_python_api(
     serialized = builder.build_serialized_network(network, config)
 
     if serialized is None:
-        print("[TRT FP16] ❌ Build failed")
-        return False
+        raise RuntimeError(f"TensorRT FP16 build failed for {onnx_path}")
 
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
     with open(output_path, "wb") as f:
@@ -139,8 +140,7 @@ def build_fp16_engine(
         True if build succeeded
     """
     if not os.path.exists(onnx_path):
-        print(f"[TRT FP16] ❌ ONNX not found: {onnx_path}")
-        return False
+        raise FileNotFoundError(f"ONNX model not found: {onnx_path}")
 
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
     output_path = os.path.abspath(output_path)
@@ -156,7 +156,10 @@ def build_fp16_engine(
             return True
         print("[TRT FP16] trtexec failed, falling back to Python API...")
 
-    return _build_via_python_api(onnx_path, output_path, workspace)
+    success = _build_via_python_api(onnx_path, output_path, workspace)
+    if not success:
+        raise RuntimeError(f"TensorRT FP16 build failed for {onnx_path}")
+    return True
 
 
 # ==================== CLI ====================

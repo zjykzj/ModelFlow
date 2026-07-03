@@ -26,7 +26,10 @@ def check_onnx(onnx_path: str) -> bool:
     """
     print(f"[Validation] Checking ONNX model: {onnx_path}")
     model = onnx.load(onnx_path)
-    onnx.checker.check_model(model)
+    try:
+        onnx.checker.check_model(model)
+    except onnx.checker.ValidationError as e:
+        raise ValueError(f"ONNX model validation failed for {onnx_path}: {e}") from e
     print("[Validation] ONNX model check passed.")
     return True
 

@@ -32,6 +32,11 @@ class ClassifyPreprocessor(BasePreprocessor):
         self.resize_size = resize_size
 
     def __call__(self, image: np.ndarray, **kwargs) -> np.ndarray:
+        if image.size == 0:
+            raise ValueError("Empty input image")
+        if image.ndim != 3 or image.shape[2] != 3:
+            raise ValueError(f"Expected 3-channel BGR image, got shape {image.shape}")
+
         h, w = image.shape[:2]
 
         # BGR → RGB

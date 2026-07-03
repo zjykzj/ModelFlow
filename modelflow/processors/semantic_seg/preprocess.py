@@ -39,6 +39,11 @@ class SemanticSegPreprocessor(BasePreprocessor):
         self.std = np.array(std, dtype=np.float32)
 
     def __call__(self, image: np.ndarray, **kwargs) -> np.ndarray:
+        if image.size == 0:
+            raise ValueError("Empty input image")
+        if image.ndim != 3 or image.shape[2] != 3:
+            raise ValueError(f"Expected 3-channel BGR image, got shape {image.shape}")
+
         rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
         if self.target_size is not None:
