@@ -765,3 +765,7 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
+# ===== Project-specific overrides =====
+# Allow .claude/skills/release/ (blocked by [Rr]elease/ pattern from VisualStudio template)
+!.claude/skills/release/
+

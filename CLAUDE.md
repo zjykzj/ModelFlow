@@ -47,53 +47,7 @@ specs/
 
 ### Spec Maintenance
 
-**Specs serve two readers:**
-
-| Reader | Needs from specs |
-|--------|-----------------|
-| **Agent** (Claude Code) | Behavioral contracts — "what is correct" to verify compliance |
-| **Human developer** | Understanding — "why" a contract exists and "what are the boundaries" |
-
-Both readers matter. Content that explains a contract (not just defines it) should be kept.
-
-**Classification principle — for each section, ask two questions:**
-
-1. *Agent question:* "When would I read this while writing code?"
-2. *Human question:* "Does this content help someone understand a behavioral contract?"
-
-| Answer | Action |
-|--------|--------|
-| Read on "every change" | Belongs in CLAUDE.md — move it there |
-| Read for "specific task" OR helps understand a contract | Belongs in specs — keep |
-| Neither | Delete |
-
-**What belongs in CLAUDE.md:** Architecture hard constraints, critical implementation details, known gotchas, development scenarios, code review checklist.
-
-**What belongs in specs:**
-- `export/` (WHAT): External format definitions — ONNX export principles, TensorRT conversion knowledge, Triton deployment configuration
-- `evaluate/` (WHAT): Evaluation bridge contract — ModelFlow ↔ DataFlow-CV integration contract
-- `modules/` (HOW): Module interface contracts — public API signatures, design constraints, dependency rules
-
-**What does NOT belong in specs — delete on sight:**
-1. **Change History** — version changelogs belong in git log / CHANGELOG.md
-2. **Implementation pseudocode** — "Step 1: validate dir, Step 2: scan files..." is code documentation, not a contract
-3. **CLI --help output copies** — the executable is the authority
-4. **Migration guides / legacy API tables** — one-time docs, delete after migration
-5. **Directory tree file listings** — `ls` is the authority
-6. **Standalone tutorials / how-to guides** — task selection guides, workflow recipes that don't define any contract
-
-**Extra check for `modules/` specs — is it interface contract or implementation description?**
-
-| Interface contract → keep | Implementation description → delete |
-|---------------------------|-------------------------------------|
-| Public API signatures, return types | Step-by-step internal flow pseudocode |
-| Design constraints and rules | Parameter-passing code snippets |
-| Option/parameter definition tables | Internal helper function descriptions |
-| Exception types and exit codes | Directory tree file listings |
-
-**Before deleting, always double-check:** "Does this content help explain a behavioral contract — even if it reads like education or FAQ?" If yes, keep it. Contract-defining clarifications should be preserved — they define the contract by explaining its boundaries.
-
-**Outdated framing ≠ outdated content:** Before deleting a section that seems "about the old architecture", check whether the *substance* is still correct but the *framing* is stale. Fix the framing, don't delete the content.
+Spec maintenance methodology is defined as a project skill. Use `/spec` when creating, modifying, or reviewing spec files. The skill covers the two-reader model, classification principles, what belongs where, and deletion rules.
 
 ### Spec Mapping Table
 
@@ -127,6 +81,8 @@ Before creating, modifying, or deleting any file, classify the change:
 - Do NOT update CLAUDE.md for P2 sample-script refactors unless they introduce a new gotcha or architecture constraint.
 
 ## Common Commands
+
+General development workflows (test, lint, typecheck) are defined as a project skill — use `/dev` for generic patterns. This section documents ModelFlow-specific commands.
 
 ### Running Tests
 
@@ -570,16 +526,7 @@ Self-check after every change:
 
 ### Known Gotchas Writing Guide
 
-Entry format: `N. **Keyword**: symptom + correct approach.`
-
-| Source | Trigger |
-|--------|---------|
-| Bug fixes | After each fix, check: could this have been prevented? Yes → add Gotcha |
-| Newcomer onboarding | Every obstacle a newcomer hits is a potential Gotcha |
-| Code review | Issues repeatedly flagged in review |
-| Architecture decisions | Constraints with severe violation consequences |
-
-Sort by frequency (most-stepped-on first). If a Gotcha's bug has been eliminated by a refactor, delete it. If exceeding 20, consider upgrading some to Critical Implementation Details.
+CLAUDE.md authoring conventions (gotcha format, entry sources, maintenance) are defined as a project skill. Use `/claude` when adding gotchas, restructuring CLAUDE.md, or updating project documentation.
 
 ### CHANGELOG Policy
 
@@ -587,34 +534,34 @@ Sort by frequency (most-stepped-on first). If a Gotcha's bug has been eliminated
 - **Never edit past entries** — they describe what existed at that version, not current state.
 - Refactoring/moving code does NOT retroactively invalidate old changelog entries.
 
-### Git Commits
+## Git Operations
 
-When creating git commits, use the following format:
+Git workflows are defined as project skills. Use the corresponding skill for each task:
 
-```bash
-git commit -m "$(cat <<'EOF'
-<type>(<scope>): <subject>
+- **`/commit`** — commit message format, `Co-Authored-By` line, and conventional commit types. Invoke for every `git commit`.
+- **`/release`** — version bump checklist, version bump commit, annotated tag, push, and GitHub Release body template. Invoke when publishing a new release.
 
-<body if needed>
+### AI Model Configuration
 
-Co-Authored-By: DeepSeek-V4.0 <noreply@deepseek.com>
-EOF
-)"
+The AI model used in this project is **DeepSeek-V4.0**. Configured in skills as:
+
+```
+{{AI_MODEL_NAME}} = DeepSeek-V4.0
+{{AI_MODEL_EMAIL}} = noreply@deepseek.com
 ```
 
-The Co-Authored-By line is **mandatory** for all commits. The only exception is when the AI model actually powering this session is NOT DeepSeek-V4.0 — in that case, the engineer must confirm the correct model and update the Co-Authored-By line accordingly.
+### Release Configuration
 
-Follow conventional commit style:
-- `feat`: New feature
-- `fix`: Bug fix
-- `docs`: Documentation changes
-- `refactor`: Code change that neither fixes a bug nor adds a feature
-- `test`: Adding missing tests or correcting existing tests
-- `style`: Changes that do not affect the meaning of the code
-- `perf`: Code change that improves performance
-- `chore`: Other changes that don't modify src or test files
+Version bump locations for this project:
 
-The AI model used in this project is **DeepSeek-V4.0**, not Claude Opus.
+| # | File | Field |
+|---|------|-------|
+| 1 | `modelflow/__init__.py` | `__version__ = "X.Y.Z"` |
+| 2 | `CHANGELOG.md` | `## [X.Y.Z] - YYYY-MM-DD` section header |
+
+Verify with: `grep -rn '"X\.Y\.Z"' modelflow/` (exclude `CHANGELOG.md`).
+
+Repository URL: `https://github.com/zjykzj/ModelFlow`
 
 ### Git Ignore
 
