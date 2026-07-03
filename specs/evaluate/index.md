@@ -1,7 +1,7 @@
 # Evaluate Layer — Specification Index
 
 > **Status:** Implemented
-> **Version:** 1.0
+> **Version:** 1.0 | **Last Updated:** 2026-07-03
 
 ## What This Layer Covers
 

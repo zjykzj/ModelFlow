@@ -1,7 +1,7 @@
 # Triton Deployment Configuration Specification
 
 > **Status:** Implemented
-> **Version:** 0.1
+> **Version:** 0.1 | **Last Updated:** 2026-07-03
 > **Prerequisite reading:** [`specs/export/onnx_export.md`](onnx_export.md), [`specs/export/tensorrt_conversion.md`](tensorrt_conversion.md)
 
 ## 1. Triton Model Repository

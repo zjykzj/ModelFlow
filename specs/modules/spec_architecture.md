@@ -1,6 +1,6 @@
 # ModelFlow Architecture
 
-> **Version:** 0.7
+> **Version:** 0.7 | **Last Updated:** 2026-07-03
 > **Status:** Implemented
 > **Dependencies:** None (foundation document)
 
@@ -191,7 +191,7 @@ vlms/
 └── Must NOT import: modelflow/*, eval/*, export/*
 ```
 
-### 7.2 Pipeline Data Flow Contract
+### 6.2 Pipeline Data Flow Contract
 
 ```
 Preprocessor(image: HWC uint8 BGR) → tensor: NCHW float32
@@ -201,7 +201,7 @@ Postprocessor(raw: List[np.ndarray]) → result: Dict
 Evaluator (in eval/): constructor(pipeline, dataset) → run() → Dict[str, float]
 ```
 
-### 7.3 External Dependency Contract
+### 6.3 External Dependency Contract
 
 | External | Used By | Constraint |
 |----------|---------|------------|

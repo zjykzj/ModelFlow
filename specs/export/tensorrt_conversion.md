@@ -1,7 +1,7 @@
 # TensorRT Conversion Specification
 
 > **Status:** Implemented
-> **Version:** 0.1
+> **Version:** 0.1 | **Last Updated:** 2026-07-03
 > **Prerequisite Reading:** [`specs/export/onnx_export.md`](onnx_export.md) (ONNX Export Specification), TensorRT fundamentals
 
 > **Note:** This module is implemented based on the TensorRT 10.x API. `.engine` files built with TensorRT 10.x cannot be loaded in TensorRT 8.x environments. When deploying, ensure the Triton Server version is >= 24.06 (bundles TRT 10.x).

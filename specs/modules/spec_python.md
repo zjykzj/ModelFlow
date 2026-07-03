@@ -1,6 +1,6 @@
 # Python Module Specification
 
-> **Version:** 0.5
+> **Version:** 0.5 | **Last Updated:** 2026-07-03
 > **Status:** Implemented
 > **Dependencies:** `spec_architecture.md` (Pipeline pattern, module relationships), `spec_eval.md` (evaluation module)
 

@@ -1,6 +1,6 @@
 # Evaluate Bridge Contract: ModelFlow ↔ DataFlow-CV
 
-> **Version:** 1.0
+> **Version:** 1.0 | **Last Updated:** 2026-07-03
 > **Status:** Implemented
 > **Layer:** Evaluate
 > **Dependencies:** DataFlow-CV `specs/evaluate/spec_evaluate_metrics.md` (metric definitions), DataFlow-CV `specs/modules/spec_evaluate.md` (module API)

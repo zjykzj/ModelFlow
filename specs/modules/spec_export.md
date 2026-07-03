@@ -1,6 +1,6 @@
 # Model Export Module Specification
 
-> **Version:** 0.2
+> **Version:** 0.2 | **Last Updated:** 2026-07-03
 > **Status:** Implemented
 > **Dependencies:** `spec_architecture.md` (independent module design principles), `specs/export/` (knowledge layer)
 

@@ -1,7 +1,7 @@
 # Export Module Knowledge Base
 
 > **Status:** Implemented
-> **Version:** 0.1
+> **Version:** 0.1 | **Last Updated:** 2026-07-03
 > **Prerequisite reading:** `specs/modules/spec_export.md` (architecture overview)
 
 ## Purpose

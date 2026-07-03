@@ -1,7 +1,7 @@
 # ONNX Export Specification
 
 > **Status:** Implemented
-> **Version:** 0.1
+> **Version:** 0.1 | **Last Updated:** 2026-07-03
 > **Prerequisite Reading:** `specs/modules/spec_export.md` (export module architecture), `specs/export/index.md` (export knowledge layer overview)
 
 ## 1. Overview

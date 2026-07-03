@@ -1,5 +1,6 @@
 # Modules Layer — Specification Index
 
+> **Version:** 1.0 | **Last Updated:** 2026-07-03
 > **Status:** Implemented — these documents define the implementation architecture of ModelFlow.
 
 ## What This Layer Covers
